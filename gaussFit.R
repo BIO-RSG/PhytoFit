@@ -1,0 +1,357 @@
+asymm_gaussian <- function(t, tm_value, beta_valueL, beta_valueR, B0L, B0R, sigmaL, sigmaR, hL, hR) {
+  
+    # from bloom_fitting.R
+    # Created by A.R. Hanke , May 2nd, 2016
+    # Edits by C. Fuentes-Yaco, May 10th, 2016
+    # Edits by Stephanie Clay, March/April 2017 and August 2018, and March 2020
+    #       for use in the bloom fitting app
+    
+    tL <- t[t <= tm_value]
+    tR <- t[t > tm_value]
+    
+    c({B0L + beta_valueL * tL + hL / (sqrt(2*pi) * sigmaL) * exp(- (tL - tm_value)^2 / (2 * sigmaL^2))}, # vector of values from the left side of the curve
+      {B0R + beta_valueR * tR + hR / (sqrt(2*pi) * sigmaR) * exp(- (tR - tm_value)^2 / (2 * sigmaR^2))}) # vector of values from the right side of the curve
+    
+}
+
+# This is the main function that organizes the data and the limits and starting
+# guesses for the nonlinear least squares regression to find the best fit.
+# The function then computes the fit, using a simple gaussian model if the user
+# chose a symmetric bloom shape, or the asymm_gaussian function above if the
+# user chose the asymmetric shape.
+gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE, tm_limits = c(1,365), ti_limits = c(1,365), logchla = FALSE){
+  
+    # t, y, w              = numeric vectors: day of year, chlorophyll concentration, and weights
+    # bloomShape           = string: "symmetric" or "asymmetric"
+    # tm, beta             = logical values
+    # tm_limits, ti_limits = numeric vectors: the range of days to search for max chla concentration and the start of the bloom
+    # logchla              = boolean: TRUE if chlorophyll values are logged (need this to know whether or not to log B0 parameter)
+  
+    # FORMULAS:
+    #   t_init = tmax - 1.79*sigma
+    #   H = amplitude = h / (sqrt(2*pi)*sigma) = Bmax - B0
+    #   tm FALSE and beta TRUE:
+    #         t_dur = 2*(t_max - t_init) = 3.59*sigma
+    #   tm TRUE and beta TRUE:
+    #         t_dur = 3.59 * sigma
+  
+    chlorophyll <- y
+    yday <- t
+    
+    nls_data = list(B = chlorophyll, t = yday)
+    
+    # To collect output later
+    if (bloomShape=="symmetric") {
+      
+      values <- data.frame(matrix(nrow=1,ncol=11), stringsAsFactors = FALSE)
+      colnames(values) <- c("Mean", "Median", "ti", "tm", "tt", "td", "mag", "amp", "B0", "h", "sigma")
+      
+    } else if (bloomShape=="asymmetric") {
+      
+      values <- data.frame(matrix(nrow=1,ncol=16), stringsAsFactors = FALSE)
+      colnames(values) <- c("Mean", "Median", "ti", "tm", "tt", "td",
+                            "magL", "ampL", "B0L", "hL", "sigmaL",
+                            "magR", "ampR", "B0R", "hR", "sigmaR")
+      
+    }
+    
+    values[1,1:2] <- c(mean(chlorophyll, na.rm=TRUE), median(chlorophyll, na.rm=TRUE))
+    
+    
+    # LIMITS & START GUESSES ####
+    
+    # Here, set the parameters' lower/upper bounds and starting guesses for nls().
+    # For an assymetric curve, the same bounds will be used for either side.
+    if (logchla) {
+      B0lower <- log(1e-10) # note 0 can't be logged
+      B0upper <- log(5)
+      B0start <- log(0.5)
+    } else {
+      B0lower <- 0
+      B0upper <- 5
+      B0start <- 0.5
+    }
+    
+    
+    # lower/upper bounds
+    lower <- list(B0 = B0lower, h = 0, sigma = 0)
+    upper <- list(B0 = B0upper, h = 350, sigma = 100)
+    
+    # starting guesses
+    params <- vector(mode = "list", length = 4)
+    params[[1]]$B0 <- params[[2]]$B0 <- params[[3]]$B0 <- params[[4]]$B0 <- B0start
+    params[[1]]$h <- params[[2]]$h <- 50
+    params[[3]]$h <- params[[4]]$h <- 10
+    params[[1]]$sigma <- 10
+    params[[2]]$sigma <- params[[3]]$sigma <- 2
+    params[[4]]$sigma <- 1
+    
+    
+    # BETA AND TM ####
+    
+    # beta changes slope of straight line on either side of the bell curve
+    # if beta = TRUE, set its lower/upper bounds and starting guess for nls
+    if (beta) {
+      
+      lower$beta_value <- -0.02
+      upper$beta_value <- 0.01
+      params[[1]]$beta_value <- params[[2]]$beta_value <- -0.002
+      params[[3]]$beta_value <- params[[4]]$beta_value <- -0.001
+      
+      if (bloomShape=="symmetric") {
+        values[1,"beta_value"] <- NA
+      } else if (bloomShape=="asymmetric") {
+        values[1,"beta_valueL"] <- NA
+        values[1,"beta_valueR"] <- NA
+      }
+      
+    } else {
+      
+      beta_value <- 0
+      if (bloomShape=="symmetric") {
+        #nls_data$beta_value <- 0
+      } else if (bloomShape=="asymmetric") {
+        beta_valueL <- beta_valueR <- 0
+      }
+      
+    }
+    
+    # Get the range of possible days for the timing of max concentration (tm_value)
+    limited_yday <- yday >= tm_limits[1] & yday <= tm_limits[2]
+    # If there is no data available for the possible window of max concentration, return a NULL fit.
+    # User can then manually adjust the restrictions on day of max concentration or initiation of bloom.
+    if (sum(limited_yday)==0) {return(list(fit = NULL, values = values))}
+    # Get the day of max concentration within this range
+    tm_value <- yday[which(chlorophyll==max(chlorophyll[limited_yday],na.rm=TRUE) & limited_yday)]
+    # Check again if no data available
+    if (length(tm_value)==0) {return(list(fit = NULL, values = values))}
+    
+    # if tm = TRUE, make tm_value a parameter in the nonlinear least squares
+    # regression, and set its lower/upper bounds and initial estimates
+    if (tm) {
+      
+      lower$tm_value <- tm_limits[1]
+      upper$tm_value <- tm_limits[2]
+      params[[1]]$tm_value <- params[[2]]$tm_value <- params[[3]]$tm_value <- params[[4]]$tm_value <- tm_value
+      
+    }
+    
+    # if the bloom starting day should be restricted, do that here
+    # bloom start is computed using the following formula:
+    # ti = tm_value - 1.79*sigma
+    # if tm = FALSE, tm_value is known so you can restrict sigma in order to restrict ti
+    # if tm = TRUE, can't do this because both tmax and sigma vary in the nls regression
+    # so there's no way to use either one to restrict ti
+    if (!tm & !all(ti_limits==c(1,365))) {
+      
+      sigma_limit2 <- (tm_value - ti_limits[1])/1.79
+      sigma_limit1 <- (tm_value - ti_limits[2])/1.79
+      
+      if (sigma_limit1 < 0) {sigma_limit1 <- 0}
+      
+      lower$sigma <- sigma_limit1
+      upper$sigma <- sigma_limit2
+      
+    }
+    
+    
+    # SYMMETRIC FIT ####
+    
+    if (bloomShape=="symmetric") {
+      
+      # GET THE FIT
+      for (i in 1:length(params)){
+          fit <- NULL
+          try(fit <- nlsLM(B ~ B0 + beta_value * t + h / (sqrt(2*pi) * sigma) * exp(- (t - tm_value)^2 / (2 * sigma^2)),
+                           data = nls_data,
+                           weights = w,
+                           lower = unlist(lower),
+                           upper = unlist(upper),
+                           start = params[[i]],
+                           control = nls.lm.control(maxiter=60)),
+              silent = TRUE)
+          if(!is.null(fit)) break
+      }
+      
+      
+      # FILL IN VALUES FROM THE FIT
+      if (!is.null(fit)) {
+        
+        # B0, h, and sigma are always the 1,2,3rd coef
+        B0 <- unname(coef(fit)[1])
+        h <- unname(coef(fit)[2])
+        sigma <- unname(coef(fit)[3])
+        
+        if (beta) {
+          beta_value <- unname(coef(fit)[4])
+        }
+        if (tm) {
+          if (beta) {tm_ind <- 5
+          } else {tm_ind <- 4}
+          tm_value <- unname(coef(fit)[tm_ind])
+        }
+        
+        ti <- tm_value - 1.79 * sigma
+        td <- 3.59 * sigma
+        tt <- ti + td
+        
+        if (ti < 0) {
+          
+          fit <- NULL
+          
+        } else {
+          
+          tiidx <- which.min(abs(yday - ti))
+          tmidx <- which.min(abs(yday - tm_value))
+          ttidx <- which.min(abs(yday - tt))
+          
+          fitted_values <- predict(fit)
+          
+          Bmax <- fitted_values[tmidx]
+          
+          if (beta) {
+            bkrnd <- B0 + (beta_value * (yday[tiidx:ttidx]))
+            bkrndBm <-  B0 + (beta_value * tm_value)
+            values[1,"beta_value"] <- beta_value
+          } else {
+            bkrnd <- bkrndBm <- B0
+          }
+          
+          mag <- sum(diff(yday[tiidx:ttidx]) * (head(fitted_values[tiidx:ttidx] - bkrnd, -1) + tail(fitted_values[tiidx:ttidx] - bkrnd, -1))/2)
+          amp <- Bmax - bkrndBm
+          
+          values[1,3:11] <- c(ti, tm_value, tt, td, mag, amp, B0, h, sigma)
+          
+        }
+        
+      }
+      
+      
+    # ASYMMETRIC FIT ####
+    
+    } else if (bloomShape=="asymmetric") {
+      
+      # Update lower/upper bounds and starting guesses, using the same for both sides of the curve
+      
+      param_names <- c("B0L", "hL", "sigmaL", "B0R", "hR", "sigmaR")
+      tmp_lower <- rep(lower[1:3], 2)
+      tmp_upper <- rep(upper[1:3], 2)
+      tmp_params <- lapply(1:length(params), function(l) rep(params[[l]][1:3], 2))
+      
+      if (beta) {
+        param_names <- c(param_names, "beta_valueL", "beta_valueR")
+        tmp_lower <- c(tmp_lower, lower[4], lower[4])
+        tmp_upper <- c(tmp_upper, upper[4], upper[4])
+        tmp_params <- lapply(1:length(tmp_params), function(l) c(tmp_params[[l]], params[[l]][4], params[[l]][4]))
+      }
+      
+      if (tm) {
+        if (beta) {tm_ind <- 5
+        } else {tm_ind <- 4}
+        param_names <- c(param_names, "tm_value")
+        tmp_lower <- c(tmp_lower, lower[tm_ind])
+        tmp_upper <- c(tmp_upper, upper[tm_ind])
+        tmp_params <- lapply(1:length(tmp_params), function(l) c(tmp_params[[l]], params[[l]][tm_ind]))
+      }
+      
+      lower <- tmp_lower
+      upper <- tmp_upper
+      params <- tmp_params
+      
+      # Fix names
+      names(lower) <- names(upper) <- param_names
+      params <- lapply(1:length(params), function(l) {names(params[[l]]) <- param_names; params[[l]]})
+      
+      # GET THE FIT
+      for (i in 1:length(params)){
+        fit <- NULL
+        try(fit <- nlsLM(B ~ asymm_gaussian(t, tm_value, beta_valueL, beta_valueR, B0L, B0R, sigmaL, sigmaR, hL, hR),
+                         data = nls_data,
+                         weights = w,
+                         lower = unlist(lower),
+                         upper = unlist(upper),
+                         start = params[[i]],
+                         control = nls.lm.control(maxiter=60)),
+            silent = TRUE)
+        if(!is.null(fit)) break
+      }
+      
+      
+      # FILL IN VALUES FROM THE FIT
+      if (!is.null(fit)) {
+        
+        B0L <- unname(coef(fit)[1])
+        hL <- unname(coef(fit)[2])
+        sigmaL <- unname(coef(fit)[3])
+        
+        B0R <- unname(coef(fit)[4])
+        hR <- unname(coef(fit)[5])
+        sigmaR <- unname(coef(fit)[6])
+        
+        if (beta) {
+          beta_valueL <- unname(coef(fit)[7])
+          beta_valueR <- unname(coef(fit)[8])
+        }
+        
+        if (tm) {
+          if (beta) {tm_ind <- 9
+          } else {tm_ind <- 7}
+          tm_value <- unname(coef(fit)[tm_ind])
+        }
+        
+        ti <- tm_value - 1.79 * sigmaL
+        td <- 3.59/2 * sigmaL + 3.59/2 * sigmaR
+        tt <- ti + td
+        
+        
+        if (ti < 0) {
+          
+          fit <- NULL
+          
+        } else {
+          
+          tiidx <- which.min(abs(yday - ti))
+          tmidx <- which.min(abs(yday - tm_value))
+          ttidx <- which.min(abs(yday - tt))
+          
+          fitted_values <- predict(fit)
+          
+          BmaxL <- fitted_values[tmidx]
+          BmaxR <- fitted_values[tmidx+1]
+          
+          if (beta) {
+            
+            bkrndL <- B0L + (beta_valueL * (yday[tiidx:tmidx]))
+            bkrndR <- B0R + (beta_valueR * (yday[(tmidx+1):ttidx]))
+            bkrndBmL <-  B0L + (beta_valueL * yday[tmidx])
+            bkrndBmR <-  B0R + (beta_valueR * yday[tmidx + 1])
+            values[1,"beta_valueL"] <- beta_valueL
+            values[1,"beta_valueR"] <- beta_valueR
+            
+          } else {
+            
+            bkrndL <- bkrndBmL <- B0L
+            bkrndR <- bkrndBmR <- B0R
+            
+          }
+          
+          
+          magL <- sum(diff(yday[tiidx:tmidx]) * (head(fitted_values[tiidx:tmidx] - bkrndL, -1) + tail(fitted_values[tiidx:tmidx] - bkrndL, -1))/2)
+          magR <- sum(diff(yday[(tmidx+1):ttidx]) * (head(fitted_values[(tmidx+1):ttidx] - bkrndR, -1) + tail(fitted_values[(tmidx+1):ttidx] - bkrndR, -1))/2)
+          
+          ampL <- BmaxL - bkrndBmL
+          ampR <- BmaxR - bkrndBmR
+          
+          values[1,3:16] <- c(ti, tm_value, tt, td,
+                              magL, ampL, B0L, hL, sigmaL,
+                              magR, ampR, B0R, hR, sigmaR)
+          
+        }
+        
+      }
+      
+    }
+    
+    return(list(fit = fit, values = values))
+    
+}
