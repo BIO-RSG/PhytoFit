@@ -2283,7 +2283,8 @@ server <- function(input, output, session) {
             year_bounds <- input$fullrunyears
             year_list <- (year_bounds[1]):(year_bounds[2])
             
-            output_dir <- get_dir(paste0(satellite, "4km_",
+            output_dir <- get_dir(paste0("output/",
+                                         satellite, "4km_",
                                          isolate(state$region), "_",
                                          paste(year_bounds, collapse=" - "), "_",
                                          #gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
