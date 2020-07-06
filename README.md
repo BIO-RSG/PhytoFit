@@ -14,10 +14,8 @@ remotes::install_github("bhaskarvk/leaflet.extras", ref = remotes::github_pull("
 
 ## Running
 
-Option 1: Download repository, open app.R within RStudio, and click "Run app"
+Download repository, open app.R within RStudio, and click "Run app"
 
-Option 2: Run remotely by typing the following command in your local RStudio:
-shiny::runGitHub("bf_test", username = "claysa", ref = "master")
 
 ## Authors
 
