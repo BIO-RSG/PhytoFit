@@ -2283,6 +2283,8 @@ server <- function(input, output, session) {
             year_bounds <- input$fullrunyears
             year_list <- (year_bounds[1]):(year_bounds[2])
             
+            # Create output subfolders
+            tmp_odir <- get_dir("output/") # make sure "output" subfolder exists
             output_dir <- get_dir(paste0("output/",
                                          satellite, "4km_",
                                          isolate(state$region), "_",
