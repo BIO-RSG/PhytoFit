@@ -14,7 +14,7 @@ remotes::install_github("bhaskarvk/leaflet.extras", ref = remotes::github_pull("
 
 4. Download this repository.
 
-5. Download the data files from [here](ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit/) and store them in the appropriate directories inside your local copy of the repository (data/atlantic and data/pacific).
+5. Download the data files from ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit/ and store them in the appropriate directories inside your local copy of the repository (data/atlantic and data/pacific).
 
 
 ## Running
