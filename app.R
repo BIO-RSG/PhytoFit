@@ -1269,12 +1269,33 @@ server <- function(input, output, session) {
     # stats to update the density plot and bloom fit scatterplot
     draw_polygon <- reactive({
         
+        # Reset this, assume acceptable polygon size
+        state$latlon_toolarge <- FALSE
+        
         # Check for new coordinates
         coords <- try(unlist(state$newpoly$geometry$coordinates))
         
         # Check for edited coordinates
         if (is.null(coords)) {
             coords <- try(unlist(state$editedpoly$features[[1]]$geometry$coordinates))
+        }
+        
+        
+        # Check if polygon area is too large
+        if (!is.null(coords)) {
+          
+          # Extract lat/lon from coordinates
+          Longitude <- coords[seq(1,length(coords), 2)]
+          Latitude <- coords[seq(2,length(coords), 2)]
+          
+          # check area of polygon in case it's too large
+          polygon_area <- polyarea(x=Longitude, y=Latitude)
+          
+          if (polygon_area > 500) {
+            coords <- NULL
+            state$latlon_toolarge <- TRUE
+          }
+          
         }
         
         return(coords)
@@ -1716,6 +1737,10 @@ server <- function(input, output, session) {
                 
                 em <- paste0("No data available yet for day ", yday)
                 
+            } else if (state$box=="custom" & state$latlon_toolarge) {
+              
+                em <- "Polygon is too large (max allowed area = 500 degrees^2)."
+            
             } else if (state$null_rchla) {
                 
                 if (state$box=="custom" & is.null(state$newpoly) & is.null(state$editedpoly) & is.null(state$typedpoly)) {
@@ -1723,7 +1748,7 @@ server <- function(input, output, session) {
                 } else {
                     em <- "No data in the selected region"
                 }
-                
+            
             } else {
                 
                 # check if % coverage for this day and region is high enough to
@@ -1867,7 +1892,11 @@ server <- function(input, output, session) {
         
         if (state$data_loaded) {
             
-            if (state$null_rchla) {
+            if (state$box=="custom" & state$latlon_toolarge) {
+            
+              em <- "Polygon is too large (max allowed area = 500 degrees^2)."
+            
+            } else if (state$null_rchla) {
                 
                 if (state$box=="custom" & is.null(state$newpoly) & is.null(state$editedpoly) & is.null(state$typedpoly)) {
                     em <- "Create your custom polygon in a region with sufficient data"
@@ -2222,7 +2251,6 @@ server <- function(input, output, session) {
     # Take a vector of years selected by the user, and compute annual statistics
     # and bloom fits for each, using the current settings
     observeEvent(input$fullrun, {
-        
         
         regs <- isolate(state$fullrunboxes)
         
