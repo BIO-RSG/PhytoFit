@@ -9,17 +9,17 @@ This app can be used to display satellite chlorophyll concentration, and calcula
 2. Install the necessary libraries:
 `shiny, shinyWidgets, shinyjs, shinybusy, htmlwidgets, leaflet, leaflet.extras, quantreg, minpack.lm, sp, ggplot2, grid, gridExtra, dplyr, geometry, raster, proj4`
 
-Install a necessary fix for the leaflet.extras package:
+3. Install a necessary fix for the leaflet.extras package:
 ``` r
 # install.packages("remotes")
 remotes::install_github("bhaskarvk/leaflet.extras", ref = remotes::github_pull("184"))
 ```
 
-Restart R after the packages and fix have been installed.
+4. Restart R after the packages and fix have been installed.
 
-4. Download this repository.
+5. Download this repository.
 
-5. Download the data files from ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit/ and store them in the appropriate subdirectories inside your local copy of the repository (data/atlantic and data/pacific).
+6. Download the data files from ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit/ and store them in the appropriate subdirectories inside your local copy of the repository (data/atlantic and data/pacific).
 
 
 ## Running
