@@ -6,11 +6,18 @@ This app can be used to display satellite chlorophyll concentration, and calcula
 
 1. Install the latest versions of R and RStudio.
 
-2. Run this command within RStudio to install the necessary libraries:
+2. Install the necessary libraries:
+``` r
 install.packages(c("shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "oce", "quantreg", "minpack.lm", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "geometry", "raster", "proj4"))
+```
 
-3. Run this command within RStudio to install a necessary fix for the leaflet.extras package:
+Install a necessary fix for the leaflet.extras package:
+``` r
+# install.packages("remotes")
 remotes::install_github("bhaskarvk/leaflet.extras", ref = remotes::github_pull("184"))
+```
+
+Restart R after the packages and fix have been installed.
 
 4. Download this repository.
 
