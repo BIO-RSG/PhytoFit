@@ -1,6 +1,11 @@
 # PhytoFit
 
-This app can be used to display satellite chlorophyll concentration, and calculate statistics and model phytoplankton blooms for regions within custom polygons.
+This app can be used to display satellite chlorophyll concentration, and calculate statistics and model phytoplankton blooms for regions within custom polygons. See below for example in screep capture.
+
+<a target="_blank" href="screencap01.png">
+<img src="screencap01.png" alt="screencap" width="200"/>
+</a>
+
 
 ## Prerequisites
 
