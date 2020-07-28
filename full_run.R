@@ -1,7 +1,7 @@
 # return stats and bloom fit for a selected year
 
 full_run <- function(year, satellite, region, boxes, latlon_method, pnames,
-                     dailystat, maxpixval, outlier, percent, log_chla, poly_names,
+                     dailystat, maxpixval, outlier, percent, log_chla, poly_names, ydays,
                      fitmethod, bloomShape, smoothMethod, loessSpan=NA, use_weights,
                      threshcoef=NA, tm=FALSE, beta=FALSE, t_range = c(1,365),
                      tm_limits = c(1,365), ti_limits = c(1,365), dir_name) {
@@ -147,7 +147,6 @@ full_run <- function(year, satellite, region, boxes, latlon_method, pnames,
             first_day <- t_range[1]
             last_day <- t_range[2]
             
-            ydays <- as.POSIXlt(time, origin = '1970-01-01', tz = 'UTC')$yday + 1
             daily_percov <- lenok / ncol(rchla)
             ind_percov <- daily_percov > percent
             ind_dayrange <- ydays > first_day & ydays < last_day

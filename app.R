@@ -3,6 +3,7 @@ gc()
 
 # LIBRARIES/FUNCTIONS ####
 
+library(fst)            # for speedier data file loading
 library(shiny)
 library(shinyWidgets)   # for updating buttons
 library(shinyjs)        # for enabling/disabling download buttons
@@ -584,6 +585,11 @@ server <- function(input, output, session) {
         ))
     })
     
+    # Load coordinates
+    load("coords.rda")
+    state$coord_list <- list("atlantic"=list("lon"=atlantic_lon, "lat"=atlantic_lat),
+                             "pacific"=list("lon"=pacific_lon, "lat"=pacific_lat))
+    
     
     #***************************************************************************
     # COLLECT USER INPUT ####
@@ -960,30 +966,20 @@ server <- function(input, output, session) {
         
         # Load full map data
         
-        # USING RDA FILES
-        #************************
-        fileall <- paste0('./data/', state$region, '/', state$satellite, state$year, 'ss.rda')
-        load(fileall)
+        # Previous methods:
+        # load(paste0('./data/', state$region, '/', state$satellite, state$year, 'ss.rda'))
+        # sschla <- readRDS(paste0('./data/', state$region, '/', state$satellite, state$year, 'ss.rds'))
+        
+        sslat <- state$coord_list[[input$region]]$lat
+        sslon <- state$coord_list[[input$region]]$lon
+        
+        sschla <- read_fst(paste0('./data/', state$region, '/', state$satellite, state$year, 'ss.fst'))
         
         if (state$log_chla) {
             sschla <- log(sschla)
         }
         
-        # # USING DATABASE INSTEAD (incomplete*************)
-        # #************************
-        # # Load data
-        # fileall <- paste0('./data/MODISA/CHL/', isolate(state$year), '_chl_',
-        #                   state$satellite, '_NWA.sqlite')
-        # # Connect to the database containing chlorophyll data
-        # con <- dbConnect(SQLite(), db_file)
-        # # Save data for a year as a variable called sat_data
-        # sat_data <- tbl(con, "modisa_chl") %>%
-        #     filter(Year_stamp == isolate(state$year)) %>%
-        #     collect() %>% # save the data from the query in a tibble
-        #     as.data.frame() # convert it to a dataframe because I've never used tibbles and I'm scared of new things
-        
-        state$available_days <- 1:nrow(sschla)
-        state$time <- time
+        state$available_days <- 1:(nrow(sschla)/length(sslat))
         
         remove_modal_spinner()
         
@@ -1061,7 +1057,7 @@ server <- function(input, output, session) {
         
         
         # check if data is available in the .rda file for the selected day
-        if (yday > nrow(sschla)) {
+        if (yday > max(isolate(state$available_days))) {
             
             # Update map based on choices of year day
             lfp <- leafletProxy("fullmap", session) %>%
@@ -1081,14 +1077,16 @@ server <- function(input, output, session) {
         } else {
             
             # Subset chla, lat, lon by day, and remove NA cells
-            chla_ind <- !is.na(sschla[yday,])
-            if (!state$log_chla) {
-                chla_ind <- chla_ind & (sschla[yday,] >= 0)
-            }
+            # chla_ind <- !is.na(sschla[yday,])
+            pix_num <- length(sslat)
+            day_ind <- ((yday-1)*pix_num + 1):(yday*pix_num)
+            pts <- sschla %>%
+              dplyr::slice(., day_ind) %>%
+              dplyr::mutate(., lat=atlantic_lat,
+                            lon=atlantic_lon) %>%
+              tidyr::drop_na(., chl)
             
-            
-            
-            if (sum(chla_ind)==0) {
+            if (nrow(pts)==0) {
                 
                 # Update map based on choices of year day
                 lfp <- leafletProxy("fullmap", session) %>%
@@ -1107,20 +1105,6 @@ server <- function(input, output, session) {
                 
             } else {
                 
-                sschla_day <- sschla[yday,chla_ind]
-                sslon_day <- sslon[chla_ind]
-                sslat_day <- sslat[chla_ind]
-                
-                # # FOR TESTING
-                # sslat_day <- sslat
-                # sslon_day <- sslon
-                # sschla_day <- rep(1,length(sslat))
-                
-                pts <- data.frame(lon = sslon_day,
-                                  lat = sslat_day,
-                                  chl = sschla_day,
-                                  stringsAsFactors = FALSE)
-                
                 state$pts <- pts
                 
                 coordinates(pts) = ~lon+lat
@@ -1132,7 +1116,7 @@ server <- function(input, output, session) {
                              resolution = c(xres,yres))
                 # rasterize your irregular points
                 tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = T) # we use a mean function here to regularly grid the irregular input points
-                state$tr <- tr
+                # state$tr <- tr # only used for input$fullmap_click, currently disabled
                 
                 # # FOR TESTING
                 # tr <- rasterize(pts, tr, pts$chl, fun = sum, na.rm = T) # we use a mean function here to regularly grid the irregular input points
@@ -1604,15 +1588,17 @@ server <- function(input, output, session) {
             
             # Create the mask for the subregion
             mask <- point.in.polygon(sslon, sslat, Longitude, Latitude)
-            mask <- as.logical(mask)
+            mask <- which(as.logical(mask))
             
-            if (sum(mask)==0) {
+            if (length(mask)==0) {
                 rchla <- NULL
-            } else if (sum(mask)==1) {
-                # make sure rchla is in matrix format
-                rchla <- matrix(sschla[,mask], ncol=1)
             } else {
-                rchla <- sschla[,mask]
+                # make sure rchla is in matrix format if mask length = 1
+                pix_num <- length(sslat)
+                avd <- max(isolate(state$available_days))
+                mask <- pix_num * rep(0:(avd-1),each=length(mask)) + mask
+                sschla <- sschla %>% dplyr::slice(., mask)
+                rchla <- matrix(sschla$chl, nrow=avd, byrow=TRUE)
             }
             
             # Should the range of pixel values used in the stats be restricted?
@@ -1725,7 +1711,6 @@ server <- function(input, output, session) {
         p <- ggplot() + theme_bw()
         
         available_days <- state$available_days
-        last_day <- available_days[length(available_days)]
         
         # Reset error message to NULL, then check if it should be changed and
         # printed instead of doing the density plot
@@ -1733,7 +1718,7 @@ server <- function(input, output, session) {
         
         if (state$data_loaded) {
             
-            if (yday > last_day) {
+            if (yday > max(available_days)) {
                 
                 em <- paste0("No data available yet for day ", yday)
                 
@@ -1913,7 +1898,7 @@ server <- function(input, output, session) {
                 first_day <- state$t_range[1]
                 last_day <- state$t_range[2]
                 
-                ydays <- as.POSIXlt(state$time, origin = '1970-01-01', tz = 'UTC')$yday + 1
+                ydays <- state$available_days
                 daily_percov <- lenok / ncol(rchla)
                 ind_percov <- daily_percov > state$percent
                 ind_dayrange <- ydays > first_day & ydays < last_day
@@ -2359,6 +2344,7 @@ server <- function(input, output, session) {
                     percent = isolate(state$percent),
                     log_chla = log_chla,
                     poly_names = poly_names,
+                    ydays = isolate(state$available_days),
                     fitmethod = fitmethod,
                     bloomShape = bloomShape,
                     smoothMethod = isolate(state$smoothMethod),
