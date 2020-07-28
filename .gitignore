@@ -24,7 +24,7 @@
 
 # Files and folders specific to PhytoFit
 CAN_4km.nc
-01_makeRda.R
+01_formatData.R
 NOTES_PhytoFit.txt
 PhytoFit.pdf
 old_files/
