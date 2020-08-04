@@ -62,6 +62,11 @@ regions <- list("modis"=c("Atlantic"="atlantic",
                           "Pacific"="pacific"))
 default_regions <- regions[["modis"]]
 
+# chlorophyll algorithms with available data for each sensor
+algorithms <- list("modis"=c("OCx"="ocx"),
+                   "viirs"=c("OCx"="ocx"))
+default_algorithms <- algorithms[["modis"]]
+
 
 #*******************************************************************************
 # STYLING ####
@@ -151,7 +156,7 @@ ui <- fluidPage(
         
         sidebarPanel(width = 3,
             
-            helpText("Select satellite, region, and year, choose logged or unlogged chlorophyll, then click \"Load data\".",
+            helpText("Select satellite, region, chlorophyll algorithm, and year, choose logged or unlogged chlorophyll, then click \"Load data\".",
                       width = widget_width,
                       style = help_text_style),
             selectInput(inputId = "satellite",
@@ -162,6 +167,10 @@ ui <- fluidPage(
             selectInput(inputId = "region",
                         label = NULL,
                         choices = default_regions,
+                        width = widget_width),
+            selectInput(inputId = "algorithm",
+                        label = NULL,
+                        choices = default_algorithms,
                         width = widget_width),
             selectInput(inputId = "year",
                         label = NULL,
@@ -599,6 +608,7 @@ server <- function(input, output, session) {
     observeEvent({
         input$satellite
         input$region
+        input$algorithm
         input$year
         input$log_chla
     }, {
@@ -619,6 +629,12 @@ server <- function(input, output, session) {
                           inputId = "region",
                           label = NULL,
                           choices = tmp_regions)
+        
+        tmp_algorithms <- algorithms[[input$satellite]]
+        updateSelectInput(session,
+                          inputId = "algorithm",
+                          label = NULL,
+                          choices = tmp_algorithms)
         
         tmp_years <- years[[input$satellite]]
         updateSelectInput(session,
@@ -959,6 +975,7 @@ server <- function(input, output, session) {
         # year to the reactive values that will be used in the date label on the
         # map, and other output
         state$satellite <- input$satellite
+        state$algorithm <- input$algorithm
         state$year <- input$year
         state$log_chla <- input$log_chla
         
@@ -970,10 +987,10 @@ server <- function(input, output, session) {
         # load(paste0('./data/', state$region, '/', state$satellite, state$year, 'ss.rda'))
         # sschla <- readRDS(paste0('./data/', state$region, '/', state$satellite, state$year, 'ss.rds'))
         
-        sslat <- state$coord_list[[input$region]]$lat
-        sslon <- state$coord_list[[input$region]]$lon
+        sslat <- state$coord_list[[state$region]]$lat
+        sslon <- state$coord_list[[state$region]]$lon
         
-        sschla <- read_fst(paste0('./data/', state$region, '/', state$satellite, state$year, 'ss.fst'))
+        sschla <- read_fst(paste0("./data/", state$region, "/", state$region, "_", state$satellite, "_", state$algorithm, "_", state$year, ".fst"))
         
         if (state$log_chla) {
             sschla <- log(sschla)
@@ -1082,8 +1099,8 @@ server <- function(input, output, session) {
             day_ind <- ((yday-1)*pix_num + 1):(yday*pix_num)
             pts <- sschla %>%
               dplyr::slice(., day_ind) %>%
-              dplyr::mutate(., lat=atlantic_lat,
-                            lon=atlantic_lon) %>%
+              dplyr::mutate(., lat=sslat,
+                               lon=sslon) %>%
               tidyr::drop_na(., chl)
             
             if (nrow(pts)==0) {
@@ -1118,33 +1135,40 @@ server <- function(input, output, session) {
                 tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = T) # we use a mean function here to regularly grid the irregular input points
                 # state$tr <- tr # only used for input$fullmap_click, currently disabled
                 
-                # # FOR TESTING
-                # tr <- rasterize(pts, tr, pts$chl, fun = sum, na.rm = T) # we use a mean function here to regularly grid the irregular input points
-                # zlim <- c(0, max(getValues(tr), na.rm=TRUE))
-                
                 # Create colour scale for leaflet map
+                # Note: getting values from the raster is slower due to the "getValues" function
                 if (state$log_chla) {
-                    tr_minval <- min(getValues(tr), na.rm=TRUE)
-                    #tr_maxval <- max(getValues(tr), na.rm=TRUE)
-                    tr_maxval <- min(log(20), max(getValues(tr), na.rm=TRUE))
+                    
+                    # # pre-defined scale:
+                    # zlim <- c(0, log(20))
+                    
+                    # getting values from the raster itself:
+                    zlim <- c(min(getValues(tr), na.rm=TRUE),
+                              min(log(20), max(getValues(tr), na.rm=TRUE)))
+                    
                     leg_title <- "<center>Chlorophyll-a</br>[ log mg m<sup>-3</sup> ]</center>"
-                } else {
-                    #tr_minval <- 0
-                    tr_minval <- min(getValues(tr), na.rm=TRUE)
-                    tr_maxval <- min(20, max(getValues(tr), na.rm=TRUE))
-                    leg_title <- "<center>Chlorophyll-a</br>[ mg m<sup>-3</sup> ]</center>"
-                }
-                state$leg_title <- leg_title
                 
-                zlim <- c(tr_minval, tr_maxval)
-                state$zlim <- zlim
+                } else {
+                    
+                    # # pre-defined scale:
+                    # zlim <- c(0, 20)
+                    
+                    # getting values from the raster itself:
+                    zlim <- c(min(getValues(tr), na.rm=TRUE),
+                              min(20, max(getValues(tr), na.rm=TRUE)))
+                    
+                    leg_title <- "<center>Chlorophyll-a</br>[ mg m<sup>-3</sup> ]</center>"
+                
+                }
+                
                 cm <- colorNumeric(
-                    palette = colorRampPalette(c("#00007F", "blue", "#007FFF", 
-                                                 "cyan", "#7FFF7F", "yellow", "#FF7F00", 
-                                                 "red", "#7F0000"))(100),
+                    palette = colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F", "yellow", "#FF7F00", "red", "#7F0000"))(100),
                     domain = zlim,
                     na.color = "#00000000"# transparent
                 )
+                
+                state$zlim <- zlim
+                state$leg_title <- leg_title
                 state$cm <- cm
                 
                 # # For plotting points, use an adjusted table of lat/lon/chl where the values
