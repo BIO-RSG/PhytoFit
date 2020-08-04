@@ -63,8 +63,10 @@ regions <- list("modis"=c("Atlantic"="atlantic",
 default_regions <- regions[["modis"]]
 
 # chlorophyll algorithms with available data for each sensor
-algorithms <- list("modis"=c("OCx"="ocx"),
-                   "viirs"=c("OCx"="ocx"))
+algorithms <- list("modis"=c("OCx"="ocx",
+                             "POLY4"="poly4"),
+                   "viirs"=c("OCx"="ocx",
+                             "POLY4"="poly4"))
 default_algorithms <- algorithms[["modis"]]
 
 
