@@ -49,11 +49,8 @@ get_dir <- function(path) {
 #*******************************************************************************
 # VARIABLES ####
 
-# years with available data for each sensor
-years <- list("modis"=2003:2020,
-              "viirs"=2012:2020)
-for (i in 1:length(years)) {names(years[[i]]) <- years[[i]]}
-default_years <- years[["modis"]]
+default_sensors <- c("MODIS 4km" = "modis",
+                     "VIIRS 4km" = "viirs")
 
 # regions with available data for each sensor
 regions <- list("modis"=c("Atlantic"="atlantic",
@@ -68,6 +65,13 @@ algorithms <- list("modis"=c("OCx"="ocx",
                    "viirs"=c("OCx"="ocx",
                              "POLY4"="poly4"))
 default_algorithms <- algorithms[["modis"]]
+
+# years with available data for each sensor
+years <- list("modis"=2003:2020,
+              "viirs"=2012:2020)
+for (i in 1:length(years)) {names(years[[i]]) <- years[[i]]}
+default_years <- years[["modis"]]
+
 
 
 #*******************************************************************************
@@ -163,8 +167,7 @@ ui <- fluidPage(
                       style = help_text_style),
             selectInput(inputId = "satellite",
                         label = NULL,
-                        choices = c("MODIS 4km" = "modis",
-                                    "VIIRS 4km" = "viirs"),
+                        choices = default_sensors,
                         width = widget_width),
             selectInput(inputId = "region",
                         label = NULL,
@@ -183,9 +186,14 @@ ui <- fluidPage(
                         label = HTML("log<sub>chla</sub>"),
                         value = TRUE,
                         onStatus = "success"),
-            actionButton(inputId = "load",
-                         label = "Load data",
-                         style = button_style),
+            # this will be enabled if data is available for the
+            # combination of variables selected above
+            disabled(actionButton(inputId = "load",
+                                  label = "Load data",
+                                  style = button_style)),
+            uiOutput("help_load",
+                     width = widget_width,
+                     style = "white-space: normal;"),
             br(),
             
             shinyjs::hidden(div(id="hiddenPanel",
@@ -579,6 +587,8 @@ server <- function(input, output, session) {
     state$custom_name <- ""
     state$fullrunboxes <- "custom"
     
+    state$help_load_txt <- ""
+    
     # if "tm" is on (i.e. day of max. concentration is a parameter in the bloom fit),
     # then the start of the bloom can't be restricted, so turn off that slider button
     observe({
@@ -621,7 +631,31 @@ server <- function(input, output, session) {
         disable("savebloomparams")
         disable("saveannualstats")
         state$data_loaded <- FALSE
+        
+        # check if the selected combination of satellite, region,
+        # algorithm, and year has available data
+        data_exists <- file.exists(paste0("./data/", input$region, "/", input$region, "_", input$satellite, "_", input$algorithm, "_", input$year, ".fst"))
+        
+        # block/unblock the "load" button depending on whether data
+        # is available or not, and update the help text beneath it
+        if (data_exists) {
+            enable("load")
+            state$help_load_txt <- ""
+        } else {
+            disable("load")
+            state$help_load_txt <- "No data available for the selected options."
+        }
+        
     })
+    
+    output$help_load <- renderUI({
+        
+        helpText(state$help_load_txt,
+                 width = widget_width,
+                 style = help_text_style)
+        
+    })
+    
     
     # Update region and year drop-down menus based on satellite
     observeEvent(input$satellite, {
@@ -992,7 +1026,9 @@ server <- function(input, output, session) {
         sslat <- state$coord_list[[state$region]]$lat
         sslon <- state$coord_list[[state$region]]$lon
         
-        sschla <- read_fst(paste0("./data/", state$region, "/", state$region, "_", state$satellite, "_", state$algorithm, "_", state$year, ".fst"))
+        sschla_fname <- paste0("./data/", state$region, "/", state$region, "_", state$satellite, "_", state$algorithm, "_", state$year, ".fst")
+        
+        sschla <- read_fst(sschla_fname)
         
         if (state$log_chla) {
             sschla <- log(sschla)
