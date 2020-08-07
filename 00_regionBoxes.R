@@ -24,35 +24,35 @@ maritimes <- c("gb", "css", "ess", "wss", "cs", "ls")
 
 # QUEBEC
 
-# # old boxes
-# # northwest gulf of st lawrence
-# nwgsl <- list(lat = c(49.7, 50.3, 50.3, 49.7, 49.7),
-#               lon = c(-67.0, -67.0, -64.5, -64.5, -67.0))
-# # northeast gulf of st lawrence
-# negsl <- list(lat = c(49, 50, 50, 49, 49),
-#               lon = c(-61, -61, -58, -58, -61))
-# # magdalen shallows
-# ms <- list(lat = c(46.5, 48, 48, 46.5, 46.5),
-#            lon = c(-64, -64, -61.5, -61.5, -64))
-# # cabot strait
-# cs <- list(lat = c(46.9, 48, 48, 46.9, 46.9),
-#            lon = c(-60.4, -60.4, -59, -59, -60.4))
+# old boxes
+# northwest gulf of st lawrence
+nwgsl_v01 <- list(lat = c(49.7, 50.3, 50.3, 49.7, 49.7),
+              lon = c(-67.0, -67.0, -64.5, -64.5, -67.0))
+# northeast gulf of st lawrence
+negsl_v01 <- list(lat = c(49, 50, 50, 49, 49),
+              lon = c(-61, -61, -58, -58, -61))
+# magdalen shallows
+ms_v01 <- list(lat = c(46.5, 48, 48, 46.5, 46.5),
+           lon = c(-64, -64, -61.5, -61.5, -64))
+# cabot strait
+cs_v01 <- list(lat = c(46.9, 48, 48, 46.9, 46.9),
+           lon = c(-60.4, -60.4, -59, -59, -60.4))
 
 # new boxes
 # northwest gulf of st lawrence
-nwgsl <- list(lat = c(49.7, 50.16, 50.16, 49.7, 49.7),
+nwgsl_v02 <- list(lat = c(49.7, 50.16, 50.16, 49.7, 49.7),
               lon = c(-66.86, -65.93, -64.76, -64.76, -66.86))
 # northeast gulf of st lawrence
-negsl <- list(lat = c(49, 50, 50, 49, 49),
+negsl_v02 <- list(lat = c(49, 50, 50, 49, 49),
               lon = c(-61, -61, -58, -58.73, -61))
 # magdalen shallows
-ms <- list(lat = c(46.579, 46.579, 46.82, 47.82, 47.82, 47.26, 47.1, 46.579),
+ms_v02 <- list(lat = c(46.579, 46.579, 46.82, 47.82, 47.82, 47.26, 47.1, 46.579),
            lon = c(-61.9, -63.162, -63.766, -63.766, -61.606, -62.23, -61.9, -61.9))
 # cabot strait
-cs <- list(lat = c(47, 47.758, 48, 48, 47.436, 47),
+cs_v02 <- list(lat = c(47, 47.758, 48, 48, 47.436, 47),
            lon = c(-59.903, -60.73, -60.322, -59.783, -59.168, -59.903))
 
-quebec <- list("nwgsl", "negsl", "ms", "cs")
+quebec <- list("nwgsl_v01", "negsl_v01", "ms_v01", "cs_v01", "nwgsl_v02", "negsl_v02", "ms_v02", "cs_v02")
 
 
 # NEWFOUNDLAND
@@ -201,10 +201,10 @@ SI <- list(lat = c(50.69236, 50.34589, 50.16361, 50.40536, 51.10119, 51.24275, 5
 #*******************************************************************************
 # FULL LISTS ####
 
-atlantic <- list(ac, bra, cs, cls, css, els, ess, fp, gb, gs, hb, hib, hs, las, 
-                 ls, ms, ncls, negsl, nens, nwgsl, nls, ses, sab, spb, wss)
-names(atlantic) <- c("ac", "bra", "cs", "cls", "css", "els", "ess", "fp", "gb", "gs", "hb", "hib", "hs", "las", 
-                     "ls", "ms", "ncls", "negsl", "nens", "nwgsl", "nls", "ses", "sab", "spb", "wss")
+atlantic <- list(ac, bra, cs_v01, cs_v02, cls, css, els, ess, fp, gb, gs, hb, hib, hs, las, 
+                 ls, ms_v01, ms_v02, ncls, negsl_v01, negsl_v02, nens, nwgsl_v01, nwgsl_v02, nls, ses, sab, spb, wss)
+names(atlantic) <- c("ac", "bra", "cs_v01", "cs_v02", "cls", "css", "els", "ess", "fp", "gb", "gs", "hb", "hib", "hs", "las", 
+                     "ls", "ms_v01", "ms_v02", "ncls", "negsl_v01", "negsl_v02", "nens", "nwgsl_v01", "nwgsl_v02", "nls", "ses", "sab", "spb", "wss")
 
 pacific <- list(AOI, BS, EHV, GH, GHE, GHW, GHS, GHO, SI)
 names(pacific) <- c("AOI", "BS", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI")
@@ -214,7 +214,8 @@ all_regions <- list(atlantic = atlantic,
 
 full_names <- list(atlantic = c('Avalon Channel (AC)',
                                 'Bravo Station (BRA)',
-                                'Cabot Strait (CS)',
+                                'Cabot Strait (CS) V1',
+                                'Cabot Strait (CS) V2',
                                 'Central Labrador Sea (CLS)',
                                 'Central Scotian Shelf (CSS)',
                                 'Eastern Labrador Shelf (ELS)',
@@ -227,11 +228,14 @@ full_names <- list(atlantic = c('Avalon Channel (AC)',
                                 'Hudson Strait (HS)',
                                 'Labrador Shelf (LAS)',
                                 'Lurcher Shoal (LS)',
-                                'Magdalen Shallows (MS)',
+                                'Magdalen Shallows (MS) V1',
+                                'Magdalen Shallows (MS) V2',
                                 'North Central Labrador Shelf (NCLS)',
-                                'Northeast Gulf of St. Lawrence (NEGSL)',
+                                'Northeast Gulf of St. Lawrence (NEGSL) V1',
+                                'Northeast Gulf of St. Lawrence (NEGSL) V2',
                                 'Northeast Newfoundland Shelf (NENS)',
-                                'Northwest Gulf of St. Lawrence (NWGSL)',
+                                'Northwest Gulf of St. Lawrence (NWGSL) V1',
+                                'Northwest Gulf of St. Lawrence (NWGSL) V2',
                                 'Northern Labrador Shelf (NLS)',
                                 'Southeast Shoal (SES)',
                                 'St. Anthony Bank (SAB)',

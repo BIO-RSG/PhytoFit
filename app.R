@@ -693,20 +693,21 @@ server <- function(input, output, session) {
     # of polygon objects for the leaflet map
     observeEvent(input$region, {
         
-        state$region <- input$region
+        reg <- input$region
+        state$region <- reg
         
-        if (input$region=="atlantic") {
+        if (reg=="atlantic") {
             state$lon_range <- c(-71, -42)
             state$lat_range <- c(39, 63)
-        } else if (input$region=="pacific") {
+        } else if (reg=="pacific") {
             state$lon_range <- c(-140, -122)
             state$lat_range <- c(46, 60)
         }
         
         # Make polygons for existing boxes, to add to base leaflet map
-        original_polys <- lapply(1:length(all_regions[[input$region]]), function(k) {Polygon(coords=cbind(all_regions[[input$region]][[k]]$lon, all_regions[[input$region]][[k]]$lat), hole=TRUE)})
-        original_polyIDs <- lapply(1:length(original_polys), function(k) {Polygons(list(original_polys[[k]]), toupper(names(all_regions[[input$region]])[k]))})
-        state$original_polylist <- SpatialPolygons(original_polyIDs, 1:length(all_regions[[input$region]]))
+        original_polys <- lapply(1:length(all_regions[[reg]]), function(k) {Polygon(coords=cbind(all_regions[[reg]][[k]]$lon, all_regions[[reg]][[k]]$lat), hole=TRUE)})
+        original_polyIDs <- lapply(1:length(original_polys), function(k) {Polygons(list(original_polys[[k]]), toupper(names(all_regions[[reg]])[k]))})
+        state$original_polylist <- SpatialPolygons(original_polyIDs, 1:length(all_regions[[reg]]))
         
     })
     
@@ -1051,6 +1052,9 @@ server <- function(input, output, session) {
     # Raster data will be overlaid after this
     map_reactive <- reactive({
     
+        abbrev <- sapply(strsplit(full_names[[isolate(state$region)]], "[()]+"), "[[", 2)
+        abbrev[duplicated(abbrev)] <- NA
+        
         # Use leaflet() here, and only include aspects of the map that won't need
         # to change dynamically unless the entire map is torn down and recreated.
         leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
@@ -1071,7 +1075,7 @@ server <- function(input, output, session) {
                         weight = 2,
                         opacity = 1,
                         fill = FALSE,
-                        label = names(state$original_polylist),
+                        label = abbrev,#names(state$original_polylist),
                         labelOptions = labelOptions(noHide = TRUE,
                                                     textOnly = TRUE,
                                                     textsize = '13px',
@@ -1431,7 +1435,8 @@ server <- function(input, output, session) {
     })
     
     
-    # THE COMMENTED BLOCK OF CODE BELOW CURRENTLY WORKS, BUT HAS SOME FRUSTRATING CONSEQUENCES
+    # THE COMMENTED BLOCK OF CODE BELOW WAS WORKING WHEN IT WAS WRITTEN (~ EARLY 2020)
+    # BUT HAS SOME FRUSTRATING CONSEQUENCES
     # Note: if uncommented, you must also uncomment the following lines at the
     # top of the script:
     #library(htmlTable)      # for making tables in popups
