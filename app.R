@@ -13,6 +13,7 @@ library(leaflet)        # for creating map
 library(leaflet.extras) # for custom polygon drawings on map
 library(quantreg)       # used in the fitting models
 library(minpack.lm)     # to use nlsLM for asymmetric gaussian fit
+library(rgdal)          # needed for some other packages
 library(sp)             # to use point.in.polygon to extract points within lat/lon boundaries
 library(ggplot2)        # for the density plot and bloom fit plots
 library(grid)           # for formatting tableGrobs overlaid on ggplots
