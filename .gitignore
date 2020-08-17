@@ -25,11 +25,10 @@
 # Files and folders specific to PhytoFit
 CAN_4km.nc
 01_formatData.R
+check_for_new_data.R
 NOTES_PhytoFit.txt
 PhytoFit.pdf
 old_files/
 data/
-PhytoFit_updates_2020-06-25.7z
 extract_bloom_parameters.R
 output/
-PhytoFit_extra_2020-07-31.7z
