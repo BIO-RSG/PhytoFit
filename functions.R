@@ -441,7 +441,7 @@ settings_str <- function(satellite, region, algorithm, year_list, date_var, inte
 }
 
 # Create an output filename based on user-selected settings
-output_str <- function(satellite, region, algorithm, year, interval, log_chla, day_label, polygon, fitmethod, custom_end) {
+output_str <- function(satellite, region, algorithm, year, interval, log_chla, day_label=NULL, polygon=NULL, fitmethod, custom_end) {
   
   if (length(year) > 1) {
     if (year[1]==year[2]) {

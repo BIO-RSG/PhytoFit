@@ -526,8 +526,8 @@ ui <- fluidPage(
                                     "<li>a .txt file containing the settings used for the time series, for reference.</li>",
                                  "</ul>",
                                  "The settings used in the time series will be the current selections for satellite, ",
-                                 "log<sub>chla</sub> ON/OFF, statistics, and bloom fit. Files will be written",
-                                 " to a folder following the naming convention satellite_region_years_fitmethod_timecreated.</br>",
+                                 "region, algorithm, interval, log<sub>chla</sub> ON/OFF, statistics, and bloom fit. Files will be written",
+                                 " to a folder following the naming convention satellite_region_algorithm_years_interval_(un)loggedChla_fitmethod_timecreated.</br>",
                                  "Make sure at least one polygon is selected.")),
                      width = widget_width,
                      style = help_text_style),
@@ -2164,8 +2164,6 @@ server <- function(input, output, session) {
                                                     year=year_bounds,
                                                     interval=isolate(state$interval),
                                                     log_chla=isolate(state$log_chla),
-                                                    day_label=NULL,
-                                                    polygon=NULL,
                                                     fitmethod=isolate(state$fitmethod),
                                                     custom_end="fulltimeseries")))
             get_dir(paste0(output_dir, "/stats_csv"))
@@ -2375,7 +2373,6 @@ server <- function(input, output, session) {
                        year=isolate(state$year),
                        interval=isolate(state$interval),
                        log_chla=isolate(state$log_chla),
-                       day_label=NULL,
                        polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
                        fitmethod=isolate(state$fitmethod),
                        custom_end="bloom_fit.png")
@@ -2399,7 +2396,6 @@ server <- function(input, output, session) {
                        year=isolate(state$year),
                        interval=isolate(state$interval),
                        log_chla=isolate(state$log_chla),
-                       day_label=NULL,
                        polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
                        fitmethod=isolate(state$fitmethod),
                        custom_end="annual_stats.csv")
@@ -2429,7 +2425,6 @@ server <- function(input, output, session) {
                        year=isolate(state$year),
                        interval=isolate(state$interval),
                        log_chla=isolate(state$log_chla),
-                       day_label=NULL,
                        polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
                        fitmethod=isolate(state$fitmethod),
                        custom_end="bloom_parameters.csv")
