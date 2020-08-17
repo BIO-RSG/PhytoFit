@@ -2125,23 +2125,37 @@ server <- function(input, output, session) {
         
         if (length(regs) > 0) {
             
-            if (is.null(isolate(state$satellite))) {
-                satellite <- isolate(input$satellite)
-            } else {
-                satellite <- isolate(state$satellite)
-            }
-            if (is.null(isolate(state$log_chla))) {
-                log_chla <- isolate(input$log_chla)
-            } else {
-                log_chla <- isolate(state$log_chla)
-            }
+            # Get variables
+            isolate({
+                satellite <- state$satellite
+                region <- state$region
+                algorithm <- state$algorithm
+                interval <- state$interval
+                log_chla <- state$log_chla
+                yearday <- state$yearday
+                fitmethod <- state$fitmethod
+                bloomShape <- state$bloomShape
+                tm <- state$tm
+                beta <- state$beta
+                custom_name <- state$custom_name
+                polylat <- state$polylat
+                polylon <- state$polylon
+                coord_list <- state$coord_list
+                latlon_method <- state$latlon_method
+                dailystat <- state$dailystat
+                maxpixval <- state$maxpixval
+                outlier <- state$outlier
+                percent <- state$percent
+                smoothMethod <- state$smoothMethod
+                loessSpan <- state$loessSpan
+                use_weights <- state$use_weights
+                threshcoef <- state$threshcoef
+                t_range <- state$t_range
+                tm_limits <- state$tm_limits
+                ti_limits <- state$ti_limits
+            })
             
             # create column names for parameter table
-            fitmethod <- isolate(state$fitmethod)
-            bloomShape <- isolate(state$bloomShape)
-            beta <- isolate(state$beta)
-            
-            # Get the vector of dataframe names
             pnames <- pnlist[[fitmethod]]
             if (fitmethod=="gauss") {
                 pnames <- pnames[[bloomShape]]
@@ -2158,13 +2172,13 @@ server <- function(input, output, session) {
             # Create output subfolders
             tmp_odir <- get_dir("output/") # make sure "output" subfolder exists
             output_dir <- get_dir(paste0("output/",
-                                         output_str(satellite=isolate(state$satellite),
-                                                    region=isolate(state$region),
-                                                    algorithm=isolate(state$algorithm),
+                                         output_str(satellite=satellite,
+                                                    region=region,
+                                                    algorithm=algorithm,
                                                     year=year_bounds,
-                                                    interval=isolate(state$interval),
-                                                    log_chla=isolate(state$log_chla),
-                                                    fitmethod=isolate(state$fitmethod),
+                                                    interval=interval,
+                                                    log_chla=log_chla,
+                                                    fitmethod=fitmethod,
                                                     custom_end="fulltimeseries")))
             get_dir(paste0(output_dir, "/stats_csv"))
             get_dir(paste0(output_dir, "/bloom_fit_pngs"))
@@ -2173,14 +2187,14 @@ server <- function(input, output, session) {
             progress_updates <- round(seq(steps[1], 100, by=steps),1)
             
             poly_names <- sapply(1:length(regs), function(r) ifelse(regs[r]=='custom',
-                                                                    ifelse(nchar(isolate(state$custom_name))==0, "Custom polygon", isolate(state$custom_name)),
-                                                                    paste0(full_names[[isolate(state$region)]][which(regs[r]==names(all_regions[[isolate(state$region)]]))])))
+                                                                    ifelse(nchar(custom_name)==0, "Custom polygon", custom_name),
+                                                                    paste0(full_names[[region]][which(regs[r]==names(all_regions[[region]]))])))
             
-            boxes <- isolate(all_regions[[input$region]])
+            boxes <- all_regions[[region]]
             if ("custom" %in% regs) {
                 boxes[["custom"]] <- list()
-                boxes[["custom"]]$lat <- isolate(state$polylat)
-                boxes[["custom"]]$lon <- isolate(state$polylon)
+                boxes[["custom"]]$lat <- polylat
+                boxes[["custom"]]$lon <- polylon
             }
             boxes <- boxes[regs]
             
@@ -2193,35 +2207,35 @@ server <- function(input, output, session) {
                 tmp_par <- full_run(
                     year = year_list[x],
                     satellite = satellite,
-                    region = isolate(state$region),
-                    algorithm = isolate(state$algorithm),
-                    interval = isolate(state$interval),
-                    sslat = state$coord_list[[isolate(state$region)]]$lat,
-                    sslon = state$coord_list[[isolate(state$region)]]$lon,
+                    region = region,
+                    algorithm = algorithm,
+                    interval = interval,
+                    sslat = coord_list[[region]]$lat,
+                    sslon = coord_list[[region]]$lon,
                     boxes = boxes,
-                    latlon_method = isolate(state$latlon_method),
+                    latlon_method = latlon_method,
                     pnames = pnames,
-                    yearday = isolate(state$yearday),
+                    yearday = yearday,
                     doys_per_week = doys_per_week,
                     doy_week_start = doy_week_start,
                     doy_week_end = doy_week_end,
-                    dailystat = isolate(state$dailystat),
-                    maxpixval = isolate(state$maxpixval),
-                    outlier = isolate(state$outlier),
-                    percent = isolate(state$percent),
+                    dailystat = dailystat,
+                    maxpixval = maxpixval,
+                    outlier = outlier,
+                    percent = percent,
                     log_chla = log_chla,
                     poly_names = poly_names,
                     fitmethod = fitmethod,
                     bloomShape = bloomShape,
-                    smoothMethod = isolate(state$smoothMethod),
-                    loessSpan = isolate(state$loessSpan),
-                    use_weights = isolate(state$use_weights),
-                    threshcoef = isolate(state$threshcoef),
-                    tm = isolate(state$tm),
+                    smoothMethod = smoothMethod,
+                    loessSpan = loessSpan,
+                    use_weights = use_weights,
+                    threshcoef = threshcoef,
+                    tm = tm,
                     beta = beta,
-                    t_range = isolate(state$t_range),
-                    tm_limits = isolate(state$tm_limits),
-                    ti_limits = isolate(state$ti_limits),
+                    t_range = t_range,
+                    tm_limits = tm_limits,
+                    ti_limits = ti_limits,
                     dir_name = output_dir)
                 
                 # add to final output dataframe
@@ -2244,31 +2258,37 @@ server <- function(input, output, session) {
             # SAVE SETTINGS
             
             info <- settings_str(satellite = names(default_sensors)[default_sensors==satellite],
-                                 region = names(regions[[satellite]])[regions[[satellite]]==isolate(state$region)],
-                                 algorithm = names(algorithms[[satellite]])[algorithms[[satellite]]==isolate(state$algorithm)],
+                                 region = names(regions[[satellite]])[regions[[satellite]]==region],
+                                 algorithm = names(algorithms[[satellite]])[algorithms[[satellite]]==algorithm],
                                  year_list = year_bounds,
                                  date_var = NA,
-                                 interval = names(default_intervals)[default_intervals==isolate(state$interval)],
-                                 log_chla = isolate(state$log_chla),
+                                 interval = names(default_intervals)[default_intervals==interval],
+                                 log_chla = log_chla,
                                  polygon_name_list = poly_names,
                                  polygon_coord_list = boxes,
-                                 percent = isolate(state$percent),
-                                 outlier = isolate(state$outlier),
-                                 dailystat = isolate(state$dailystat),
-                                 maxpixval = isolate(state$maxpixval),
-                                 fitmethod = names(default_fitmethods)[default_fitmethods==isolate(state$fitmethod)],
-                                 bloomShape = names(default_bloomShapes)[default_bloomShapes==isolate(state$bloomShape)],
-                                 smoothMethod = names(default_smoothMethods)[default_smoothMethods==isolate(state$smoothMethod)],
-                                 loessSpan = isolate(state$loessSpan),
-                                 t_range = isolate(state$t_range),
-                                 ti_limits = isolate(state$ti_limits),
-                                 tm_limits = isolate(state$tm_limits),
-                                 tm = isolate(state$tm),
-                                 beta = isolate(state$beta),
-                                 use_weights = isolate(state$use_weights),
-                                 threshcoef = isolate(state$threshcoef))
+                                 percent = percent,
+                                 outlier = outlier,
+                                 dailystat = dailystat,
+                                 maxpixval = maxpixval,
+                                 fitmethod = names(default_fitmethods)[default_fitmethods==fitmethod],
+                                 bloomShape = names(default_bloomShapes)[default_bloomShapes==bloomShape],
+                                 smoothMethod = names(default_smoothMethods)[default_smoothMethods==smoothMethod],
+                                 loessSpan = loessSpan,
+                                 t_range = t_range,
+                                 ti_limits = ti_limits,
+                                 tm_limits = tm_limits,
+                                 tm = tm,
+                                 beta = beta,
+                                 use_weights = use_weights,
+                                 threshcoef = threshcoef)
             
-            fileConn <- file(paste0(output_dir, "/", paste(year_bounds, collapse="-"), "_settings.txt"))
+            if (year_bounds[1]==year_bounds[2]) {
+                year_bounds <- year_bounds[1]
+            } else {
+                year_bounds <- paste(year_bounds, collapse="-")
+            }
+            
+            fileConn <- file(paste0(output_dir, "/", year_bounds, "_settings.txt"))
             writeLines(info, fileConn)
             close(fileConn)
             
@@ -2310,10 +2330,12 @@ server <- function(input, output, session) {
                        custom_end="map.html")
             },
         content <- function(file) {
-            pc <- isolate(state$tr_coloradj)
-            cm <- isolate(state$cm)
-            lt <- isolate(state$leg_title)
-            dl <- isolate(state$day_label)
+            isolate({
+                pc <- state$tr_coloradj
+                cm <- state$cm
+                lt <- state$leg_title
+                dl <- state$day_label
+            })
             saveWidget(widget = map_reactive() %>%
                            clearControls() %>%
                            clearImages() %>%
