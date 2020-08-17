@@ -1819,7 +1819,7 @@ server <- function(input, output, session) {
                 if (!ok) {
                     em <- paste0("Insufficient data, coverage < ", (state$percent*100), "%")
                 } else if (lenok[time_ind]==1) {
-                    em <- "Only one point selected"
+                    em <- "Only one valid point selected"
                 }
                 
             }
