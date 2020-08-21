@@ -53,9 +53,11 @@ default_regions <- regions[["modis"]]
 
 # chlorophyll algorithms with available data for each sensor
 algorithms <- list("modis"=c("OCx"="ocx",
-                             "POLY4"="poly4"),
+                             "POLY4"="poly4",
+                             "GSM_GS"="gsmgs"),
                    "viirs"=c("OCx"="ocx",
-                             "POLY4"="poly4"))
+                             "POLY4"="poly4",
+                             "GSM_GS"="gsmgs"))
 default_algorithms <- algorithms[["modis"]]
 
 # years with available data for each sensor
@@ -620,6 +622,8 @@ server <- function(input, output, session) {
     state$year <- 2020
     state$interval <- "daily"
     state$log_chla <- TRUE
+    state$doy_vec <- 1:365
+    state$sschla <- matrix(nrow=1,ncol=365)
     
     # default box - need this so when everything first evaluates, some functions
     # dependent on it know what to do (since the box option doesn't appear until
