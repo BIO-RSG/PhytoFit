@@ -41,3 +41,9 @@ Open app.R within RStudio, and click "Run app"
 ## Acknowledgments
 
 * **Andrea Hilborn** for many valuable suggestions
+
+## Troubleshooting
+
+* Density plot error: could not find function "expansion"
+
+Solution: Update ggplot2
