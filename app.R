@@ -184,7 +184,11 @@ ui <- fluidPage(
     useShinyjs(),
     
     # hr() and multi-column styling, and old polygon removal code
-    tags$head(hr_multicol_style),
+    tags$head(hr_multicol_style,
+              # reduce padding inside widget boxes
+              tags$style(HTML(
+                  ".form-control { height:auto; padding:3px 3px;}"
+              ))),
     tags$div(remove_custom_poly),
     
     chooseSliderSkin("Modern"),
@@ -239,9 +243,30 @@ ui <- fluidPage(
             
             shinyjs::hidden(div(id="hiddenPanel",
             
-            # UI YEAR DAY ####
-            
             br(),
+            
+            # UI MAP COLOUR SCALE ####
+            
+            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Adjust map colour scale</font>")),
+                     width = widget_width,
+                     style = help_text_style),
+            div(style="display: inline-block; vertical-align:top; width: 50px;",
+                textInput(inputId = "zlim1",
+                          label = NULL,
+                          value = round(log(0.05),2))),
+            div(style="display: inline-block; vertical-align:top; width: 10px;",
+                helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040;\">&ndash;</font>")))),
+            div(style="display: inline-block; vertical-align:top; width: 50px;",
+                textInput(inputId = "zlim2",
+                          label = NULL,
+                          value = round(log(20),2))),
+            div(style="display: inline-block;vertical-align:top; width: 60px;",
+                actionButton(inputId="applyzlim",
+                             label="Apply",
+                             style=button_style)),
+            
+            
+            # UI YEAR DAY ####
             
             helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Choose day of year</font></br>",
                                  "Enter the day of year and click \"Go\", or drag the slider to view the map for that day. ",
@@ -624,6 +649,8 @@ server <- function(input, output, session) {
     state$log_chla <- TRUE
     state$doy_vec <- 1:365
     state$sschla <- matrix(nrow=1,ncol=365)
+    state$zlim1 <- log(0.05)
+    state$zlim2 <- log(20)
     
     # default box - need this so when everything first evaluates, some functions
     # dependent on it know what to do (since the box option doesn't appear until
@@ -797,6 +824,23 @@ server <- function(input, output, session) {
         state$poly_name <- ifelse(state$box=='custom',
                                   ifelse(nchar(state$custom_name)==0, "Custom polygon", state$custom_name),
                                   paste0(full_names[[isolate(state$region)]][which(state$box==names(all_regions[[isolate(state$region)]]))]))
+    })
+    
+    
+    # GET MAP COLOUR SCALE ####
+    
+    observeEvent(input$applyzlim, {
+        
+        zlim1 <- as.numeric(input$zlim1)
+        zlim2 <- as.numeric(input$zlim2)
+        
+        # Check if values are valid (not NA, NaN, Inf, -Inf, or zlim1 > zlim2),
+        # and if so, apply them to the reactive state variables
+        if (is.finite(zlim1) & is.finite(zlim2) & zlim2 >= zlim1) {
+            state$zlim1 <- zlim1
+            state$zlim2 <- zlim2
+        }
+        
     })
     
     
@@ -1075,6 +1119,23 @@ server <- function(input, output, session) {
         
         state$data_loaded <- TRUE
         
+        # If log_chla changes, map colour scale defaults should change
+        if (state$log_chla != input$log_chla) {
+            new_zlim1 <- 0.05
+            new_zlim2 <- 20
+            
+            if (input$log_chla) {
+                new_zlim1 <- round(log(new_zlim1),2)
+                new_zlim2 <- round(log(new_zlim2),2)
+            }
+            
+            updateTextInput(session, inputId="zlim1", value = new_zlim1)
+            updateTextInput(session, inputId="zlim2", value = new_zlim2)
+            
+            state$zlim1 <- new_zlim1
+            state$zlim2 <- new_zlim2
+        }
+        
         # Now that "load" has been pressed, load the full dataset for this year,
         # check to see if the values should be logged, and then assign the new
         # year to the reactive values that will be used in the date label on the
@@ -1101,16 +1162,13 @@ server <- function(input, output, session) {
         
         # Update the yearday slider so if using weekly data, it only allows the user
         # to select the starting day of each 8-day week.
+        # Note: Don't update the actual value in the slider, otherwise the map will update
+        # with the newly loaded values, update the slider based on the new yearday, and then
+        # reload the map again with the same data.
         if (state$interval=="daily") {
-            updateSliderInput(session,
-                              inputId = 'yearday_slide',
-                              value = as.numeric(state$yearday),
-                              step = 1)
+            updateSliderInput(session, inputId = "yearday_slide", step = 1)
         } else if (state$interval=="weekly") {
-            updateSliderInput(session,
-                              inputId = 'yearday_slide',
-                              value = as.numeric(state$doy_vec[state$time_ind]),
-                              step = 8)
+            updateSliderInput(session, inputId = "yearday_slide", step = 8)
         }
         
         remove_modal_spinner()
@@ -1244,40 +1302,21 @@ server <- function(input, output, session) {
                 tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = T) # we use a mean function here to regularly grid the irregular input points
                 # state$tr <- tr # only used for input$fullmap_click, currently disabled
                 
-                # Create colour scale for leaflet map
-                # Note: getting values from the raster is slower due to the "getValues" function
-                if (state$log_chla) {
-                    
-                    # # pre-defined scale:
-                    # zlim <- c(0, log(20))
-                    
-                    # getting values from the raster itself:
-                    zlim <- c(min(getValues(tr), na.rm=TRUE),
-                              min(log(20), max(getValues(tr), na.rm=TRUE)))
-                    
-                    leg_title <- "<center>Chlorophyll-a</br>[ log mg m<sup>-3</sup> ]</center>"
+                # Get colour scale for leaflet map
+                zlim <- c(state$zlim1, state$zlim2)
+                state$zlim <- zlim
                 
-                } else {
-                    
-                    # # pre-defined scale:
-                    # zlim <- c(0, 20)
-                    
-                    # getting values from the raster itself:
-                    zlim <- c(min(getValues(tr), na.rm=TRUE),
-                              min(20, max(getValues(tr), na.rm=TRUE)))
-                    
-                    leg_title <- "<center>Chlorophyll-a</br>[ mg m<sup>-3</sup> ]</center>"
-                
-                }
+                # Get legend title
+                leg_title <- paste0("<center>Chlorophyll-a</br>[ ",
+                                    ifelse(isolate(state$log_chla), "log ", ""),
+                                    "mg m<sup>-3</sup> ]</center>")
+                state$leg_title <- leg_title
                 
                 cm <- colorNumeric(
                     palette = colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F", "yellow", "#FF7F00", "red", "#7F0000"))(100),
                     domain = zlim,
                     na.color = "#00000000"# transparent
                 )
-                
-                state$zlim <- zlim
-                state$leg_title <- leg_title
                 state$cm <- cm
                 
                 # # For plotting points, use an adjusted table of lat/lon/chl where the values
@@ -1307,7 +1346,7 @@ server <- function(input, output, session) {
                     #            group = "Points") %>%
                     addLegend(position = 'topright',
                               pal = cm,
-                              values = getValues(tr_coloradj),#pts_coloradj$chl,
+                              values = c(getValues(tr_coloradj),zlim),#pts_coloradj$chl,
                               title = leg_title,
                               bins = 10,
                               opacity = 1) %>%
@@ -2339,6 +2378,7 @@ server <- function(input, output, session) {
                 cm <- state$cm
                 lt <- state$leg_title
                 dl <- state$day_label
+                zl <- state$zlim
             })
             saveWidget(widget = map_reactive() %>%
                            clearControls() %>%
@@ -2353,7 +2393,7 @@ server <- function(input, output, session) {
                            #            group = "Points") %>%
                            addLegend(position = 'topright',
                                      pal = cm,
-                                     values = getValues(pc),#pc$chl,
+                                     values = c(getValues(pc), zl),#pc$chl,
                                      title = lt,
                                      bins = 10,
                                      opacity = 1) %>%
