@@ -383,7 +383,7 @@ settings_str <- function(satellite, region, algorithm, year_list, date_var, inte
             "Algorithm:", algorithm, "",
             "Year(s):", year_list, "",
             "Date(s):", date_var, "",
-            "Interval:", interval, "",
+            "Interval:", proper(interval), "",
             "Chlorophyll-a logged:", log_chla, "",
             "Polygon(s):")
   
@@ -395,11 +395,11 @@ settings_str <- function(satellite, region, algorithm, year_list, date_var, inte
   }
   
   info <- c(info,
-            "Minimum ", interval, " percent coverage:", (percent * 100), "",
+            paste0("Minimum ", interval, " percent coverage: "), (percent * 100), "",
             "Outlier detection method:", ifelse(outlier=="none", "None",
                                                 ifelse(outlier=="sd2", "+/- 2 sd",
                                                        ifelse(outlier=="sd3", "+/- 3 sd", "1.5 IQR"))), "",
-            proper(interval), " statistic:", proper(dailystat), "",
+            paste0(proper(interval), " statistic:"), proper(dailystat), "",
             "Maximum pixel value used in statistics and fit:", maxpixval, "",
             "Fit method:", ifelse(fitmethod=="gauss", "Shifted Gaussian curve",
                                   ifelse(fitmethod=="roc", "Rate of change", "Threshold")), "",
@@ -420,7 +420,7 @@ settings_str <- function(satellite, region, algorithm, year_list, date_var, inte
     info <- c(info,
               "Use t[max] parameter:", tm, "",
               "Use beta parameter:", beta, "",
-              "Weight fit points by ", interval, " percent coverage:", use_weights, "")
+              paste0("Weight fit points by ", interval, " percent coverage:"), use_weights, "")
     
   } else if (fitmethod == "Threshold") {
     

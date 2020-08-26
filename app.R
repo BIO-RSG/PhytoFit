@@ -2304,7 +2304,7 @@ server <- function(input, output, session) {
                                  algorithm = names(algorithms[[satellite]])[algorithms[[satellite]]==algorithm],
                                  year_list = year_bounds,
                                  date_var = NA,
-                                 interval = names(default_intervals)[default_intervals==interval],
+                                 interval = interval,
                                  log_chla = log_chla,
                                  polygon_name_list = poly_names,
                                  polygon_coord_list = boxes,
@@ -2524,8 +2524,8 @@ server <- function(input, output, session) {
                                  region = names(regions[[isolate(state$satellite)]])[regions[[isolate(state$satellite)]]==isolate(state$region)],
                                  algorithm = names(algorithms[[isolate(state$satellite)]])[algorithms[[isolate(state$satellite)]]==isolate(state$algorithm)],
                                  year_list = isolate(state$year),
-                                 date_var = gsub(" (\\d{4}) ", " ", isolate(state$day_label)), # remove the year
-                                 interval = names(default_intervals)[default_intervals==isolate(state$interval)],
+                                 date_var = gsub(" \\d{4} ", " ", isolate(state$day_label)), # remove the year
+                                 interval = isolate(state$interval),
                                  log_chla = isolate(state$log_chla),
                                  polygon_name_list = isolate(state$poly_name),
                                  polygon_coord_list = list(box=list(lon=isolate(state$polylon),
