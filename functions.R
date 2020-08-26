@@ -129,11 +129,11 @@ get_stats <- function(rchla, outlier) {
         chl_mean[i] <- chl_median[i] <- chl_sd[i] <- chl_min[i] <- chl_max[i] <- NA
         nobs[i] <- percent_coverage[i] <- 0
       } else {
-        chl_mean[i] <- chl_mean(d[ok])
-        chl_median[i] <- chl_median(d[ok])
-        chl_sd[i] <- chl_sd(d[ok])
-        chl_min[i] <- chl_min(d[ok])
-        chl_max[i] <- chl_max(d[ok])
+        chl_mean[i] <- mean(d[ok])
+        chl_median[i] <- median(d[ok])
+        chl_sd[i] <- sd(d[ok])
+        chl_min[i] <- min(d[ok])
+        chl_max[i] <- max(d[ok])
         nobs[i] <- length(ok)
         percent_coverage[i] <- (nobs[i]/length(d))*100
       }
