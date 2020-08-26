@@ -5,6 +5,11 @@ pad_num <- function(num, len) {
   paste0(paste(replicate(len - num_len, '0'), collapse=''), num)
 }
 
+# Capitalize the first letter of a word
+proper <- function(x) {
+  paste0(toupper(substr(x,1,1)), tolower(substring(x,2)))
+}
+
 # Check for existence of a folder, and create it if necessary.
 get_dir <- function(path) {
   if (!dir.exists(path)) {dir.create(path, showWarnings=F)}
@@ -149,16 +154,16 @@ get_stats <- function(rchla, outlier) {
 }
 
 # Get bloom fitted parameters and resulting plot
-get_bloom_fit_data <- function(p, pnames, dailystat, chl_mean, chl_median, lenok, ind_dayrange_percov,
+get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_median, lenok, ind_dayrange_percov,
                                ind_percov, ydays_dayrange_percov, ydays_percov, ydays_dayrange, rchla_nrow,
                                use_weights, smoothMethod, loessSpan, fitmethod, bloomShape, daily_percov,
                                tm, beta, tm_limits, ti_limits, log_chla, threshcoef, doy_vec, plot_title) {
   
-  # Get vector of chlorophyll based on daily statistic and valid indices
-  if(dailystat == 'avg'){
+  # Get vector of chlorophyll based on daily/weekly statistic and valid indices
+  if(dailystat == 'average'){
     chlorophyll <- chl_mean[ind_dayrange_percov]
     chlall <- chl_mean[ind_percov]
-  } else if(dailystat == 'med'){
+  } else if(dailystat == 'median'){
     chlorophyll <- chl_median[ind_dayrange_percov]
     chlall <- chl_median[ind_percov]
   }
@@ -260,9 +265,7 @@ get_bloom_fit_data <- function(p, pnames, dailystat, chl_mean, chl_median, lenok
                aes(x=x, y=y, size=percov), alpha=0.6) +
     ggtitle(plot_title) +
     labs(x='Day number',
-         y=ifelse(dailystat == 'avg',
-                  expression('Daily average chlorophyll ' * '[' * mg/m^3 * ']'),
-                  expression('Daily median chlorophyll' * '[' * mg/m^3 * ']'))) +
+         y=expression(paste0(interval, " ", dailystat, " chlorophyll" * "[" * mg/m^3 * "]"))) +
     scale_x_continuous(limits=c(0,365), breaks=seq(0,365,by=50)) +
     scale_size_continuous(name = "Percent coverage",
                           breaks = c(25, 50, 75, 100),
@@ -277,9 +280,9 @@ get_bloom_fit_data <- function(p, pnames, dailystat, chl_mean, chl_median, lenok
           axis.text.y=element_text(size=12),
           panel.border = element_rect(colour="black", fill=NA, size=0.4))
   
-  # color of fit line, based on choice of mean/median daily statistic,
+  # color of fit line, based on choice of mean/median daily/weekly statistic,
   # matched with the mean/median vertical bar coloring in the density plot
-  fit_col <- ifelse(dailystat=="avg","dodgerblue2","red2")
+  fit_col <- ifelse(dailystat=="average","dodgerblue2","red2")
   
   # color and transparency of vertical bars marking indices of fit
   ind_col <- "black"
@@ -307,10 +310,6 @@ get_bloom_fit_data <- function(p, pnames, dailystat, chl_mean, chl_median, lenok
         tmp_beta <- ifelse(beta, as.numeric(bf_results$beta_value), 0)
         yfit <- as.numeric(bf_results$B0) + tmp_beta * ydays_dayrange + as.numeric(bf_results$h) / (sqrt(2*pi) * as.numeric(bf_results$sigma)) * exp(- (ydays_dayrange - as.numeric(bf_results$tm))^2 / (2 * as.numeric(bf_results$sigma)^2))
         
-        # adjust vertical location of parameter table
-        table_yminloc <- maxy - (3/5) * table_ydiff
-        table_ymaxloc <- maxy
-        
       } else if (bloomShape=="asymmetric") {
         
         tmp_betaL <- ifelse(beta, as.numeric(bf_results$beta_valueL), 0)
@@ -321,9 +320,6 @@ get_bloom_fit_data <- function(p, pnames, dailystat, chl_mean, chl_median, lenok
         yfitR <- as.numeric(bf_results$B0R) + tmp_betaR * ydays_dayrange[Ridx] + as.numeric(bf_results$hR) / (sqrt(2*pi) * as.numeric(bf_results$sigmaR)) * exp(- (ydays_dayrange[Ridx] - as.numeric(bf_results$tm))^2 / (2 * as.numeric(bf_results$sigmaR)^2))
         yfit <- c(yfitL, yfitR)
         
-        table_yminloc <- -Inf
-        table_ymaxloc <- Inf
-        
       }
       
       # add data to base plot
@@ -332,16 +328,11 @@ get_bloom_fit_data <- function(p, pnames, dailystat, chl_mean, chl_median, lenok
                   aes(x=x, y=yfit), color=fit_col) +
         geom_vline(xintercept=as.numeric(bf_results$ti), col=ind_col, alpha=ind_alpha) +
         geom_vline(xintercept=as.numeric(bf_results$tm), col=ind_col, alpha=ind_alpha) +
-        geom_vline(xintercept=as.numeric(bf_results$tt), col=ind_col, alpha=ind_alpha) +
-        annotation_custom(values_df, xmin=330, xmax=360,
-                          ymin=table_yminloc, ymax=table_ymaxloc)
+        geom_vline(xintercept=as.numeric(bf_results$tt), col=ind_col, alpha=ind_alpha)
       
     }
     
   } else if (fitmethod=="roc" | fitmethod=="thresh") {
-    
-    table_ymaxloc <- maxy
-    table_yminloc <- maxy - (2/5) * table_ydiff
     
     # If you use LOESS smoothing, add the line to the data
     # (otherwise just add vertical lines for indices below)
@@ -360,11 +351,12 @@ get_bloom_fit_data <- function(p, pnames, dailystat, chl_mean, chl_median, lenok
     p <- p +
       geom_vline(xintercept=as.numeric(bf_results$ti), col=ind_col, alpha=ind_alpha) +
       geom_vline(xintercept=as.numeric(bf_results$tm), col=ind_col, alpha=ind_alpha) +
-      geom_vline(xintercept=as.numeric(bf_results$tt), col=ind_col, alpha=ind_alpha) +
-      annotation_custom(values_df, xmin=330, xmax=360,
-                        ymin=table_yminloc, ymax=table_ymaxloc)
+      geom_vline(xintercept=as.numeric(bf_results$tt), col=ind_col, alpha=ind_alpha)
     
   }
+  
+  # add the parameter table to the right side of the plot
+  p <- p + annotation_custom(values_df, xmin=330, xmax=360, ymin=-Inf, ymax=Inf)
   
   return(list(p=p, fitparams=fitparams, chlall=chlall))
   
@@ -403,11 +395,11 @@ settings_str <- function(satellite, region, algorithm, year_list, date_var, inte
   }
   
   info <- c(info,
-            "Minimum daily percent coverage:", (percent * 100), "",
+            "Minimum ", interval, " percent coverage:", (percent * 100), "",
             "Outlier detection method:", ifelse(outlier=="none", "None",
                                                 ifelse(outlier=="sd2", "+/- 2 sd",
                                                        ifelse(outlier=="sd3", "+/- 3 sd", "1.5 IQR"))), "",
-            "Daily statistic:", ifelse(dailystat=="avg", "Average", "Median"), "",
+            proper(interval), " statistic:", proper(dailystat), "",
             "Maximum pixel value used in statistics and fit:", maxpixval, "",
             "Fit method:", ifelse(fitmethod=="gauss", "Shifted Gaussian curve",
                                   ifelse(fitmethod=="roc", "Rate of change", "Threshold")), "",
@@ -428,7 +420,7 @@ settings_str <- function(satellite, region, algorithm, year_list, date_var, inte
     info <- c(info,
               "Use t[max] parameter:", tm, "",
               "Use beta parameter:", beta, "",
-              "Weight fit points by daily percent coverage:", use_weights, "")
+              "Weight fit points by ", interval, " percent coverage:", use_weights, "")
     
   } else if (fitmethod == "Threshold") {
     

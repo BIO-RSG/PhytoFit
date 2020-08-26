@@ -270,7 +270,7 @@ ui <- fluidPage(
             
             helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Choose day of year</font></br>",
                                  "Enter the day of year and click \"Go\", or drag the slider to view the map for that day. ",
-                                 "Use the \"play/pause\" button on the slider to move through a sequence of daily chlorophyll maps automatically.")),
+                                 "Use the \"play/pause\" button on the slider to move through a sequence of daily/weekly chlorophyll maps automatically.")),
                      width = widget_width,
                      style = help_text_style),
             # Enter numerically
@@ -382,7 +382,7 @@ ui <- fluidPage(
             
             br(),
             
-            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">Minimum daily % coverage</font></br>",
+            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">Minimum daily/weekly % coverage</font></br>",
                                  "Days with less than the minimum percent coverage in the selected polygon will not be plotted on the density plot or time series, or used in the bloom fit.")),
                      width = widget_width,
                      style = help_text_style),
@@ -405,15 +405,15 @@ ui <- fluidPage(
                                     '1.5 IQR' = 'iqr15'),
                         selected = 'none',
                         width = widget_width),
-            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">Daily statistic</font></br>",
-                                 "Choose to use either daily mean or median chlorophyll in the time series and bloom fit.")),
+            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">Daily/weekly statistic</font></br>",
+                                 "Choose to use either daily/weekly mean or median chlorophyll in the time series and bloom fit.")),
                      width = widget_width,
                      style = help_text_style),
             selectInput(inputId = 'dailystat',
                         label = NULL,
-                        choices = c('Mean' = 'avg',
-                                    'Median' = 'med'),
-                        selected = 'avg',
+                        choices = c('Mean' = 'average',
+                                    'Median' = 'median'),
+                        selected = 'average',
                         width = widget_width),
             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">Maximum pixel value</font></br>",
                                  "Choose the maximum value allowed in the calculation of the statistics and bloom fit (pixels above this value will be omitted).</br>",
@@ -507,7 +507,7 @@ ui <- fluidPage(
                                          label = '\u03B2t',
                                          value = FALSE,
                                          onStatus = "success"),
-                             helpText("Switch to ON to weight each daily point in the fit by percent coverage.",
+                             helpText("Switch to ON to weight each daily/weekly point in the fit by percent coverage.",
                                       width = widget_width,
                                       style = help_text_style),
                              switchInput(inputId = 'use_weights',
@@ -607,7 +607,7 @@ ui <- fluidPage(
                           height = '360px',
                           click = 'bloomfit_click'),
                disabled(downloadButton(outputId = "savebloomfit",
-                                       label = "Download time series plot of daily chlorophyll (.png)",
+                                       label = "Download time series plot of daily/weekly chlorophyll (.png)",
                                        style = button_style)),
                disabled(downloadButton(outputId = "saveannualstats",
                                        label = "Download time series table of statistics (.csv)",
@@ -1392,7 +1392,6 @@ server <- function(input, output, session) {
         
         map_reactive()
         
-
     })
     
     
@@ -1810,7 +1809,7 @@ server <- function(input, output, session) {
     
     
     #***************************************************************************
-    # DAILY STATS, DENSITY PLOT ####
+    # DAILY/WEEKLY STATS, DENSITY PLOT ####
     
     make_density_plot <- reactive({
         
@@ -1982,9 +1981,8 @@ server <- function(input, output, session) {
         # get the most recent annual data
         rchla <- annual_stats()
         
-        dailystat_name <- ifelse(state$dailystat == 'avg', "average", "median")
-        plot_title <- paste0('Time series of daily ', dailystat_name,
-                             ' chlorophyll concentration for ', isolate(state$year))
+        plot_title <- paste0("Time series of ", isolate(state$interval), " ", isolate(state$dailystat),
+                             " chlorophyll concentration for ", isolate(state$year))
         
         # Get the vector of dataframe names
         pnames <- pnlist[[state$fitmethod]]
@@ -2062,7 +2060,8 @@ server <- function(input, output, session) {
         
         if (is.null(em)) {
             
-            bf_data <- get_bloom_fit_data(p=p,
+            bf_data <- get_bloom_fit_data(interval=isolate(state$interval),
+                                          p=p,
                                           pnames = pnames,
                                           dailystat = state$dailystat,
                                           chl_mean = chl_mean,

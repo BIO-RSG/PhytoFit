@@ -32,7 +32,7 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
         Latitude <- box$lat
         Longitude <- box$lon
         
-        plot_title <- paste0('Time series of daily ', dailystat, ' Chlorophyll concentration for ', year, ', ', poly_name)
+        plot_title <- paste0("Time series of ", interval, " ", dailystat, " Chlorophyll concentration for ", year, ", ", poly_name)
         
         # create base plot
         p <- ggplot() + theme_bw()
@@ -127,7 +127,8 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
         
         if (is.null(em)) {
         
-            bf_data <- get_bloom_fit_data(p=p,
+            bf_data <- get_bloom_fit_data(interval=isolate(state$interval),
+                                          p=p,
                                           pnames = pnames,
                                           dailystat = dailystat,
                                           chl_mean = chl_mean,
