@@ -364,8 +364,9 @@ ui <- fluidPage(
                              uiOutput("help_latlon",
                                       width = widget_width,
                                       style = "white-space: normal;"),
-                             br())
+                             br()),
             
+            br()
             ),
             
             
@@ -415,17 +416,31 @@ ui <- fluidPage(
                                     'Median' = 'median'),
                         selected = 'average',
                         width = widget_width),
-            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">Maximum pixel value</font></br>",
-                                 "Choose the maximum value allowed in the calculation of the statistics and bloom fit (pixels above this value will be omitted).</br>",
-                                 "Leave blank to use all values.")),
+            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">Range of pixel values</font></br>",
+                                 "Choose the range of values allowed in the calculation of the statistics and bloom fit (pixels outside this range will be omitted).</br>",
+                                 "If a limit is left blank, it will be ignored.")),
                      width = widget_width,
                      style = help_text_style),
-            numericInput(inputId = "maxpixval",
-                         label = NULL,
-                         min = -Inf,
-                         max = Inf,
-                         value = NA,
-                         width = widget_width),
+            
+            
+            
+            div(style="display: inline-block; vertical-align:top; width: 50px;",
+                textInput(inputId = "pixrange1",
+                          label = NULL,
+                          value = NA)),
+            div(style="display: inline-block; vertical-align:top; width: 10px;",
+                helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040;\">&ndash;</font>")))),
+            div(style="display: inline-block; vertical-align:top; width: 50px;",
+                textInput(inputId = "pixrange2",
+                          label = NULL,
+                          value = NA)),
+            div(style="display: inline-block;vertical-align:top; width: 60px;",
+                actionButton(inputId="applypixrange",
+                             label="Apply",
+                             style=button_style)),
+            
+            br(),
+            br()
             ),
             
             
@@ -651,6 +666,8 @@ server <- function(input, output, session) {
     state$sschla <- matrix(nrow=1,ncol=365)
     state$zlim1 <- log(0.05)
     state$zlim2 <- log(20)
+    state$pixrange1 <- -Inf
+    state$pixrange2 <- Inf
     
     # default box - need this so when everything first evaluates, some functions
     # dependent on it know what to do (since the box option doesn't appear until
@@ -921,8 +938,9 @@ server <- function(input, output, session) {
     observeEvent(input$percent, {
         state$percent <- input$percent / 100
     })
-    observeEvent(input$maxpixval, {
-        state$maxpixval <- as.numeric(input$maxpixval)
+    observeEvent(input$applypixrange, {
+        state$pixrange1 <- as.numeric(input$pixrange1)
+        state$pixrange2 <- as.numeric(input$pixrange2)
     })
     
     
@@ -1771,9 +1789,13 @@ server <- function(input, output, session) {
             
             # Should the range of pixel values used in the stats be restricted?
             # (i.e. set pixels beyond a threshold to NA?)
-            pixthreshold <- state$maxpixval
-            if (!is.na(pixthreshold)) {
-                rchla[rchla > pixthreshold] <- NA
+            pixrange1 <- state$pixrange1
+            pixrange2 <- state$pixrange2
+            if (!is.na(pixrange1)) {
+                rchla[rchla < pixrange1] <- NA
+            }
+            if (!is.na(pixrange2)) {
+                rchla[rchla > pixrange2] <- NA
             }
             if (all(is.na(rchla))) {rchla <- NULL}
             
@@ -2185,7 +2207,8 @@ server <- function(input, output, session) {
                 coord_list <- state$coord_list
                 latlon_method <- state$latlon_method
                 dailystat <- state$dailystat
-                maxpixval <- state$maxpixval
+                pixrange1 <- state$pixrange1
+                pixrange2 <- state$pixrange2
                 outlier <- state$outlier
                 percent <- state$percent
                 smoothMethod <- state$smoothMethod
@@ -2262,7 +2285,8 @@ server <- function(input, output, session) {
                     doy_week_start = doy_week_start,
                     doy_week_end = doy_week_end,
                     dailystat = dailystat,
-                    maxpixval = maxpixval,
+                    pixrange1 = pixrange1,
+                    pixrange2 = pixrange2,
                     outlier = outlier,
                     percent = percent,
                     log_chla = log_chla,
@@ -2311,7 +2335,8 @@ server <- function(input, output, session) {
                                  percent = percent,
                                  outlier = outlier,
                                  dailystat = dailystat,
-                                 maxpixval = maxpixval,
+                                 pixrange1 = pixrange1,
+                                 pixrange2 = pixrange2,
                                  fitmethod = names(default_fitmethods)[default_fitmethods==fitmethod],
                                  bloomShape = names(default_bloomShapes)[default_bloomShapes==bloomShape],
                                  smoothMethod = names(default_smoothMethods)[default_smoothMethods==smoothMethod],
@@ -2533,7 +2558,8 @@ server <- function(input, output, session) {
                                  percent = isolate(state$percent),
                                  outlier = isolate(state$outlier),
                                  dailystat = isolate(state$dailystat),
-                                 maxpixval = isolate(state$maxpixval),
+                                 pixrange1 = isolate(state$pixrange1),
+                                 pixrange2 = isolate(state$pixrange2),
                                  fitmethod = names(default_fitmethods)[default_fitmethods==isolate(state$fitmethod)],
                                  bloomShape = names(default_bloomShapes)[default_bloomShapes==isolate(state$bloomShape)],
                                  smoothMethod = names(default_smoothMethods)[default_smoothMethods==isolate(state$smoothMethod)],

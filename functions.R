@@ -365,7 +365,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
 # Make a string to write to an output text file, containing the current user selections.
 settings_str <- function(satellite, region, algorithm, year_list, date_var, interval, log_chla,
                          polygon_name_list, polygon_coord_list,
-                         percent, outlier, dailystat, maxpixval,
+                         percent, outlier, dailystat, pixrange1, pixrange2,
                          fitmethod, bloomShape, smoothMethod, loessSpan=NULL,
                          t_range, ti_limits, tm_limits,
                          tm=NULL, beta=NULL, use_weights=NULL, threshcoef=NULL) {
@@ -400,7 +400,8 @@ settings_str <- function(satellite, region, algorithm, year_list, date_var, inte
                                                 ifelse(outlier=="sd2", "+/- 2 sd",
                                                        ifelse(outlier=="sd3", "+/- 3 sd", "1.5 IQR"))), "",
             paste0(proper(interval), " statistic:"), proper(dailystat), "",
-            "Maximum pixel value used in statistics and fit:", maxpixval, "",
+            paste0("Minimum value used in statistics and fit: ", pixrange1,
+                   "\nMaximum value used in statistics and fit: ", pixrange2), "",
             "Fit method:", ifelse(fitmethod=="gauss", "Shifted Gaussian curve",
                                   ifelse(fitmethod=="roc", "Rate of change", "Threshold")), "",
             "Bloom fit shape:", bloomShape, "",

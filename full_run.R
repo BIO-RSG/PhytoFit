@@ -2,7 +2,7 @@
 
 full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                      boxes, latlon_method, pnames, yearday, doys_per_week, doy_week_start, doy_week_end,
-                     dailystat, maxpixval, outlier, percent, log_chla, poly_names,
+                     dailystat, pixrange1, pixrange2, outlier, percent, log_chla, poly_names,
                      fitmethod, bloomShape, smoothMethod, loessSpan=NA, use_weights,
                      threshcoef=NA, tm=FALSE, beta=FALSE, t_range = c(1,365),
                      tm_limits = c(1,365), ti_limits = c(1,365), dir_name) {
@@ -56,8 +56,11 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
         
         # Should the range of pixel values used in the stats be restricted?
         # (i.e. set pixels beyond a threshold to NA?)
-        if (!is.na(maxpixval)) {
-            rchla[rchla > maxpixval] <- NA
+        if (!is.na(pixrange1)) {
+            rchla[rchla < pixrange1] <- NA
+        }
+        if (!is.na(pixrange2)) {
+            rchla[rchla > pixrange2] <- NA
         }
         if (all(is.na(rchla))) {rchla <- NULL}
         
