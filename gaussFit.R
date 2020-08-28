@@ -63,9 +63,9 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     # Here, set the parameters' lower/upper bounds and starting guesses for nls().
     # For an assymetric curve, the same bounds will be used for either side.
     if (logchla) {
-      B0lower <- log(1e-10) # note 0 can't be logged
-      B0upper <- log(5)
-      B0start <- log(0.5)
+      B0lower <- log10(1e-10) # note 0 can't be logged
+      B0upper <- log10(5)
+      B0start <- log10(0.5)
     } else {
       B0lower <- 0
       B0upper <- 5

@@ -228,7 +228,7 @@ ui <- fluidPage(
                         selected = "daily",
                         width = widget_width),
             switchInput(inputId = "log_chla",
-                        label = HTML("log<sub>chla</sub>"),
+                        label = HTML("log<sub>10</sub><i>chla</i>"),
                         value = TRUE,
                         onStatus = "success"),
             # this will be enabled if data is available for the
@@ -253,13 +253,13 @@ ui <- fluidPage(
             div(style="display: inline-block; vertical-align:top; width: 50px;",
                 textInput(inputId = "zlim1",
                           label = NULL,
-                          value = round(log(0.05),2))),
+                          value = round(log10(0.05),2))),
             div(style="display: inline-block; vertical-align:top; width: 10px;",
                 helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040;\">&ndash;</font>")))),
             div(style="display: inline-block; vertical-align:top; width: 50px;",
                 textInput(inputId = "zlim2",
                           label = NULL,
-                          value = round(log(20),2))),
+                          value = round(log10(20),2))),
             div(style="display: inline-block;vertical-align:top; width: 60px;",
                 actionButton(inputId="applyzlim",
                              label="Apply",
@@ -535,7 +535,7 @@ ui <- fluidPage(
                                                   "when chlorophyll concentration drops below a threshold for > 14 days.</br>",
                                                   "Threshold = chla<sub>med</sub> * threshold coefficient</br>",
                                                   "chla<sub>med</sub> = UNLOGGED median chlorophyll</br>",
-                                                  "NOTE: If log<sub>chla</sub> is ON, the resulting theshold will be logged.")),
+                                                  "NOTE: If log<sub>10</sub><i>chla</i> is ON, the resulting theshold will be logged.")),
                                       width = widget_width,
                                       style = help_text_style),
                              numericInput(inputId = 'threshcoef',
@@ -568,7 +568,7 @@ ui <- fluidPage(
                                     "<li>a .txt file containing the settings used for the time series, for reference.</li>",
                                  "</ul>",
                                  "The settings used in the time series will be the current selections for satellite, ",
-                                 "region, algorithm, interval, log<sub>chla</sub> ON/OFF, statistics, and bloom fit. Files will be written",
+                                 "region, algorithm, interval, log<sub>10</sub><i>chla</i> ON/OFF, statistics, and bloom fit. Files will be written",
                                  " to a folder following the naming convention satellite_region_algorithm_years_interval_(un)loggedChla_fitmethod_timecreated.</br>",
                                  "Make sure at least one polygon is selected.")),
                      width = widget_width,
@@ -664,8 +664,8 @@ server <- function(input, output, session) {
     state$log_chla <- TRUE
     state$doy_vec <- 1:365
     state$sschla <- matrix(nrow=1,ncol=365)
-    state$zlim1 <- log(0.05)
-    state$zlim2 <- log(20)
+    state$zlim1 <- log10(0.05)
+    state$zlim2 <- log10(20)
     state$pixrange1 <- -Inf
     state$pixrange2 <- Inf
     state$latlon_method <- "drawPoly"
@@ -1163,8 +1163,8 @@ server <- function(input, output, session) {
             new_zlim2 <- 20
             
             if (input$log_chla) {
-                new_zlim1 <- round(log(new_zlim1),2)
-                new_zlim2 <- round(log(new_zlim2),2)
+                new_zlim1 <- round(log10(new_zlim1),2)
+                new_zlim2 <- round(log10(new_zlim2),2)
             }
             
             updateTextInput(session, inputId="zlim1", value = new_zlim1)
@@ -1346,7 +1346,7 @@ server <- function(input, output, session) {
                 
                 # Get legend title
                 leg_title <- paste0("<center>Chlorophyll-a</br>[ ",
-                                    ifelse(isolate(state$log_chla), "log ", ""),
+                                    ifelse(isolate(state$log_chla), "log<sub>10</sub> ", ""),
                                     "mg m<sup>-3</sup> ]</center>")
                 state$leg_title <- leg_title
                 

@@ -77,7 +77,7 @@ get_data <- function(region, satellite, algorithm, year, yearday, interval, log_
   }
   
   # Log data, if selected.
-  if (log_chla) {sschla <- log(sschla)}
+  if (log_chla) {sschla <- log10(sschla)}
   
   return(list(# change when new data is loaded after selecting interval, year, etc.
               sschla=sschla,
@@ -347,7 +347,10 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     }
     
     if (fitmethod=="thresh") {
-      p <- p + geom_hline(yintercept=as.numeric(bf_results$thresh), col="red", alpha=0.4)
+      thresh_val <- as.numeric(bf_results$thresh)
+      p <- p +
+        geom_hline(yintercept=thresh_val, color="red", alpha=0.4) +
+        geom_label(aes(5, thresh_val, label="Threshold", vjust=0), color="red", label.size=0, position=position_dodge(0.9), alpha=0.5)
     }
     
     p <- p +

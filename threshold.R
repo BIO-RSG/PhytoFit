@@ -39,9 +39,9 @@ threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm
   med <- median(y, na.rm = TRUE)
   miny <- min(y, na.rm=TRUE)
   if (logchla) {
-    tmp_med <- exp(med)
+    tmp_med <- 10^med
     thresh <- threshcoef * tmp_med
-    thresh <- log(thresh)
+    thresh <- log10(thresh)
   } else {
     thresh <- threshcoef * med
   }
