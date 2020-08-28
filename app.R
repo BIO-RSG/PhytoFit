@@ -668,6 +668,8 @@ server <- function(input, output, session) {
     state$zlim2 <- log(20)
     state$pixrange1 <- -Inf
     state$pixrange2 <- Inf
+    state$latlon_method <- "drawPoly"
+    state$draw_toolbar <- TRUE
     
     # default box - need this so when everything first evaluates, some functions
     # dependent on it know what to do (since the box option doesn't appear until
@@ -828,11 +830,29 @@ server <- function(input, output, session) {
     })
     
     observeEvent(input$box,{
+        # If the "draw polygon" method is selected for custom, it will want to keep
+        # the draw toolbar on the map. In this case, if you switch from a custom box
+        # to a pre-made one, the map should be triggered to remove the toolbar. If you
+        # switch from a pre-made box to a custom one, the map should trigger to add the toolbar.
+        if (state$latlon_method == "drawPoly") {
+            if (state$box != "custom" & input$box == "custom") {
+                state$draw_toolbar <- TRUE
+            } else if (state$box == "custom" & input$box != "custom") {
+                state$draw_toolbar <- FALSE
+            }
+        }
         state$box <- input$box
     })
+    
     observeEvent(input$latlon_method, {
         state$latlon_method <- input$latlon_method
+        if (state$latlon_method == "drawPoly") {
+            state$draw_toolbar <- TRUE
+        } else {
+            state$draw_toolbar <- FALSE
+        }
     })
+    
     observeEvent(input$applyname, {
         state$custom_name <- input$custom_name
     })
@@ -1380,7 +1400,7 @@ server <- function(input, output, session) {
             
         }
         
-        if (state$box=="custom" & state$latlon_method=="drawPoly") {
+        if (state$draw_toolbar) {
             lfp <- lfp %>%
                 addDrawToolbar(
                     # remove options to draw lines, circles, or single markers
@@ -2317,7 +2337,7 @@ server <- function(input, output, session) {
             write.csv(total_params_df %>% dplyr::arrange(., Region, Year),
                       file=paste0(output_dir, "/bloomfit_params.csv"),
                       quote=FALSE,
-                      na="",
+                      na=" ",
                       row.names=FALSE)
             
             
@@ -2491,7 +2511,8 @@ server <- function(input, output, session) {
                        custom_end="annual_stats.csv")
             },
         content <- function(file) {
-            write.csv(data.frame(mean_chl=isolate(state$chl_mean),
+            write.csv(data.frame(doy=isolate(state$doy_vec),
+                                 mean_chl=isolate(state$chl_mean),
                                  median_chl=isolate(state$chl_median),
                                  stdev_chl=isolate(state$chl_sd),
                                  min_chl=isolate(state$chl_min),
@@ -2501,7 +2522,7 @@ server <- function(input, output, session) {
                                  stringsAsFactors=FALSE),
                       file=file,
                       quote=FALSE,
-                      na="",
+                      na=" ",
                       row.names=FALSE)
         }
     )
@@ -2525,7 +2546,7 @@ server <- function(input, output, session) {
             write.csv(tmp_params,
                       file=file,
                       quote=FALSE,
-                      na="",
+                      na=" ",
                       row.names=FALSE)
         }
     )

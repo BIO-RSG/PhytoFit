@@ -116,13 +116,15 @@ get_stats <- function(rchla, outlier) {
     limits[,2] <- 1 * 1.5 * chl_iqr + chl_median
   }
   
-  # Remove outliers based on selected method and obtain indices where
-  # data coverage is greater than defined percentage
-  lenok <- vector(mode = 'logical', length = ncol(rchla))
-  for (i in 1:ncol(rchla)) {
-    d <- rchla[,i]
-    ok <- which(!is.na(d))
-    if(outlier != 'none'){
+  if (outlier == "none") {
+    lenok <- apply(!is.na(rchla), 2, sum, na.rm=TRUE)
+    bad <- lenok==0
+    chl_mean[bad] <- chl_median[bad] <- chl_sd[bad] <- chl_min[bad] <- chl_max[bad] <- NA
+    nobs[bad] <- percent_coverage[bad] <- 0
+  } else {
+    lenok <- vector(mode = 'logical', length = ncol(rchla))
+    for (i in 1:ncol(rchla)) {
+      d <- rchla[,i]
       ok <- which(d >= limits[i,1] & d <= limits[i,2])
       # update stats for this day after removing outliers
       if (length(ok)==0) {
@@ -137,8 +139,8 @@ get_stats <- function(rchla, outlier) {
         nobs[i] <- length(ok)
         percent_coverage[i] <- (nobs[i]/length(d))*100
       }
+      lenok[i] <- length(ok)
     }
-    lenok[i] <- length(ok)
   }
   
   return(list(limits=limits,

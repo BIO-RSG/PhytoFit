@@ -113,7 +113,8 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                 
             }
             
-            stats_df <- data.frame(mean_chl=chl_mean,
+            stats_df <- data.frame(doy=doy_vec,
+                                   mean_chl=chl_mean,
                                    median_chl=chl_median,
                                    stdev_chl=chl_sd,
                                    min_chl=chl_min,
@@ -182,7 +183,7 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
         write.csv(stats_df,
                   file=paste0(dir_name, "/stats_csv/", year, "_", names(boxes)[reg_ind], "_stats.csv"),
                   quote=FALSE,
-                  na="",
+                  na=" ",
                   row.names=FALSE)
 
         ggsave(file=paste0(dir_name, "/bloom_fit_pngs/", year, "_", names(boxes)[reg_ind], "_bloomfit.png"),
