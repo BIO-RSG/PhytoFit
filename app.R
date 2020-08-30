@@ -569,7 +569,7 @@ ui <- fluidPage(
                                  "</ul>",
                                  "The settings used in the time series will be the current selections for satellite, ",
                                  "region, algorithm, interval, log<sub>10</sub><i>chla</i> ON/OFF, statistics, and bloom fit. Files will be written",
-                                 " to a folder following the naming convention satellite_region_algorithm_years_interval_(un)loggedChla_fitmethod_timecreated.</br>",
+                                 " to a folder following the naming convention <i>satellite_ region_ algorithm_ years_ interval_ (un)loggedChla_ fitmethod_ timecreated</i>.</br>",
                                  "Make sure at least one polygon is selected.")),
                      width = widget_width,
                      style = help_text_style),
