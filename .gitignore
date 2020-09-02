@@ -29,6 +29,5 @@ check_for_new_data.R
 NOTES_PhytoFit.txt
 PhytoFit.pdf
 old_files/
-data/
 extract_bloom_parameters.R
 output/
