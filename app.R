@@ -793,11 +793,13 @@ server <- function(input, output, session) {
         state$region <- reg
         
         if (reg=="atlantic") {
-            state$lon_range <- c(-71, -42)
-            state$lat_range <- c(39, 63)
+            state$center_lon <- -55
+            state$center_lat <- 53
+            state$zoom_level <- 5
         } else if (reg=="pacific") {
-            state$lon_range <- c(-140, -122)
-            state$lat_range <- c(46, 60)
+            state$center_lon <- -132.5
+            state$center_lat <- 51.5
+            state$zoom_level <- 6
         }
         
         # Make polygons for existing boxes, to add to base leaflet map
@@ -1248,10 +1250,9 @@ server <- function(input, output, session) {
                                                            maxZoom = 10,
                                                            updateWhenZooming = FALSE,  # map won't update tiles until zoom is done
                                                            updateWhenIdle = TRUE)) %>% # map won't load new tiles when panning
-            fitBounds(lng1 = state$lon_range[1],
-                      lat1 = state$lat_range[1],
-                      lng2 = state$lon_range[2],
-                      lat2 = state$lat_range[2]) %>%
+            setView(lng = state$center_lon,
+                    lat = state$center_lat,
+                    zoom = state$zoom_level) %>%
             # Add boxes based on the current AZMP statistic boxes
             addPolygons(group = "Stats boxes",
                         data = state$original_polylist,
@@ -2413,7 +2414,9 @@ server <- function(input, output, session) {
             
             gc()
             
-            zip(file, list.files(output_dir, full.names=TRUE), flags = "-r9Xj") # j flag downloads the files without sorting them into parent directories
+            # zip files up to be downloaded
+            # j flag prevents files from being sorted into subdirectories inside the zip file (the other flags are defaults)
+            zip(file, list.files(output_dir, full.names=TRUE), flags = "-r9Xj")
             
             # remove progress bar and return to normal screen
             remove_modal_progress()
