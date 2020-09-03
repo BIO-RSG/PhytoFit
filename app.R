@@ -590,9 +590,9 @@ ui <- fluidPage(
             conditionalPanel(condition = "input.fullrunallboxes == 'FALSE'",
                              uiOutput(outputId = "fullrunboxes")),
             br(),
-            disabled(downloadButton(outputId = "fullrun",
-                                    label = "Run time series",
-                                    style = button_style)),
+            downloadButton(outputId = "fullrun",
+                           label = "Run time series",
+                           style = button_style),
             br()
             
             ))
