@@ -591,7 +591,7 @@ ui <- fluidPage(
                              uiOutput(outputId = "fullrunboxes")),
             br(),
             downloadButton(outputId = "fullrun",
-                           label = "Run time series",
+                           label = "Save time series (.zip)",
                            style = button_style),
             br()
             
@@ -2296,8 +2296,7 @@ server <- function(input, output, session) {
                                                log_chla=log_chla,
                                                fitmethod=fitmethod,
                                                custom_end="fulltimeseries"))
-            dir.create(file.path(output_dir, "stats_csv"), recursive=TRUE)
-            dir.create(file.path(output_dir, "bloom_fit_pngs"), recursive=TRUE)
+            dir.create(output_dir)
             
             steps <- 100/length(year_list)
             progress_updates <- round(seq(steps[1], 100, by=steps),1)
@@ -2414,9 +2413,7 @@ server <- function(input, output, session) {
             
             gc()
             
-            file_list <- sapply(c("settings.txt", "bloom_fit_params.csv", "stats_csv", "bloom_fit_pngs"), function(x) file.path(output_dir, x))
-            names(file_list) <- NULL
-            zip(file, file_list, flags = "-r9Xj") # j flag downloads the files without sorting them into parent directories
+            zip(file, list.files(output_dir, full.names=TRUE), flags = "-r9Xj") # j flag downloads the files without sorting them into parent directories
             
             # remove progress bar and return to normal screen
             remove_modal_progress()
