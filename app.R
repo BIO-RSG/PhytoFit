@@ -41,24 +41,15 @@ source("functions.R")       # extra functions
 #*******************************************************************************
 # VARIABLES ####
 
-default_sensors <- c("MODIS 4km" = "modis",
-                     "VIIRS 4km" = "viirs")
+sensors <- c("MODIS 4km" = "modis",
+             "VIIRS 4km" = "viirs")
 
-# regions with available data for each sensor
-regions <- list("modis"=c("Atlantic"="atlantic",
-                          "Pacific"="pacific"),
-                "viirs"=c("Atlantic"="atlantic",
-                          "Pacific"="pacific"))
-default_regions <- regions[["modis"]]
+regions <- c("Atlantic"="atlantic",
+             "Pacific"="pacific")
 
-# chlorophyll algorithms with available data for each sensor
-algorithms <- list("modis"=c("OCx"="ocx",
-                             "POLY4"="poly4",
-                             "GSM_GS"="gsmgs"),
-                   "viirs"=c("OCx"="ocx",
-                             "POLY4"="poly4",
-                             "GSM_GS"="gsmgs"))
-default_algorithms <- algorithms[["modis"]]
+algorithms <- c("OCx"="ocx",
+                "POLY4"="poly4",
+                "GSM_GS"="gsmgs")
 
 # years with available data for each sensor
 years <- list("modis"=2003:2020,
@@ -66,18 +57,18 @@ years <- list("modis"=2003:2020,
 for (i in 1:length(years)) {names(years[[i]]) <- years[[i]]}
 default_years <- years[["modis"]]
 
-default_intervals <- c("Daily"="daily",
-                       "Weekly"="weekly")
+intervals <- c("Daily"="daily",
+               "Weekly"="weekly")
 
-default_fitmethods <- c('Shifted Gaussian' = 'gauss',
-                        'Rate of Change' = 'roc',
-                        'Threshold' = 'thresh')
+fitmethods <- c("Shifted Gaussian" = "gauss",
+                "Rate of Change" = "roc",
+                "Threshold" = "thresh")
 
-default_bloomShapes <- c('Symmetric' = 'symmetric',
-                         'Asymmetric' = 'asymmetric')
+bloomShapes <- c("Symmetric" = "symmetric",
+                 "Asymmetric" = "asymmetric")
 
-default_smoothMethods <- c('LOESS smooth' = 'loess',
-                           'No smooth' = 'nofit')
+smoothMethods <- c("LOESS smooth" = "loess",
+                   "No smooth" = "nofit")
 
 # bloom fit table parameter names, depending on fitmethod, bloomShape, beta (code \u03B2 to get the symbol)
 pnlist <- list("gauss"=list("symmetric"=list("beta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
@@ -207,15 +198,15 @@ ui <- fluidPage(
                       style = help_text_style),
             selectInput(inputId = "satellite",
                         label = NULL,
-                        choices = default_sensors,
+                        choices = sensors,
                         width = widget_width),
             selectInput(inputId = "region",
                         label = NULL,
-                        choices = default_regions,
+                        choices = regions,
                         width = widget_width),
             selectInput(inputId = "algorithm",
                         label = NULL,
-                        choices = default_algorithms,
+                        choices = algorithms,
                         width = widget_width),
             selectInput(inputId = "year",
                         label = NULL,
@@ -224,7 +215,7 @@ ui <- fluidPage(
                         width = widget_width),
             selectInput(inputId = "interval",
                         label = NULL,
-                        choices = default_intervals,
+                        choices = intervals,
                         selected = "daily",
                         width = widget_width),
             switchInput(inputId = "log_chla",
@@ -461,17 +452,17 @@ ui <- fluidPage(
                      style = help_text_style),
             selectInput(inputId = 'fitmethod',
                         label = NULL,
-                        choices = default_fitmethods,
+                        choices = fitmethods,
                         selected = 'gauss',
                         width = widget_width),
             selectInput(inputId = 'bloomShape',
                         label = NULL,
-                        choices = default_bloomShapes,
+                        choices = bloomShapes,
                         selected = 'symmetric',
                         width = widget_width),
             selectInput(inputId = 'smoothMethod',
                         label = NULL,
-                        choices = default_smoothMethods,
+                        choices = smoothMethods,
                         selected = 'nofit',
                         width = widget_width),
             conditionalPanel(condition = "input.smoothMethod == 'loess'",
@@ -752,18 +743,6 @@ server <- function(input, output, session) {
     
     # Update region and year drop-down menus based on satellite
     observeEvent(input$satellite, {
-        
-        tmp_regions <- regions[[input$satellite]]
-        updateSelectInput(session,
-                          inputId = "region",
-                          label = NULL,
-                          choices = tmp_regions)
-        
-        tmp_algorithms <- algorithms[[input$satellite]]
-        updateSelectInput(session,
-                          inputId = "algorithm",
-                          label = NULL,
-                          choices = tmp_algorithms)
         
         tmp_years <- years[[input$satellite]]
         updateSelectInput(session,
@@ -2376,9 +2355,9 @@ server <- function(input, output, session) {
             
             # SAVE SETTINGS
             
-            info <- settings_str(satellite = names(default_sensors)[default_sensors==satellite],
-                                 region = names(regions[[satellite]])[regions[[satellite]]==region],
-                                 algorithm = names(algorithms[[satellite]])[algorithms[[satellite]]==algorithm],
+            info <- settings_str(satellite = names(sensors)[sensors==satellite],
+                                 region = names(regions)[regions==region],
+                                 algorithm = names(algorithms)[algorithms==algorithm],
                                  year_list = year_bounds,
                                  date_var = NA,
                                  interval = interval,
@@ -2390,9 +2369,9 @@ server <- function(input, output, session) {
                                  dailystat = dailystat,
                                  pixrange1 = pixrange1,
                                  pixrange2 = pixrange2,
-                                 fitmethod = names(default_fitmethods)[default_fitmethods==fitmethod],
-                                 bloomShape = names(default_bloomShapes)[default_bloomShapes==bloomShape],
-                                 smoothMethod = names(default_smoothMethods)[default_smoothMethods==smoothMethod],
+                                 fitmethod = names(fitmethods)[fitmethods==fitmethod],
+                                 bloomShape = names(bloomShapes)[bloomShapes==bloomShape],
+                                 smoothMethod = names(smoothMethods)[smoothMethods==smoothMethod],
                                  loessSpan = loessSpan,
                                  t_range = t_range,
                                  ti_limits = ti_limits,
@@ -2602,9 +2581,9 @@ server <- function(input, output, session) {
                        custom_end="settings.txt")
             },
         content <- function(file) {
-            info <- settings_str(satellite = names(default_sensors)[default_sensors==isolate(state$satellite)],
-                                 region = names(regions[[isolate(state$satellite)]])[regions[[isolate(state$satellite)]]==isolate(state$region)],
-                                 algorithm = names(algorithms[[isolate(state$satellite)]])[algorithms[[isolate(state$satellite)]]==isolate(state$algorithm)],
+            info <- settings_str(satellite = names(sensors)[sensors==isolate(state$satellite)],
+                                 region = names(regions)[regions==isolate(state$region)],
+                                 algorithm = names(algorithms)[algorithms==isolate(state$algorithm)],
                                  year_list = isolate(state$year),
                                  date_var = gsub(" \\d{4} ", " ", isolate(state$day_label)), # remove the year
                                  interval = isolate(state$interval),
@@ -2617,9 +2596,9 @@ server <- function(input, output, session) {
                                  dailystat = isolate(state$dailystat),
                                  pixrange1 = isolate(state$pixrange1),
                                  pixrange2 = isolate(state$pixrange2),
-                                 fitmethod = names(default_fitmethods)[default_fitmethods==isolate(state$fitmethod)],
-                                 bloomShape = names(default_bloomShapes)[default_bloomShapes==isolate(state$bloomShape)],
-                                 smoothMethod = names(default_smoothMethods)[default_smoothMethods==isolate(state$smoothMethod)],
+                                 fitmethod = names(fitmethods)[fitmethods==isolate(state$fitmethod)],
+                                 bloomShape = names(bloomShapes)[bloomShapes==isolate(state$bloomShape)],
+                                 smoothMethod = names(smoothMethods)[smoothMethods==isolate(state$smoothMethod)],
                                  loessSpan = isolate(state$loessSpan),
                                  t_range = isolate(state$t_range),
                                  ti_limits = isolate(state$ti_limits),
