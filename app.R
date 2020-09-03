@@ -2280,11 +2280,11 @@ server <- function(input, output, session) {
                 } else {pnames <- pnames[["nonbeta"]]}
             }
             
-            # grey out the screen while processing, and show progress bar
-            show_modal_progress_line()
-            
             year_bounds <- isolate(input$fullrunyears)
             year_list <- (year_bounds[1]):(year_bounds[2])
+            
+            # grey out the screen while processing, and show progress bar
+            show_modal_progress_line(text = paste0("Computing fits for ", year_list[1], "..."))
             
             # Create output subfolders
             output_dir <- file.path(tempdir(),
@@ -2359,7 +2359,9 @@ server <- function(input, output, session) {
                 total_params_df[((x-1)*length(regs)+1):(x*length(regs)),] <- tmp_par
                 
                 # update progress bar
-                update_modal_progress(value = (progress_updates[x]/100))
+                if (x==length(year_list)) {update_text <- "Zipping output files to download..."
+                } else {update_text <- paste0("Computing fits for ", year_list[x+1], "...")}
+                update_modal_progress(value = (progress_updates[x]/100), text = update_text)
                 
                 gc()
                 
@@ -2410,14 +2412,14 @@ server <- function(input, output, session) {
             writeLines(info, fileConn)
             close(fileConn)
             
-            # remove progress bar and return to normal screen
-            remove_modal_progress()
-            
             gc()
             
             file_list <- sapply(c("settings.txt", "bloom_fit_params.csv", "stats_csv", "bloom_fit_pngs"), function(x) file.path(output_dir, x))
             names(file_list) <- NULL
             zip(file, file_list, flags = "-r9Xj") # j flag downloads the files without sorting them into parent directories
+            
+            # remove progress bar and return to normal screen
+            remove_modal_progress()
             
         }
     )
