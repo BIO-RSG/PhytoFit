@@ -10,12 +10,6 @@ proper <- function(x) {
   paste0(toupper(substr(x,1,1)), tolower(substring(x,2)))
 }
 
-# Check for existence of a folder, and create it if necessary.
-get_dir <- function(path) {
-  if (!dir.exists(path)) {dir.create(path, showWarnings=F)}
-  path
-}
-
 # Create day label for plots/maps and time index for subsetting data.
 # This changes when year, interval, or day of year change.
 get_time_vars <- function(interval, year, yearday, doys_per_week=NULL) {

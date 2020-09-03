@@ -181,12 +181,12 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
         # Write stats to csv and ggplot to png, and add fit parameters for the current region to the full dataframe
         
         write.csv(stats_df,
-                  file=paste0(dir_name, "/stats_csv/", year, "_", names(boxes)[reg_ind], "_stats.csv"),
+                  file=file.path(dir_name, paste0(year, "_", names(boxes)[reg_ind], "_stats.csv")),
                   quote=FALSE,
                   na=" ",
                   row.names=FALSE)
 
-        ggsave(file=paste0(dir_name, "/bloom_fit_pngs/", year, "_", names(boxes)[reg_ind], "_bloomfit.png"),
+        ggsave(file=file.path(dir_name, paste0(year, "_", names(boxes)[reg_ind], "_bloomfit.png")),
                plot=p,
                width=12,
                height=5,

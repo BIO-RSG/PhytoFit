@@ -590,9 +590,9 @@ ui <- fluidPage(
             conditionalPanel(condition = "input.fullrunallboxes == 'FALSE'",
                              uiOutput(outputId = "fullrunboxes")),
             br(),
-            actionButton(inputId = 'fullrun',
-                         label = 'Run time series',
-                         style = button_style),
+            downloadButton(outputId = "fullrun",
+                           label = "Save time series (.zip)",
+                           style = button_style),
             br()
             
             ))
@@ -670,6 +670,9 @@ server <- function(input, output, session) {
     state$pixrange2 <- Inf
     state$latlon_method <- "drawPoly"
     state$draw_toolbar <- TRUE
+    state$newpoly <- NULL
+    state$editedpoly <- NULL
+    state$fullrunboxes <- "custom"
     
     # default box - need this so when everything first evaluates, some functions
     # dependent on it know what to do (since the box option doesn't appear until
@@ -1137,7 +1140,15 @@ server <- function(input, output, session) {
     
     observeEvent(input$fullrunboxes, {
         
-        state$fullrunboxes <- input$fullrunboxes
+        ifrb <- input$fullrunboxes
+        
+        if (length(ifrb)==1 & ifrb=="custom" & is.null(state$newpoly) & is.null(state$editedpoly)) {
+            disable("fullrun")
+        } else {
+            enable("fullrun")
+        }
+        
+        state$fullrunboxes <- ifrb
         
     })
     
@@ -1441,6 +1452,7 @@ server <- function(input, output, session) {
     observeEvent(input$fullmap_draw_new_feature, {
         state$newpoly <- input$fullmap_draw_new_feature
         state$editedpoly <- NULL
+        enable("fullrun")
     })
     observeEvent(input$fullmap_draw_edited_features, {
         state$newpoly <- NULL
@@ -1453,6 +1465,9 @@ server <- function(input, output, session) {
         updateTextInput(session,
                         inputId="custom_name",
                         value="")
+        if (length(state$fullrunboxes)==1 & state$fullrunboxes=="custom") {
+            disable("fullrun")
+        }
     })
     
     # If new polygons are created, edited, or deleted, this block of code
@@ -2197,17 +2212,34 @@ server <- function(input, output, session) {
     
     # Take a vector of years selected by the user, and compute annual statistics
     # and bloom fits for each, using the current settings
-    observeEvent(input$fullrun, {
+    output$fullrun <- downloadHandler(
+        filename <- function() {
+            isolate({
+                satellite <- state$satellite
+                region <- state$region
+                algorithm <- state$algorithm
+                year_bounds <- input$fullrunyears
+                interval <- state$interval
+                log_chla <- state$log_chla
+                fitmethod <- state$fitmethod
+            })
+            output_str(satellite=satellite,
+                       region=region,
+                       algorithm=algorithm,
+                       year=year_bounds,
+                       interval=interval,
+                       log_chla=log_chla,
+                       fitmethod=fitmethod,
+                       custom_end="fulltimeseries.zip")
+        },
+        content <- function(file) {
         
-        regs <- isolate(state$fullrunboxes)
-        
-        # if "custom" box is selected but no polygon is drawn, unselect it
-        if (is.null(isolate(state$newpoly)) & is.null(isolate(state$editedpoly))) {
-            regs <- regs[regs != "custom"]
-        }
-        
-        
-        if (length(regs) > 0) {
+            regs <- isolate(state$fullrunboxes)
+            
+            # if "custom" box is selected but no polygon is drawn, unselect it
+            if (is.null(isolate(state$newpoly)) & is.null(isolate(state$editedpoly))) {
+                regs <- regs[regs != "custom"]
+            }
             
             # Get variables
             isolate({
@@ -2248,25 +2280,23 @@ server <- function(input, output, session) {
                 } else {pnames <- pnames[["nonbeta"]]}
             }
             
-            # grey out the screen while processing, and show progress bar
-            show_modal_progress_line()
-            
-            year_bounds <- input$fullrunyears
+            year_bounds <- isolate(input$fullrunyears)
             year_list <- (year_bounds[1]):(year_bounds[2])
             
+            # grey out the screen while processing, and show progress bar
+            show_modal_progress_line(text = paste0("Computing fits for ", year_list[1], "..."))
+            
             # Create output subfolders
-            tmp_odir <- get_dir("output/") # make sure "output" subfolder exists
-            output_dir <- get_dir(paste0("output/",
-                                         output_str(satellite=satellite,
-                                                    region=region,
-                                                    algorithm=algorithm,
-                                                    year=year_bounds,
-                                                    interval=interval,
-                                                    log_chla=log_chla,
-                                                    fitmethod=fitmethod,
-                                                    custom_end="fulltimeseries")))
-            get_dir(paste0(output_dir, "/stats_csv"))
-            get_dir(paste0(output_dir, "/bloom_fit_pngs"))
+            output_dir <- file.path(tempdir(),
+                                    output_str(satellite=satellite,
+                                               region=region,
+                                               algorithm=algorithm,
+                                               year=year_bounds,
+                                               interval=interval,
+                                               log_chla=log_chla,
+                                               fitmethod=fitmethod,
+                                               custom_end="fulltimeseries"))
+            dir.create(output_dir)
             
             steps <- 100/length(year_list)
             progress_updates <- round(seq(steps[1], 100, by=steps),1)
@@ -2328,14 +2358,16 @@ server <- function(input, output, session) {
                 total_params_df[((x-1)*length(regs)+1):(x*length(regs)),] <- tmp_par
                 
                 # update progress bar
-                update_modal_progress(value = (progress_updates[x]/100))
+                if (x==length(year_list)) {update_text <- "Zipping output files to download..."
+                } else {update_text <- paste0("Computing fits for ", year_list[x+1], "...")}
+                update_modal_progress(value = (progress_updates[x]/100), text = update_text)
                 
                 gc()
                 
             }
             
             write.csv(total_params_df %>% dplyr::arrange(., Region, Year),
-                      file=paste0(output_dir, "/bloomfit_params.csv"),
+                      file=file.path(output_dir, "bloom_fit_params.csv"),
                       quote=FALSE,
                       na=" ",
                       row.names=FALSE)
@@ -2375,18 +2407,19 @@ server <- function(input, output, session) {
                 year_bounds <- paste(year_bounds, collapse="-")
             }
             
-            fileConn <- file(paste0(output_dir, "/", year_bounds, "_settings.txt"))
+            fileConn <- file(file.path(output_dir, "settings.txt"))
             writeLines(info, fileConn)
             close(fileConn)
+            
+            gc()
+            
+            zip(file, list.files(output_dir, full.names=TRUE), flags = "-r9Xj") # j flag downloads the files without sorting them into parent directories
             
             # remove progress bar and return to normal screen
             remove_modal_progress()
             
         }
-        
-        gc()
-        
-    })
+    )
     
     
     
