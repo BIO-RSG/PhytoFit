@@ -260,8 +260,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                                stringsAsFactors = FALSE),
                aes(x=x, y=y, size=percov), alpha=0.6) +
     ggtitle(plot_title) +
-    labs(x='Day number',
-         y=expression(paste0(interval, " ", dailystat, " chlorophyll" * "[" * mg/m^3 * "]"))) +
+    labs(x='Day number') +
     scale_x_continuous(limits=c(0,365), breaks=seq(0,365,by=50)) +
     scale_size_continuous(name = "Percent coverage",
                           breaks = c(25, 50, 75, 100),
@@ -275,6 +274,12 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
           axis.text.x=element_text(size=12),
           axis.text.y=element_text(size=12),
           panel.border = element_rect(colour="black", fill=NA, size=0.4))
+  
+  if (log_chla) {
+    p <- p + labs(y=bquote(.(proper(interval)) * " " * .(dailystat) * " chlorophyll [" * ~log[10]~ mg/m^3 * "]"))
+  } else {
+    p <- p + labs(y=bquote(.(proper(interval)) * " " * .(dailystat) * " chlorophyll [" * mg/m^3 * "]"))
+  }
   
   # color of fit line, based on choice of mean/median daily/weekly statistic,
   # matched with the mean/median vertical bar coloring in the density plot
