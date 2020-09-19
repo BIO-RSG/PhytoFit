@@ -19,13 +19,13 @@ asymm_gaussian <- function(t, tm_value, beta_valueL, beta_valueR, B0L, B0R, sigm
 # The function then computes the fit, using a simple gaussian model if the user
 # chose a symmetric bloom shape, or the asymm_gaussian function above if the
 # user chose the asymmetric shape.
-gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE, tm_limits = c(1,365), ti_limits = c(1,365), logchla = FALSE){
+gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE, tm_limits = c(1,365), ti_limits = c(1,365), log_chla = FALSE){
   
     # t, y, w              = numeric vectors: day of year, chlorophyll concentration, and weights
     # bloomShape           = string: "symmetric" or "asymmetric"
     # tm, beta             = logical values
     # tm_limits, ti_limits = numeric vectors: the range of days to search for max chla concentration and the start of the bloom
-    # logchla              = boolean: TRUE if chlorophyll values are logged (need this to know whether or not to log B0 parameter)
+    # log_chla              = boolean: TRUE if chlorophyll values are logged (need this to know whether or not to log B0 parameter)
   
     # FORMULAS:
     #   t_init = tmax - 1.79*sigma
@@ -62,7 +62,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     
     # Here, set the parameters' lower/upper bounds and starting guesses for nls().
     # For an assymetric curve, the same bounds will be used for either side.
-    if (logchla) {
+    if (log_chla) {
       B0lower <- log10(1e-10) # note 0 can't be logged
       B0upper <- log10(5)
       B0start <- log10(0.5)
