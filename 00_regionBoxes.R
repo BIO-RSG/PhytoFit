@@ -197,26 +197,29 @@ SI <- list(lat = c(50.69236, 50.34589, 50.16361, 50.40536, 51.10119, 51.24275, 5
            lon = c(-128.3775, -128.7590, -129.3522, -130.0104, -130.1406, -128.9293, -128.7837, -128.6126, -128.1775, -128.4026, -128.3896, -128.3775))
 
 # Hecate Strait/Queen Charlotte Sound Glass Sponge Reefs MPA
-SR_N <- list(lat = c(53.19803, 53.15611, 53.04847, 53.05192, 53.12161, 53.12903, 53.22464, 53.32222, 53.40150, 53.39464, 53.31181, 53.25572, 53.19803, NA),
-           lon = c(-130.3298, -130.3147, -130.4212, -130.5099, -130.7009, -130.7740, -130.7913, -130.9067, -130.8105, -130.7145, -130.6359, -130.5504, -130.3298, NA))
+SR_N <- list(lat = c(53.19803, 53.15611, 53.04847, 53.05192, 53.12161, 53.12903, 53.22464, 53.32222, 53.40150, 53.39464, 53.31181, 53.25572, 53.19803),
+           lon = c(-130.3298, -130.3147, -130.4212, -130.5099, -130.7009, -130.7740, -130.7913, -130.9067, -130.8105, -130.7145, -130.6359, -130.5504, -130.3298))
 
-SR_C <- list(lat = c(52.00678, 51.93069, 51.85903, 51.88353, 52.08725, 52.14611, 52.26183, 52.49317, 52.53483, 52.56822, 52.42853, 52.33411, 52.16453, 52.00678, NA),
-           lon = c(-129.2368, -129.3038, -129.6104, -129.7343, -129.6039, -129.5593, -129.7368, -129.8758, -129.8851, -129.7976, -129.5867, -129.4977, -129.4249, -129.2368, NA))
+SR_C <- list(lat = c(52.00678, 51.93069, 51.85903, 51.88353, 52.08725, 52.14611, 52.26183, 52.49317, 52.53483, 52.56822, 52.42853, 52.33411, 52.16453, 52.00678),
+           lon = c(-129.2368, -129.3038, -129.6104, -129.7343, -129.6039, -129.5593, -129.7368, -129.8758, -129.8851, -129.7976, -129.5867, -129.4977, -129.4249, -129.2368))
 
-SR_S <- list(lat = c(51.41228, 51.30903, 51.24933, 51.24275, 51.29508, 51.32347, 51.41228, NA),
-           lon = c(-128.7995, -128.6766, -128.7837, -128.9293, -129.0081, -129.0149, -128.7995, NA))
+SR_S <- list(lat = c(51.41228, 51.30903, 51.24933, 51.24275, 51.29508, 51.32347, 51.41228),
+           lon = c(-128.7995, -128.6766, -128.7837, -128.9293, -129.0081, -129.0149, -128.7995))
 
 
 #*******************************************************************************
 # FULL LISTS ####
+
+# These variables have various uses in the app. THEY MUST ALL BE IN THE SAME ORDER!!!!
+
 
 atlantic <- list(ac, bra, cs_v01, cs_v02, cls, css, els, ess, fp, gb, gs, hb, hib, hs, las, 
                  ls, ms_v01, ms_v02, ncls, negsl_v01, negsl_v02, nens, nwgsl_v01, nwgsl_v02, nls, ses, sab, spb, wss)
 names(atlantic) <- c("ac", "bra", "cs_v01", "cs_v02", "cls", "css", "els", "ess", "fp", "gb", "gs", "hb", "hib", "hs", "las", 
                      "ls", "ms_v01", "ms_v02", "ncls", "negsl_v01", "negsl_v02", "nens", "nwgsl_v01", "nwgsl_v02", "nls", "ses", "sab", "spb", "wss")
 
-pacific <- list(AOI, BS, EHV, GH, GHE, GHW, GHS, GHO, SI, SR)
-names(pacific) <- c("AOI", "BS", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI", "SR")
+pacific <- list(AOI, BS, EHV, GH, GHE, GHW, GHS, GHO, SI, SR_N, SR_C, SR_S)
+names(pacific) <- c("AOI", "BS", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI", "SR_N", "SR_C", "SR_S")
 
 all_regions <- list(atlantic = atlantic,
                     pacific = pacific)
@@ -259,4 +262,21 @@ full_names <- list(atlantic = c('Avalon Channel (AC)',
                               'Gwaii Haanas south (GHS)',
                               'Gwaii Haanas Offshore (GHO)',
                               'Scott Islands marine NWA (SI)',
-                              'Hecate Strait/Queen Charlotte Sound Glass Sponge Reefs MPA (SR)'))
+                              'North Glass Sponge Reefs MPA (SR_N)',
+                              'Central Glass Sponge Reefs MPA (SR_C)',
+                              'South Glass Sponge Reefs MPA (SR_S)'))
+
+# This is an ID for the boxes on the map (it does not appear anywhere, but needs to be unique,
+# so if a box has multiple versions, its IDs should be something like abbrev_v01, abbrev_v02, ...)
+poly_ID <- list(atlantic=c("ac", "bra", "cs_v01", "cs_v02", "cls", "css", "els", "ess", "fp", "gb", "gs", "hb", "hib", "hs", "las", 
+                           "ls", "ms_v01", "ms_v02", "ncls", "negsl_v01", "negsl_v02", "nens", "nwgsl_v01", "nwgsl_v02", "nls", "ses", "sab", "spb", "wss"),
+                pacific=c("AOI", "BS", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI", "SR_N", "SR_C", "SR_S"))
+
+# This is the abbreviation that appears next to the box on the map.
+# If there are multiple versions of a box, you have a couple options:
+#     If they overlap, try only using the abbreviation once, and the rest of the values should be NA (not in quotes).
+#     If they don't overlap, give them unique names (maybe the abbreviation with a number on the end).
+abbrev <- list(atlantic=c("AC", "BRA", "CS", NA, "CLS", "CSS", "ELS", "ESS", "FP", "GB", "GS", "HB", "HIB", "HS", "LAS", 
+                          "LS", "MS", NA, "NCLS", "NEGSL", NA, "NENS", "NWGSL", NA, "NLS", "SES", "SAB", "SPB", "WSS"),
+               pacific=c("AOI", "BS", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI", "SR_N", "SR_C", "SR_S"))
+

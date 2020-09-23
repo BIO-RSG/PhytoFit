@@ -797,14 +797,45 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
             state$zoom_level <- 6
         }
         
+        
         poly_coord_list <- all_regions[[reg]]
+        
+        
+        # # split a disjoint polygon into separate polygons, each with the same label
+        # reg_list <- all_regions[[reg]]
+        # poly_coord_list <- list()
+        # poly_coord_list_names <- c()
+        # for (i in 1:length(reg_list)) {
+        #     if (anyNA(reg_list[[i]]$lat)) {
+        # 
+        #         tmp_lats <- reg_list[[i]]$lat
+        #         tmp_lons <- reg_list[[i]]$lon
+        # 
+        #         NA_inds <- c(0, which(is.na(tmp_lats)))
+        # 
+        #         for (j in 1:(length(NA_inds)-1)) {
+        #             coord_inds <- (NA_inds[j]+1):(NA_inds[j+1]-1)
+        #             tmp_box <- list(lat=reg_list[[i]]$lat[coord_inds],
+        #                             lon=reg_list[[i]]$lon[coord_inds])
+        #             poly_coord_list <- c(poly_coord_list, list(tmp_box))
+        #             poly_coord_list_names <- c(poly_coord_list_names, paste0(names(reg_list)[i], j))
+        # 
+        #         }
+        # 
+        #     } else {
+        #         poly_coord_list <- c(poly_coord_list, list(reg_list[[i]]))
+        #         poly_coord_list_names <- c(poly_coord_list_names, names(reg_list)[i])
+        #     }
+        # }
+        # names(poly_coord_list) <- poly_coord_list_names
+        
         
         # Make polygons for existing boxes, to add to base leaflet map
         original_polys <- lapply(1:length(poly_coord_list), function(k) {
             Polygon(coords=cbind(poly_coord_list[[k]]$lon, poly_coord_list[[k]]$lat), hole=TRUE)
         })
         original_polyIDs <- lapply(1:length(original_polys), function(k) {
-            Polygons(list(original_polys[[k]]), toupper(names(poly_coord_list)[k]))
+            Polygons(list(original_polys[[k]]), toupper(poly_ID[[isolate(state$region)]][k]))
         })
         state$original_polylist <- SpatialPolygons(original_polyIDs, 1:length(poly_coord_list))
         
@@ -1240,9 +1271,6 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
     # Raster data will be overlaid after this
     map_reactive <- reactive({
     
-        abbrev <- sapply(strsplit(full_names[[isolate(state$region)]], "[()]+"), "[[", 2)
-        abbrev[duplicated(abbrev)] <- NA
-        
         # Use leaflet() here, and only include aspects of the map that won't need
         # to change dynamically unless the entire map is torn down and recreated.
         leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
@@ -1262,7 +1290,7 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                         weight = 2,
                         opacity = 1,
                         fill = FALSE,
-                        label = abbrev,
+                        label = abbrev[[isolate(state$region)]],
                         labelOptions = labelOptions(noHide = TRUE,
                                                     textOnly = TRUE,
                                                     textsize = '13px',
@@ -1303,7 +1331,6 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                 clearPopups() %>%
                 clearControls() %>%
                 clearImages() %>%
-                #clearGroup("Points") %>%
                 # Label map with current year and day of year
                 addControl(tags$div(tag.map.title, HTML(paste0(day_label, "<br>NO DATA AVAILABLE YET"))),
                            position = "topleft",
@@ -1324,7 +1351,6 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                     clearPopups() %>%
                     clearControls() %>%
                     clearImages() %>%
-                    #clearGroup("Points") %>%
                     # Label map with current year and day of year
                     addControl(tags$div(tag.map.title, HTML(paste0(day_label, "<br>NO DATA"))),
                                position = "topleft",
@@ -1370,14 +1396,7 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                 )
                 state$cm <- cm
                 
-                # # For plotting points, use an adjusted table of lat/lon/chl where the values
-                # # above/below the color scale are set to the color scale limits.
-                # pts_coloradj <- pts %>%
-                #     dplyr::mutate(., chl=if_else(chl < zlim[1], zlim[1],
-                #                                  if_else(chl > zlim[2], zlim[2], chl)))
-                # state$pts_coloradj <- pts_coloradj
-                
-                # Same as above, for raster instead
+                # Use a raster with values above/below the color scale set to the limits.
                 tr_coloradj <- calc(tr, function(x) ifelse(x <= zlim[1], zlim[1]+(1e-10), ifelse(x >= zlim[2], zlim[2]-(1e-10), x)))
                 state$tr_coloradj <- tr_coloradj
                 
@@ -1387,17 +1406,9 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                     clearControls() %>%
                     clearImages() %>%
                     addRasterImage(x = tr_coloradj, colors = cm) %>%
-                    # clearGroup("Points") %>%
-                    # addCircles(data = pts_coloradj,
-                    #            ~lon, ~lat,
-                    #            color = ~cm(chl),
-                    #            radius = 2300,
-                    #            fillOpacity = 0.7,
-                    #            stroke = FALSE,
-                    #            group = "Points") %>%
                     addLegend(position = 'topright',
                               pal = cm,
-                              values = c(getValues(tr_coloradj),zlim),#pts_coloradj$chl,
+                              values = c(getValues(tr_coloradj),zlim),
                               title = leg_title,
                               bins = 10,
                               opacity = 1) %>%
@@ -2465,16 +2476,9 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                            clearControls() %>%
                            clearImages() %>%
                            addRasterImage(x = pc, colors = cm) %>%
-                           # clearGroup("Points") %>%
-                           # addCircles(data = pc, ~lon, ~lat,
-                           #            color = ~cm(chl),
-                           #            radius = 2300,
-                           #            fillOpacity = 0.7,
-                           #            stroke = FALSE,
-                           #            group = "Points") %>%
                            addLegend(position = 'topright',
                                      pal = cm,
-                                     values = c(getValues(pc), zl),#pc$chl,
+                                     values = c(getValues(pc), zl),
                                      title = lt,
                                      bins = 10,
                                      opacity = 1) %>%
