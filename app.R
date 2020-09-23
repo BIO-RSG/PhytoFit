@@ -98,6 +98,12 @@ doy_week_end <- c(doy_week_start[2:length(doy_week_start)] - 1, 365)
 doys_per_week <- lapply(1:length(doy_week_start), function(i) {doy_week_start[i]:doy_week_end[i]})
 
 
+# get the date that the data was last updated
+data_last_updated <- file.info(list.files("data", pattern=".fst", full.names = TRUE, recursive = TRUE))$mtime
+most_recent <- which.max(as.numeric(data_last_updated))
+data_last_updated <- data_last_updated[most_recent]
+
+
 
 #*******************************************************************************
 # STYLING ####
@@ -150,10 +156,11 @@ remove_custom_poly <- tags$script(HTML(
         "
 ))
 
-# Style for the horizontal bar in the sidebar, and the multi-column styling in 
-# the "full run" polygon selection.
-# This variable is called at the top of the UI
-hr_multicol_style <- tags$style(HTML(
+# Called at the top of the UI, this variable:
+#       - styles the horizontal bar in the sidebar,
+#       - creates the multi-column styling in the "full run" polygon selection,
+#       - reduces padding inside widget boxes
+sidebar_tags_style <- tags$style(HTML(
             "hr {border-top: 1px solid #bbbbbb;}
             .multicol {
                        font-size: 14px;
@@ -162,7 +169,8 @@ hr_multicol_style <- tags$style(HTML(
                        column-count: 2; 
                        -moz-column-fill: auto;
                        -column-fill: auto;
-                     }"
+                     }
+            .form-control { height:auto; padding:3px 3px;}"
 ))
 
 
@@ -174,12 +182,10 @@ ui <- fluidPage(
     # For hiding download buttons if data hasn't been loaded yet
     useShinyjs(),
     
-    # hr() and multi-column styling, and old polygon removal code
-    tags$head(hr_multicol_style,
-              # reduce padding inside widget boxes
-              tags$style(HTML(
-                  ".form-control { height:auto; padding:3px 3px;}"
-              ))),
+    # styling
+    tags$head(sidebar_tags_style),
+    
+    # old polygon removal code
     tags$div(remove_custom_poly),
     
     chooseSliderSkin("Modern"),
@@ -234,8 +240,6 @@ ui <- fluidPage(
             
             shinyjs::hidden(div(id="hiddenPanel",
             
-            br(),
-            
             # UI MAP COLOUR SCALE ####
             
             helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Adjust map colour scale</font>")),
@@ -261,7 +265,8 @@ ui <- fluidPage(
             
             helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Choose day of year</font></br>",
                                  "Enter the day of year and click \"Go\", or drag the slider to view the map for that day. ",
-                                 "Use the \"play/pause\" button on the slider to move through a sequence of daily/weekly chlorophyll maps automatically.")),
+                                 "Use the \"play/pause\" button on the slider to move through a sequence of daily/weekly chlorophyll maps automatically.<br>",
+                                 "NOTE: If you are viewing weekly (8-day) data, the day of year will reset to the first day of the selected week.")),
                      width = widget_width,
                      style = help_text_style),
             # Enter numerically
@@ -551,7 +556,7 @@ ui <- fluidPage(
             
             helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Time series</font></br>",
                                  "Select a series of years and the polygons you would like to process, ",
-                                 "then click \"Run time series\" to generate the following:</br>",
+                                 "then click \"Save time series\" to generate the following:</br>",
                                  "<ul>",
                                     "<li>time series plots (.png),</li>",
                                     "<li>tables of statistics (.csv),</li>",
@@ -683,7 +688,18 @@ server <- function(input, output, session) {
     observe({
         showModal(modalDialog(
                     title = "Satellite Chlorophyll Data Visualization",
-                    "This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.",
+                    HTML(paste0("This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.<br><br>
+Paper detailing the chlorophyll-a algorithms (OCx, POLY4, and GSM_GS):<br><a href=\"https://www.mdpi.com/2072-4292/11/22/2609\"><i>Clay, S.; Peña, A.; DeTracey, B.; Devred, E. Evaluation of Satellite-Based Algorithms to Retrieve Chlorophyll-a Concentration in the Canadian Atlantic and Pacific Oceans. Remote Sens. 2019, 11, 2609.</i></a><br><br>
+Tech Report with descriptions of the bloom fitting models (Shifted Gaussian, Rate of Change, and Threshold methods):<br>
+<i>IN PROGRESS</i><br><br>
+<b>Data used:</b><br>
+Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a>, and weekly composites are generated by taking the average of each pixel over an 8-day period (46 weeks/year), following the same system as NASA OBPG. The binned data is used for statistics and bloom fitting, and rasterized and projected onto the map using <a href=\"https://spatialreference.org/ref/sr-org/7483/\">EPSG:3857</a> (the Web Mercator projection) for faster image loading.<br>
+<a href=\"https://oceancolor.gsfc.nasa.gov/atbd/chlor_a/\">NASA OCx chlorophyll-a algorithm</a><br>
+<a href=\"https://oceancolor.gsfc.nasa.gov/products/\">Level-3 binned files</a><br>
+                                    <a href=\"https://oceancolor.gsfc.nasa.gov/docs/format/l3bins/\">Binning scheme</a><br><br>
+                                    <b>Contact:</b><br>
+                                    Stephanie.Clay@dfo-mpo.gc.ca<br><br>
+                                    <b>Dataset last updated:</b><br>", data_last_updated)),
                     easyClose = TRUE,
                     footer = modalButton("OK")
         ))
@@ -781,10 +797,16 @@ server <- function(input, output, session) {
             state$zoom_level <- 6
         }
         
+        poly_coord_list <- all_regions[[reg]]
+        
         # Make polygons for existing boxes, to add to base leaflet map
-        original_polys <- lapply(1:length(all_regions[[reg]]), function(k) {Polygon(coords=cbind(all_regions[[reg]][[k]]$lon, all_regions[[reg]][[k]]$lat), hole=TRUE)})
-        original_polyIDs <- lapply(1:length(original_polys), function(k) {Polygons(list(original_polys[[k]]), toupper(names(all_regions[[reg]])[k]))})
-        state$original_polylist <- SpatialPolygons(original_polyIDs, 1:length(all_regions[[reg]]))
+        original_polys <- lapply(1:length(poly_coord_list), function(k) {
+            Polygon(coords=cbind(poly_coord_list[[k]]$lon, poly_coord_list[[k]]$lat), hole=TRUE)
+        })
+        original_polyIDs <- lapply(1:length(original_polys), function(k) {
+            Polygons(list(original_polys[[k]]), toupper(names(poly_coord_list)[k]))
+        })
+        state$original_polylist <- SpatialPolygons(original_polyIDs, 1:length(poly_coord_list))
         
     })
     
@@ -1236,11 +1258,11 @@ server <- function(input, output, session) {
             addPolygons(group = "Stats boxes",
                         data = state$original_polylist,
                         stroke = TRUE,
-                        color = "magenta",
+                        color = "darkgrey",
                         weight = 2,
                         opacity = 1,
                         fill = FALSE,
-                        label = abbrev,#names(state$original_polylist),
+                        label = abbrev,
                         labelOptions = labelOptions(noHide = TRUE,
                                                     textOnly = TRUE,
                                                     textsize = '13px',
