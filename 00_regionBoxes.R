@@ -192,7 +192,7 @@ GHS <- list(lat = c(52.20806, 51.80167, 52.00000, 52.14583, 52.20806),
 GHO <- list(lat = c(52.18750, 51.60417, 51.60417, 52.18750, 52.18750),
             lon = c(-132.1042, -131.3958, -132.2708, -132.9792, -132.1042))
 
-# Scotts Island MPA
+# Scotts Island marine National Wildlife Area
 SI <- list(lat = c(50.69236, 50.34589, 50.16361, 50.40536, 51.10119, 51.24275, 51.24933, 51.25139, 50.84367, 50.73981, 50.72765, 50.69236),
            lon = c(-128.3775, -128.7590, -129.3522, -130.0104, -130.1406, -128.9293, -128.7837, -128.6126, -128.1775, -128.4026, -128.3896, -128.3775))
 
@@ -207,7 +207,6 @@ SR_S <- list(lat = c(51.41228, 51.30903, 51.24933, 51.24275, 51.29508, 51.32347,
            lon = c(-128.7995, -128.6766, -128.7837, -128.9293, -129.0081, -129.0149, -128.7995, NA))
 
 
-
 #*******************************************************************************
 # FULL LISTS ####
 
@@ -216,8 +215,8 @@ atlantic <- list(ac, bra, cs_v01, cs_v02, cls, css, els, ess, fp, gb, gs, hb, hi
 names(atlantic) <- c("ac", "bra", "cs_v01", "cs_v02", "cls", "css", "els", "ess", "fp", "gb", "gs", "hb", "hib", "hs", "las", 
                      "ls", "ms_v01", "ms_v02", "ncls", "negsl_v01", "negsl_v02", "nens", "nwgsl_v01", "nwgsl_v02", "nls", "ses", "sab", "spb", "wss")
 
-pacific <- list(AOI, BS, EHV, GH, GHE, GHW, GHS, GHO, SI)
-names(pacific) <- c("AOI", "BS", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI")
+pacific <- list(AOI, BS, EHV, GH, GHE, GHW, GHS, GHO, SI, SR)
+names(pacific) <- c("AOI", "BS", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI", "SR")
 
 all_regions <- list(atlantic = atlantic,
                     pacific = pacific)
@@ -259,4 +258,5 @@ full_names <- list(atlantic = c('Avalon Channel (AC)',
                               'Gwaii Haanas west (GHW)',
                               'Gwaii Haanas south (GHS)',
                               'Gwaii Haanas Offshore (GHO)',
-                              'Scotts Island MPA (SI)'))
+                              'Scott Islands marine NWA (SI)',
+                              'Hecate Strait/Queen Charlotte Sound Glass Sponge Reefs MPA (SR)'))
