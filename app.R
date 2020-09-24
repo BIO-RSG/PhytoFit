@@ -848,12 +848,12 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
     output$box <- renderUI({
         
         # default choices, used for atlantic
-        choices <- c("custom", names(all_regions[["atlantic"]]))
+        choices <- c("custom", poly_ID[["atlantic"]])
         names(choices) <- c("Custom polygon", full_names[["atlantic"]])
         
         if (state$region == "pacific") {
             
-            choices <- c("custom", names(all_regions[["pacific"]]))
+            choices <- c("custom", poly_ID[["pacific"]])
             names(choices) <- c("Custom polygon", full_names[["pacific"]])
             
         }
@@ -897,7 +897,7 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
     observe({
         state$poly_name <- ifelse(state$box=='custom',
                                   ifelse(nchar(state$custom_name)==0, "Custom polygon", state$custom_name),
-                                  paste0(full_names[[isolate(state$region)]][which(state$box==names(all_regions[[isolate(state$region)]]))]))
+                                  paste0(full_names[[isolate(state$region)]][which(state$box==poly_ID[[isolate(state$region)]])]))
     })
     
     
@@ -1144,8 +1144,8 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
     
     output$fullrunboxes <- renderUI({
         
-        choices <- c("custom", names(all_regions[[input$region]]))
-        names(choices) <- c("Custom", toupper(names(all_regions[[input$region]])))
+        choices <- c("custom", poly_ID[[input$region]])
+        names(choices) <- c("Custom", poly_ID[[input$region]])
         
         tags$div(class = "multicol",
         checkboxGroupInput(inputId = "fullrunboxes",
@@ -1161,8 +1161,8 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
         
         ifrab <- input$fullrunallboxes
         
-        choices <- c("custom", names(all_regions[[input$region]]))
-        names(choices) <- c("Custom", toupper(names(all_regions[[input$region]])))
+        choices <- c("custom", poly_ID[[input$region]])
+        names(choices) <- c("Custom", toupper(poly_ID[[input$region]]))
         
         if (ifrab) {
             state$fullrunboxes <- choices
@@ -1796,8 +1796,8 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                 
                 # Use point.in.polygon to extract AZMP stat boxes based on their
                 # lat/lon boundaries.
-                Longitude <- as.numeric(all_regions[[isolate(state$region)]][[state$box]]$lon)
-                Latitude <- as.numeric(all_regions[[isolate(state$region)]][[state$box]]$lat)
+                Longitude <- as.numeric(all_regions[[isolate(state$region)]][[which(state$box==poly_ID[[isolate(state$region)]])]]$lon)
+                Latitude <- as.numeric(all_regions[[isolate(state$region)]][[which(state$box==poly_ID[[isolate(state$region)]])]]$lat)
                 
                 # for highlighted box in leaflet map
                 highlight_ID <- "highlighted_box"
@@ -2316,16 +2316,16 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
             
             poly_names <- sapply(1:length(regs), function(r) ifelse(regs[r]=='custom',
                                                                     ifelse(nchar(custom_name)==0, "Custom polygon", custom_name),
-                                                                    paste0(full_names[[region]][which(regs[r]==names(all_regions[[region]]))])))
+                                                                    paste0(full_names[[region]][which(regs[r]==poly_ID[[region]])])))
             
             boxes <- all_regions[[region]]
+            names(boxes) <- poly_ID[[region]]
             if ("custom" %in% regs) {
                 boxes[["custom"]] <- list()
                 boxes[["custom"]]$lat <- polylat
                 boxes[["custom"]]$lon <- polylon
             }
             boxes <- boxes[regs]
-            
             
             total_params_df <- data.frame(matrix(nrow=(length(year_list)*length(regs)), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
             colnames(total_params_df) <- c("Region", "Year", pnames)
