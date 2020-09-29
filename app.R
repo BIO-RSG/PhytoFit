@@ -564,9 +564,10 @@ ui <- fluidPage(
                                     "<li>a .txt file containing the settings used for the time series, for reference.</li>",
                                  "</ul>",
                                  "The settings used in the time series will be the current selections for satellite, ",
-                                 "region, algorithm, interval, log<sub>10</sub><i>chla</i> ON/OFF, statistics, and bloom fit. Files will be written",
+                                 "region, algorithm, interval, log<sub>10</sub><i>chla</i> ON/OFF, statistics, and bloom fit. Files will be zipped",
                                  " to a folder following the naming convention <i>satellite_ region_ algorithm_ years_ interval_ (un)loggedChla_ fitmethod_ timecreated</i>.</br>",
-                                 "Make sure at least one polygon is selected.")),
+                                 "Make sure at least one polygon is selected.<br>",
+                                 "When processing is complete and the new filename appears over the download button, click \"Download results (.zip)\".")),
                      width = widget_width,
                      style = help_text_style),
             sliderInput(inputId = "fullrunyears",
@@ -586,9 +587,15 @@ ui <- fluidPage(
             conditionalPanel(condition = "input.fullrunallboxes == 'FALSE'",
                              uiOutput(outputId = "fullrunboxes")),
             br(),
-            downloadButton(outputId = "fullrun",
-                           label = "Run time series (.zip)",
-                           style = button_style),
+            actionButton(inputId = "fullrun_process",
+                         label = "Run time series",
+                         style = button_style),
+            uiOutput("fullrun_fname",
+                     width = widget_width,
+                     style = "white-space: normal;"),
+            disabled(downloadButton(outputId = "fullrun_download",
+                                    label = "Download results (.zip)",
+                                    style = button_style)),
             br()
             
             ))
@@ -669,7 +676,7 @@ server <- function(input, output, session) {
     state$newpoly <- NULL
     state$editedpoly <- NULL
     state$fullrunboxes <- "custom"
-    
+    state$fullrun_fname <- NULL
     # default box - need this so when everything first evaluates, some functions
     # dependent on it know what to do (since the box option doesn't appear until
     # the box UI renders, then evaluates AFTER that)
@@ -1169,9 +1176,9 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
         ifrb <- input$fullrunboxes
         
         if (length(ifrb)==1 & ifrb=="custom" & is.null(state$newpoly) & is.null(state$editedpoly)) {
-            disable("fullrun")
+            disable("fullrun_process")
         } else {
-            enable("fullrun")
+            enable("fullrun_process")
         }
         
         state$fullrunboxes <- ifrb
@@ -1457,7 +1464,7 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
     observeEvent(input$fullmap_draw_new_feature, {
         state$newpoly <- input$fullmap_draw_new_feature
         state$editedpoly <- NULL
-        enable("fullrun")
+        enable("fullrun_process")
     })
     observeEvent(input$fullmap_draw_edited_features, {
         state$newpoly <- NULL
@@ -1471,7 +1478,7 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                         inputId="custom_name",
                         value="")
         if (length(state$fullrunboxes)==1 & state$fullrunboxes=="custom") {
-            disable("fullrun")
+            disable("fullrun_process")
         }
     })
     
@@ -2216,215 +2223,231 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
     
     # Take a vector of years selected by the user, and compute annual statistics
     # and bloom fits for each, using the current settings
-    output$fullrun <- downloadHandler(
-        filename <- function() {
-            isolate({
-                satellite <- state$satellite
-                region <- state$region
-                algorithm <- state$algorithm
-                year_bounds <- input$fullrunyears
-                interval <- state$interval
-                log_chla <- state$log_chla
-                fitmethod <- state$fitmethod
-            })
-            output_str(satellite=satellite,
-                       region=region,
-                       algorithm=algorithm,
-                       year=year_bounds,
-                       interval=interval,
-                       log_chla=log_chla,
-                       fitmethod=fitmethod,
-                       custom_end="fulltimeseries.zip")
-        },
-        content <- function(file) {
+    observeEvent(input$fullrun_process, {
         
-            regs <- isolate(state$fullrunboxes)
+        regs <- isolate(state$fullrunboxes)
+        
+        # if "custom" box is selected but no polygon is drawn, unselect it
+        if (is.null(isolate(state$newpoly)) & is.null(isolate(state$editedpoly))) {
+            regs <- regs[regs != "custom"]
+        }
+        
+        # Get variables
+        isolate({
+            satellite <- state$satellite
+            region <- state$region
+            algorithm <- state$algorithm
+            interval <- state$interval
+            log_chla <- state$log_chla
+            yearday <- state$yearday
+            fitmethod <- state$fitmethod
+            bloomShape <- state$bloomShape
+            tm <- state$tm
+            beta <- state$beta
+            custom_name <- state$custom_name
+            polylat <- state$polylat
+            polylon <- state$polylon
+            coord_list <- state$coord_list
+            latlon_method <- state$latlon_method
+            dailystat <- state$dailystat
+            pixrange1 <- state$pixrange1
+            pixrange2 <- state$pixrange2
+            outlier <- state$outlier
+            percent <- state$percent
+            smoothMethod <- state$smoothMethod
+            loessSpan <- state$loessSpan
+            use_weights <- state$use_weights
+            threshcoef <- state$threshcoef
+            t_range <- state$t_range
+            tm_limits <- state$tm_limits
+            ti_limits <- state$ti_limits
+        })
+        
+        # create column names for parameter table
+        pnames <- pnlist[[fitmethod]]
+        if (fitmethod=="gauss") {
+            pnames <- pnames[[bloomShape]]
+            if (beta) {pnames <- pnames[["beta"]]
+            } else {pnames <- pnames[["nonbeta"]]}
+        }
+        
+        year_bounds <- isolate(input$fullrunyears)
+        year_list <- (year_bounds[1]):(year_bounds[2])
+        
+        # grey out the screen while processing, and show progress bar
+        show_modal_progress_line(text = paste0("Computing fits for ", year_list[1], "..."))
+        
+        # Create output subfolders
+        output_dir <- file.path(tempdir(),
+                                output_str(satellite=satellite,
+                                           region=region,
+                                           algorithm=algorithm,
+                                           year=year_bounds,
+                                           interval=interval,
+                                           log_chla=log_chla,
+                                           fitmethod=fitmethod,
+                                           custom_end="fulltimeseries"))
+        dir.create(output_dir)
+        
+        steps <- 100/length(year_list)
+        progress_updates <- round(seq(steps[1], 100, by=steps),1)
+        
+        poly_names <- sapply(1:length(regs), function(r) ifelse(regs[r]=='custom',
+                                                                ifelse(nchar(custom_name)==0, "Custom polygon", custom_name),
+                                                                paste0(full_names[[region]][which(regs[r]==poly_ID[[region]])])))
+        
+        boxes <- all_regions[[region]]
+        names(boxes) <- poly_ID[[region]]
+        if ("custom" %in% regs) {
+            boxes[["custom"]] <- list()
+            boxes[["custom"]]$lat <- polylat
+            boxes[["custom"]]$lon <- polylon
+        }
+        boxes <- boxes[regs]
+        
+        total_params_df <- data.frame(matrix(nrow=(length(year_list)*length(regs)), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
+        colnames(total_params_df) <- c("Region", "Year", pnames)
+        
+        for (x in 1:length(year_list)) {
             
-            # if "custom" box is selected but no polygon is drawn, unselect it
-            if (is.null(isolate(state$newpoly)) & is.null(isolate(state$editedpoly))) {
-                regs <- regs[regs != "custom"]
-            }
+            tmp_par <- full_run(
+                year = year_list[x],
+                satellite = satellite,
+                region = region,
+                algorithm = algorithm,
+                interval = interval,
+                sslat = coord_list[[region]]$lat,
+                sslon = coord_list[[region]]$lon,
+                boxes = boxes,
+                latlon_method = latlon_method,
+                pnames = pnames,
+                yearday = yearday,
+                doys_per_week = doys_per_week,
+                doy_week_start = doy_week_start,
+                doy_week_end = doy_week_end,
+                dailystat = dailystat,
+                pixrange1 = pixrange1,
+                pixrange2 = pixrange2,
+                outlier = outlier,
+                percent = percent,
+                log_chla = log_chla,
+                poly_names = poly_names,
+                fitmethod = fitmethod,
+                bloomShape = bloomShape,
+                smoothMethod = smoothMethod,
+                loessSpan = loessSpan,
+                use_weights = use_weights,
+                threshcoef = threshcoef,
+                tm = tm,
+                beta = beta,
+                t_range = t_range,
+                tm_limits = tm_limits,
+                ti_limits = ti_limits,
+                dir_name = output_dir)
             
-            # Get variables
-            isolate({
-                satellite <- state$satellite
-                region <- state$region
-                algorithm <- state$algorithm
-                interval <- state$interval
-                log_chla <- state$log_chla
-                yearday <- state$yearday
-                fitmethod <- state$fitmethod
-                bloomShape <- state$bloomShape
-                tm <- state$tm
-                beta <- state$beta
-                custom_name <- state$custom_name
-                polylat <- state$polylat
-                polylon <- state$polylon
-                coord_list <- state$coord_list
-                latlon_method <- state$latlon_method
-                dailystat <- state$dailystat
-                pixrange1 <- state$pixrange1
-                pixrange2 <- state$pixrange2
-                outlier <- state$outlier
-                percent <- state$percent
-                smoothMethod <- state$smoothMethod
-                loessSpan <- state$loessSpan
-                use_weights <- state$use_weights
-                threshcoef <- state$threshcoef
-                t_range <- state$t_range
-                tm_limits <- state$tm_limits
-                ti_limits <- state$ti_limits
-            })
+            # add to final output dataframe
+            total_params_df[((x-1)*length(regs)+1):(x*length(regs)),] <- tmp_par
             
-            # create column names for parameter table
-            pnames <- pnlist[[fitmethod]]
-            if (fitmethod=="gauss") {
-                pnames <- pnames[[bloomShape]]
-                if (beta) {pnames <- pnames[["beta"]]
-                } else {pnames <- pnames[["nonbeta"]]}
-            }
-            
-            year_bounds <- isolate(input$fullrunyears)
-            year_list <- (year_bounds[1]):(year_bounds[2])
-            
-            # grey out the screen while processing, and show progress bar
-            show_modal_progress_line(text = paste0("Computing fits for ", year_list[1], "..."))
-            
-            # Create output subfolders
-            output_dir <- file.path(tempdir(),
-                                    output_str(satellite=satellite,
-                                               region=region,
-                                               algorithm=algorithm,
-                                               year=year_bounds,
-                                               interval=interval,
-                                               log_chla=log_chla,
-                                               fitmethod=fitmethod,
-                                               custom_end="fulltimeseries"))
-            dir.create(output_dir)
-            
-            steps <- 100/length(year_list)
-            progress_updates <- round(seq(steps[1], 100, by=steps),1)
-            
-            poly_names <- sapply(1:length(regs), function(r) ifelse(regs[r]=='custom',
-                                                                    ifelse(nchar(custom_name)==0, "Custom polygon", custom_name),
-                                                                    paste0(full_names[[region]][which(regs[r]==poly_ID[[region]])])))
-            
-            boxes <- all_regions[[region]]
-            names(boxes) <- poly_ID[[region]]
-            if ("custom" %in% regs) {
-                boxes[["custom"]] <- list()
-                boxes[["custom"]]$lat <- polylat
-                boxes[["custom"]]$lon <- polylon
-            }
-            boxes <- boxes[regs]
-            
-            total_params_df <- data.frame(matrix(nrow=(length(year_list)*length(regs)), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
-            colnames(total_params_df) <- c("Region", "Year", pnames)
-            
-            for (x in 1:length(year_list)) {
-                
-                tmp_par <- full_run(
-                    year = year_list[x],
-                    satellite = satellite,
-                    region = region,
-                    algorithm = algorithm,
-                    interval = interval,
-                    sslat = coord_list[[region]]$lat,
-                    sslon = coord_list[[region]]$lon,
-                    boxes = boxes,
-                    latlon_method = latlon_method,
-                    pnames = pnames,
-                    yearday = yearday,
-                    doys_per_week = doys_per_week,
-                    doy_week_start = doy_week_start,
-                    doy_week_end = doy_week_end,
-                    dailystat = dailystat,
-                    pixrange1 = pixrange1,
-                    pixrange2 = pixrange2,
-                    outlier = outlier,
-                    percent = percent,
-                    log_chla = log_chla,
-                    poly_names = poly_names,
-                    fitmethod = fitmethod,
-                    bloomShape = bloomShape,
-                    smoothMethod = smoothMethod,
-                    loessSpan = loessSpan,
-                    use_weights = use_weights,
-                    threshcoef = threshcoef,
-                    tm = tm,
-                    beta = beta,
-                    t_range = t_range,
-                    tm_limits = tm_limits,
-                    ti_limits = ti_limits,
-                    dir_name = output_dir)
-                
-                # add to final output dataframe
-                total_params_df[((x-1)*length(regs)+1):(x*length(regs)),] <- tmp_par
-                
-                # update progress bar
-                if (x==length(year_list)) {update_text <- "Zipping output files to download..."
-                } else {update_text <- paste0("Computing fits for ", year_list[x+1], "...")}
-                update_modal_progress(value = (progress_updates[x]/100), text = update_text)
-                
-                gc()
-                
-            }
-            
-            write.csv(total_params_df %>% dplyr::arrange(., Region, Year),
-                      file=file.path(output_dir, "bloom_fit_params.csv"),
-                      quote=FALSE,
-                      na=" ",
-                      row.names=FALSE)
-            
-            
-            # SAVE SETTINGS
-            
-            info <- settings_str(satellite = names(sensors)[sensors==satellite],
-                                 region = names(regions)[regions==region],
-                                 algorithm = names(algorithms)[algorithms==algorithm],
-                                 year_list = year_bounds,
-                                 date_var = NA,
-                                 interval = interval,
-                                 log_chla = log_chla,
-                                 polygon_name_list = poly_names,
-                                 polygon_coord_list = boxes,
-                                 percent = percent,
-                                 outlier = outlier,
-                                 dailystat = dailystat,
-                                 pixrange1 = pixrange1,
-                                 pixrange2 = pixrange2,
-                                 fitmethod = names(fitmethods)[fitmethods==fitmethod],
-                                 bloomShape = names(bloomShapes)[bloomShapes==bloomShape],
-                                 smoothMethod = names(smoothMethods)[smoothMethods==smoothMethod],
-                                 loessSpan = loessSpan,
-                                 t_range = t_range,
-                                 ti_limits = ti_limits,
-                                 tm_limits = tm_limits,
-                                 tm = tm,
-                                 beta = beta,
-                                 use_weights = use_weights,
-                                 threshcoef = threshcoef)
-            
-            if (year_bounds[1]==year_bounds[2]) {
-                year_bounds <- year_bounds[1]
-            } else {
-                year_bounds <- paste(year_bounds, collapse="-")
-            }
-            
-            fileConn <- file(file.path(output_dir, "settings.txt"))
-            writeLines(info, fileConn)
-            close(fileConn)
+            # update progress bar
+            if (x==length(year_list)) {update_text <- "Zipping output files..."
+            } else {update_text <- paste0("Computing fits for ", year_list[x+1], "...")}
+            update_modal_progress(value = (progress_updates[x]/100), text = update_text)
             
             gc()
             
-            # zip files up to be downloaded
-            # j flag prevents files from being sorted into subdirectories inside the zip file (the other flags are defaults)
-            zip(file, list.files(output_dir, full.names=TRUE), flags = "-r9Xj")
-            
-            # remove progress bar and return to normal screen
-            remove_modal_progress()
-            
         }
+        
+        write.csv(total_params_df %>% dplyr::arrange(., Region, Year),
+                  file=file.path(output_dir, "bloom_fit_params.csv"),
+                  quote=FALSE,
+                  na=" ",
+                  row.names=FALSE)
+        
+        
+        # SAVE SETTINGS
+        
+        info <- settings_str(satellite = names(sensors)[sensors==satellite],
+                             region = names(regions)[regions==region],
+                             algorithm = names(algorithms)[algorithms==algorithm],
+                             year_list = year_bounds,
+                             date_var = NA,
+                             interval = interval,
+                             log_chla = log_chla,
+                             polygon_name_list = poly_names,
+                             polygon_coord_list = boxes,
+                             percent = percent,
+                             outlier = outlier,
+                             dailystat = dailystat,
+                             pixrange1 = pixrange1,
+                             pixrange2 = pixrange2,
+                             fitmethod = names(fitmethods)[fitmethods==fitmethod],
+                             bloomShape = names(bloomShapes)[bloomShapes==bloomShape],
+                             smoothMethod = names(smoothMethods)[smoothMethods==smoothMethod],
+                             loessSpan = loessSpan,
+                             t_range = t_range,
+                             ti_limits = ti_limits,
+                             tm_limits = tm_limits,
+                             tm = tm,
+                             beta = beta,
+                             use_weights = use_weights,
+                             threshcoef = threshcoef)
+        
+        if (year_bounds[1]==year_bounds[2]) {
+            year_bounds <- year_bounds[1]
+        } else {
+            year_bounds <- paste(year_bounds, collapse="-")
+        }
+        
+        fileConn <- file(file.path(output_dir, "settings.txt"))
+        writeLines(info, fileConn)
+        close(fileConn)
+        
+        gc()
+        
+        fname <- output_str(satellite=satellite,
+                            region=region,
+                            algorithm=algorithm,
+                            year=isolate(input$fullrunyears),
+                            interval=interval,
+                            log_chla=log_chla,
+                            fitmethod=fitmethod,
+                            custom_end="fulltimeseries.zip")
+        
+        # zip files up to be downloaded
+        # j flag prevents files from being sorted into subdirectories inside the zip file (the other flags are defaults)
+        zip(file.path(output_dir, fname), list.files(output_dir, full.names=TRUE), flags = "-r9Xj")
+        
+        # remove progress bar and return to normal screen
+        remove_modal_progress()
+        
+        state$fullrun_outputdir <- output_dir
+        state$fullrun_fname <- fname
+        
+        enable("fullrun_download")
+        
+    })
+    
+    output$fullrun_fname <- renderUI({
+        if (is.null(state$fullrun_fname)) {
+            helpText("",
+                     width = widget_width,
+                     style = help_text_style)
+        } else {
+            helpText(HTML(paste0("File ready for download:<br>", gsub("_", "_ ", state$fullrun_fname))),
+                     width = widget_width,
+                     style = help_text_style)
+        }
+    })
+    
+    # Download the results from "fullrun_process"
+    output$fullrun_download <- downloadHandler(
+        filename <- function() {
+            isolate(state$fullrun_fname)
+        },
+        content <- function(file) {
+            file.copy(file.path(isolate(state$fullrun_outputdir), isolate(state$fullrun_fname)), file)
+        },
+        contentType = "application/zip"
     )
     
     
