@@ -173,7 +173,6 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           if(!is.null(fit)) break
       }
       
-      
       # FILL IN VALUES FROM THE FIT
       if (!is.null(fit)) {
         

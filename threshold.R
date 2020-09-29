@@ -1,4 +1,4 @@
-threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm_limits = c(1, 365), ti_limits = c(1, 365), logchla=FALSE) {
+threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm_limits = c(1, 365), ti_limits = c(1, 365), log_chla=FALSE) {
   
   require(quantreg)
   
@@ -38,7 +38,7 @@ threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm
   # multiplying it by the threshcoef
   med <- median(y, na.rm = TRUE)
   miny <- min(y, na.rm=TRUE)
-  if (logchla) {
+  if (log_chla) {
     tmp_med <- 10^med
     thresh <- threshcoef * tmp_med
     thresh <- log10(thresh)
@@ -47,9 +47,10 @@ threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm
   }
   
   # find where concentration drops below thresh for 14 days (before the bloom)
-  tmp_ind <- t >= ti_limits[1] & t <= tm
-  ytmp <- y[tmp_ind]
-  ttmp <- t[tmp_ind]
+  yday_ti <- t >= ti_limits[1] & t <= tm
+  if (sum(yday_ti)==0) {return(list(values = values))}
+  ytmp <- y[yday_ti]
+  ttmp <- t[yday_ti]
   # temporarily reverse vector
   ytr <- rev(ytmp) - thresh
   # find runlength for above/below threshold (TRUE = above, FALSE = below)
@@ -137,12 +138,6 @@ threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm
   
   values[1,3:9] <- c(ti, tm, tt, td, mag, amp, thresh)
   
-  return(list(values = values, y=y, t=t, tmp_ind=tmp_ind, ytmp=ytmp, ytr=ytr,
-              rle=rle, csrle=csrle, dcsrle=dcsrle, dvalues=dvalues, tt_tmp=tt_tmp, okth=okth, thresh=thresh))
-  
-  
-  
-  
-  
+  return(list(values = values))
   
 }

@@ -49,6 +49,8 @@ rateOfChange <- function(y, yall, t, tall, bloomShape = "symmetric", tm_limits =
     
     # pick the largest slope (rate of change) - this is the bloom start
     yday_ti <- tpm_short >= ti_limits[1] & tpm_short <= ti_limits[2]
+    if (sum(yday_ti)==0) {return(list(values = values))}
+    
     maxidxdcdt <- which(dchladt==max(dchladt[yday_ti],na.rm=TRUE) & yday_ti)
     ti <- tpm_short[maxidxdcdt]
     

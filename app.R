@@ -67,25 +67,25 @@ fitmethods <- c("Shifted Gaussian" = "gauss",
 bloomShapes <- c("Symmetric" = "symmetric",
                  "Asymmetric" = "asymmetric")
 
-smoothMethods <- c("LOESS smooth" = "loess",
-                   "No smooth" = "nofit")
+smoothMethods <- c("No smoothing" = "nofit",
+                   "LOESS" = "loess")
 
 # bloom fit table parameter names, depending on fitmethod, bloomShape, beta (code \u03B2 to get the symbol)
 pnlist <- list("gauss"=list("symmetric"=list("beta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                                                      "Magnitude", "Amplitude", "B0", "h", "sigma", "\u03B2"),
+                                                      "Magnitude", "Amplitude", "B0", "h", "sigma", "\u03B2", "RMSE"),
                                              "nonbeta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                                                         "Magnitude", "Amplitude", "B0", "h", "sigma")),
+                                                         "Magnitude", "Amplitude", "B0", "h", "sigma", "RMSE")),
                             "asymmetric"=list("beta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
                                                        "Magnitude[left]", "Amplitude[left]",
                                                        "B0[left]", "h[left]", "sigma[left]",
                                                        "Magnitude[right]", "Amplitude[right]",
                                                        "B0[right]", "h[right]", "sigma[right]",
-                                                       "\u03B2[left]", "\u03B2[right]"),
+                                                       "\u03B2[left]", "\u03B2[right]", "RMSE"),
                                               "nonbeta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
                                                           "Magnitude[left]", "Amplitude[left]",
                                                           "B0[left]", "h[left]", "sigma[left]",
                                                           "Magnitude[right]", "Amplitude[right]",
-                                                          "B0[right]", "h[right]", "sigma[right]"))),
+                                                          "B0[right]", "h[right]", "sigma[right]", "RMSE"))),
                "roc"=c("Mean", "Median", "t[start]", "t[max]", "t[end]",
                        "t[duration]", "Magnitude", "Amplitude"),
                "thresh"=c("Mean", "Median", "t[start]", "t[max]", "t[end]",
@@ -556,7 +556,7 @@ ui <- fluidPage(
             
             helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Time series</font></br>",
                                  "Select a series of years and the polygons you would like to process, ",
-                                 "then click \"Save time series\" to generate the following:</br>",
+                                 "then click \"Run time series\" to generate the following:</br>",
                                  "<ul>",
                                     "<li>time series plots (.png),</li>",
                                     "<li>tables of statistics (.csv),</li>",
@@ -587,7 +587,7 @@ ui <- fluidPage(
                              uiOutput(outputId = "fullrunboxes")),
             br(),
             downloadButton(outputId = "fullrun",
-                           label = "Save time series (.zip)",
+                           label = "Run time series (.zip)",
                            style = button_style),
             br()
             
@@ -847,16 +847,8 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
     
     output$box <- renderUI({
         
-        # default choices, used for atlantic
-        choices <- c("custom", poly_ID[["atlantic"]])
-        names(choices) <- c("Custom polygon", full_names[["atlantic"]])
-        
-        if (state$region == "pacific") {
-            
-            choices <- c("custom", poly_ID[["pacific"]])
-            names(choices) <- c("Custom polygon", full_names[["pacific"]])
-            
-        }
+        choices <- c("custom", poly_ID[[state$region]])
+        names(choices) <- c("Custom polygon", full_names[[state$region]])
         
         selectInput(inputId = 'box',
                     label = HTML("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Choose a polygon</font>"),
@@ -2184,7 +2176,6 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
             state$dfbloomparms <- NULL
             
         }
-        
         
         # output the graph
         # note: do not use "print(p)" or the bloomfit_click function will not work

@@ -131,7 +131,7 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
         
         if (is.null(em)) {
         
-            bf_data <- get_bloom_fit_data(interval=isolate(state$interval),
+            bf_data <- get_bloom_fit_data(interval=interval,
                                           p=p,
                                           pnames = pnames,
                                           dailystat = dailystat,
