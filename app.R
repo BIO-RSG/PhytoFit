@@ -42,7 +42,8 @@ source("functions.R")       # extra functions
 # VARIABLES ####
 
 sensors <- c("MODIS 4km" = "modis",
-             "VIIRS 4km" = "viirs")
+             "VIIRS 4km" = "viirs",
+             "SeaWiFS 4km" = "seawifs")
 
 regions <- c("Atlantic"="atlantic",
              "Pacific"="pacific")
@@ -53,7 +54,8 @@ algorithms <- c("OCx"="ocx",
 
 # years with available data for each sensor
 years <- list("modis"=2003:2020,
-              "viirs"=2012:2020)
+              "viirs"=2012:2020,
+              "seawifs"=1997:2010)
 for (i in 1:length(years)) {names(years[[i]]) <- years[[i]]}
 default_years <- years[["modis"]]
 
