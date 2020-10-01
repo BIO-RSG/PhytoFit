@@ -67,25 +67,25 @@ fitmethods <- c("Shifted Gaussian" = "gauss",
 bloomShapes <- c("Symmetric" = "symmetric",
                  "Asymmetric" = "asymmetric")
 
-smoothMethods <- c("LOESS smooth" = "loess",
-                   "No smooth" = "nofit")
+smoothMethods <- c("No smoothing" = "nofit",
+                   "LOESS" = "loess")
 
 # bloom fit table parameter names, depending on fitmethod, bloomShape, beta (code \u03B2 to get the symbol)
 pnlist <- list("gauss"=list("symmetric"=list("beta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                                                      "Magnitude", "Amplitude", "B0", "h", "sigma", "\u03B2"),
+                                                      "Magnitude", "Amplitude", "B0", "h", "sigma", "\u03B2", "RMSE"),
                                              "nonbeta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                                                         "Magnitude", "Amplitude", "B0", "h", "sigma")),
+                                                         "Magnitude", "Amplitude", "B0", "h", "sigma", "RMSE")),
                             "asymmetric"=list("beta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
                                                        "Magnitude[left]", "Amplitude[left]",
                                                        "B0[left]", "h[left]", "sigma[left]",
                                                        "Magnitude[right]", "Amplitude[right]",
                                                        "B0[right]", "h[right]", "sigma[right]",
-                                                       "\u03B2[left]", "\u03B2[right]"),
+                                                       "\u03B2[left]", "\u03B2[right]", "RMSE"),
                                               "nonbeta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
                                                           "Magnitude[left]", "Amplitude[left]",
                                                           "B0[left]", "h[left]", "sigma[left]",
                                                           "Magnitude[right]", "Amplitude[right]",
-                                                          "B0[right]", "h[right]", "sigma[right]"))),
+                                                          "B0[right]", "h[right]", "sigma[right]", "RMSE"))),
                "roc"=c("Mean", "Median", "t[start]", "t[max]", "t[end]",
                        "t[duration]", "Magnitude", "Amplitude"),
                "thresh"=c("Mean", "Median", "t[start]", "t[max]", "t[end]",
@@ -96,6 +96,12 @@ pnlist <- list("gauss"=list("symmetric"=list("beta"=c("Mean", "Median", "t[start
 doy_week_start <- as.integer(8*(0:45)+1) # note: this is the same for leap years, using NASA's system
 doy_week_end <- c(doy_week_start[2:length(doy_week_start)] - 1, 365)
 doys_per_week <- lapply(1:length(doy_week_start), function(i) {doy_week_start[i]:doy_week_end[i]})
+
+
+# get the date that the data was last updated
+data_last_updated <- file.info(list.files("data", pattern=".fst", full.names = TRUE, recursive = TRUE))$mtime
+most_recent <- which.max(as.numeric(data_last_updated))
+data_last_updated <- data_last_updated[most_recent]
 
 
 
@@ -150,10 +156,11 @@ remove_custom_poly <- tags$script(HTML(
         "
 ))
 
-# Style for the horizontal bar in the sidebar, and the multi-column styling in 
-# the "full run" polygon selection.
-# This variable is called at the top of the UI
-hr_multicol_style <- tags$style(HTML(
+# Called at the top of the UI, this variable:
+#       - styles the horizontal bar in the sidebar,
+#       - creates the multi-column styling in the "full run" polygon selection,
+#       - reduces padding inside widget boxes
+sidebar_tags_style <- tags$style(HTML(
             "hr {border-top: 1px solid #bbbbbb;}
             .multicol {
                        font-size: 14px;
@@ -162,7 +169,8 @@ hr_multicol_style <- tags$style(HTML(
                        column-count: 2; 
                        -moz-column-fill: auto;
                        -column-fill: auto;
-                     }"
+                     }
+            .form-control { height:auto; padding:3px 3px;}"
 ))
 
 
@@ -174,12 +182,10 @@ ui <- fluidPage(
     # For hiding download buttons if data hasn't been loaded yet
     useShinyjs(),
     
-    # hr() and multi-column styling, and old polygon removal code
-    tags$head(hr_multicol_style,
-              # reduce padding inside widget boxes
-              tags$style(HTML(
-                  ".form-control { height:auto; padding:3px 3px;}"
-              ))),
+    # styling
+    tags$head(sidebar_tags_style),
+    
+    # old polygon removal code
     tags$div(remove_custom_poly),
     
     chooseSliderSkin("Modern"),
@@ -234,8 +240,6 @@ ui <- fluidPage(
             
             shinyjs::hidden(div(id="hiddenPanel",
             
-            br(),
-            
             # UI MAP COLOUR SCALE ####
             
             helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Adjust map colour scale</font>")),
@@ -261,7 +265,8 @@ ui <- fluidPage(
             
             helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Choose day of year</font></br>",
                                  "Enter the day of year and click \"Go\", or drag the slider to view the map for that day. ",
-                                 "Use the \"play/pause\" button on the slider to move through a sequence of daily/weekly chlorophyll maps automatically.")),
+                                 "Use the \"play/pause\" button on the slider to move through a sequence of daily/weekly chlorophyll maps automatically.<br>",
+                                 "NOTE: If you are viewing weekly (8-day) data, the day of year will reset to the first day of the selected week.")),
                      width = widget_width,
                      style = help_text_style),
             # Enter numerically
@@ -559,9 +564,10 @@ ui <- fluidPage(
                                     "<li>a .txt file containing the settings used for the time series, for reference.</li>",
                                  "</ul>",
                                  "The settings used in the time series will be the current selections for satellite, ",
-                                 "region, algorithm, interval, log<sub>10</sub><i>chla</i> ON/OFF, statistics, and bloom fit. Files will be written",
+                                 "region, algorithm, interval, log<sub>10</sub><i>chla</i> ON/OFF, statistics, and bloom fit. Files will be zipped",
                                  " to a folder following the naming convention <i>satellite_ region_ algorithm_ years_ interval_ (un)loggedChla_ fitmethod_ timecreated</i>.</br>",
-                                 "Make sure at least one polygon is selected.")),
+                                 "Make sure at least one polygon is selected.<br>",
+                                 "When processing is complete and the new filename appears over the download button, click \"Download results (.zip)\".")),
                      width = widget_width,
                      style = help_text_style),
             sliderInput(inputId = "fullrunyears",
@@ -581,9 +587,15 @@ ui <- fluidPage(
             conditionalPanel(condition = "input.fullrunallboxes == 'FALSE'",
                              uiOutput(outputId = "fullrunboxes")),
             br(),
-            downloadButton(outputId = "fullrun",
-                           label = "Save time series (.zip)",
-                           style = button_style),
+            actionButton(inputId = "fullrun_process",
+                         label = "Run time series",
+                         style = button_style),
+            uiOutput("fullrun_fname",
+                     width = widget_width,
+                     style = "white-space: normal;"),
+            disabled(downloadButton(outputId = "fullrun_download",
+                                    label = "Download results (.zip)",
+                                    style = button_style)),
             br()
             
             ))
@@ -664,7 +676,7 @@ server <- function(input, output, session) {
     state$newpoly <- NULL
     state$editedpoly <- NULL
     state$fullrunboxes <- "custom"
-    
+    state$fullrun_fname <- NULL
     # default box - need this so when everything first evaluates, some functions
     # dependent on it know what to do (since the box option doesn't appear until
     # the box UI renders, then evaluates AFTER that)
@@ -683,7 +695,18 @@ server <- function(input, output, session) {
     observe({
         showModal(modalDialog(
                     title = "Satellite Chlorophyll Data Visualization",
-                    "This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.",
+                    HTML(paste0("This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.<br><br>
+Paper detailing the chlorophyll-a algorithms (OCx, POLY4, and GSM_GS):<br><a href=\"https://www.mdpi.com/2072-4292/11/22/2609\"><i>Clay, S.; Peña, A.; DeTracey, B.; Devred, E. Evaluation of Satellite-Based Algorithms to Retrieve Chlorophyll-a Concentration in the Canadian Atlantic and Pacific Oceans. Remote Sens. 2019, 11, 2609.</i></a><br><br>
+Tech Report with descriptions of the bloom fitting models (Shifted Gaussian, Rate of Change, and Threshold methods):<br>
+<i>IN PROGRESS</i><br><br>
+<b>Data used:</b><br>
+Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a>, and weekly composites are generated by taking the average of each pixel over an 8-day period (46 weeks/year), following the same system as NASA OBPG. The binned data is used for statistics and bloom fitting, and rasterized and projected onto the map using <a href=\"https://spatialreference.org/ref/sr-org/7483/\">EPSG:3857</a> (the Web Mercator projection) for faster image loading.<br>
+<a href=\"https://oceancolor.gsfc.nasa.gov/atbd/chlor_a/\">NASA OCx chlorophyll-a algorithm</a><br>
+<a href=\"https://oceancolor.gsfc.nasa.gov/products/\">Level-3 binned files</a><br>
+                                    <a href=\"https://oceancolor.gsfc.nasa.gov/docs/format/l3bins/\">Binning scheme</a><br><br>
+                                    <b>Contact:</b><br>
+                                    Stephanie.Clay@dfo-mpo.gc.ca<br><br>
+                                    <b>Dataset last updated:</b><br>", data_last_updated)),
                     easyClose = TRUE,
                     footer = modalButton("OK")
         ))
@@ -781,10 +804,47 @@ server <- function(input, output, session) {
             state$zoom_level <- 6
         }
         
+        
+        poly_coord_list <- all_regions[[reg]]
+        
+        
+        # # split a disjoint polygon into separate polygons, each with the same label
+        # reg_list <- all_regions[[reg]]
+        # poly_coord_list <- list()
+        # poly_coord_list_names <- c()
+        # for (i in 1:length(reg_list)) {
+        #     if (anyNA(reg_list[[i]]$lat)) {
+        # 
+        #         tmp_lats <- reg_list[[i]]$lat
+        #         tmp_lons <- reg_list[[i]]$lon
+        # 
+        #         NA_inds <- c(0, which(is.na(tmp_lats)))
+        # 
+        #         for (j in 1:(length(NA_inds)-1)) {
+        #             coord_inds <- (NA_inds[j]+1):(NA_inds[j+1]-1)
+        #             tmp_box <- list(lat=reg_list[[i]]$lat[coord_inds],
+        #                             lon=reg_list[[i]]$lon[coord_inds])
+        #             poly_coord_list <- c(poly_coord_list, list(tmp_box))
+        #             poly_coord_list_names <- c(poly_coord_list_names, paste0(names(reg_list)[i], j))
+        # 
+        #         }
+        # 
+        #     } else {
+        #         poly_coord_list <- c(poly_coord_list, list(reg_list[[i]]))
+        #         poly_coord_list_names <- c(poly_coord_list_names, names(reg_list)[i])
+        #     }
+        # }
+        # names(poly_coord_list) <- poly_coord_list_names
+        
+        
         # Make polygons for existing boxes, to add to base leaflet map
-        original_polys <- lapply(1:length(all_regions[[reg]]), function(k) {Polygon(coords=cbind(all_regions[[reg]][[k]]$lon, all_regions[[reg]][[k]]$lat), hole=TRUE)})
-        original_polyIDs <- lapply(1:length(original_polys), function(k) {Polygons(list(original_polys[[k]]), toupper(names(all_regions[[reg]])[k]))})
-        state$original_polylist <- SpatialPolygons(original_polyIDs, 1:length(all_regions[[reg]]))
+        original_polys <- lapply(1:length(poly_coord_list), function(k) {
+            Polygon(coords=cbind(poly_coord_list[[k]]$lon, poly_coord_list[[k]]$lat), hole=TRUE)
+        })
+        original_polyIDs <- lapply(1:length(original_polys), function(k) {
+            Polygons(list(original_polys[[k]]), toupper(poly_ID[[isolate(state$region)]][k]))
+        })
+        state$original_polylist <- SpatialPolygons(original_polyIDs, 1:length(poly_coord_list))
         
     })
     
@@ -794,16 +854,8 @@ server <- function(input, output, session) {
     
     output$box <- renderUI({
         
-        # default choices, used for atlantic
-        choices <- c("custom", names(all_regions[["atlantic"]]))
-        names(choices) <- c("Custom polygon", full_names[["atlantic"]])
-        
-        if (state$region == "pacific") {
-            
-            choices <- c("custom", names(all_regions[["pacific"]]))
-            names(choices) <- c("Custom polygon", full_names[["pacific"]])
-            
-        }
+        choices <- c("custom", poly_ID[[state$region]])
+        names(choices) <- c("Custom polygon", full_names[[state$region]])
         
         selectInput(inputId = 'box',
                     label = HTML("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Choose a polygon</font>"),
@@ -844,7 +896,7 @@ server <- function(input, output, session) {
     observe({
         state$poly_name <- ifelse(state$box=='custom',
                                   ifelse(nchar(state$custom_name)==0, "Custom polygon", state$custom_name),
-                                  paste0(full_names[[isolate(state$region)]][which(state$box==names(all_regions[[isolate(state$region)]]))]))
+                                  paste0(full_names[[isolate(state$region)]][which(state$box==poly_ID[[isolate(state$region)]])]))
     })
     
     
@@ -1091,8 +1143,8 @@ server <- function(input, output, session) {
     
     output$fullrunboxes <- renderUI({
         
-        choices <- c("custom", names(all_regions[[input$region]]))
-        names(choices) <- c("Custom", toupper(names(all_regions[[input$region]])))
+        choices <- c("custom", poly_ID[[input$region]])
+        names(choices) <- c("Custom", poly_ID[[input$region]])
         
         tags$div(class = "multicol",
         checkboxGroupInput(inputId = "fullrunboxes",
@@ -1108,8 +1160,8 @@ server <- function(input, output, session) {
         
         ifrab <- input$fullrunallboxes
         
-        choices <- c("custom", names(all_regions[[input$region]]))
-        names(choices) <- c("Custom", toupper(names(all_regions[[input$region]])))
+        choices <- c("custom", poly_ID[[input$region]])
+        names(choices) <- c("Custom", toupper(poly_ID[[input$region]]))
         
         if (ifrab) {
             state$fullrunboxes <- choices
@@ -1124,9 +1176,9 @@ server <- function(input, output, session) {
         ifrb <- input$fullrunboxes
         
         if (length(ifrb)==1 & ifrb=="custom" & is.null(state$newpoly) & is.null(state$editedpoly)) {
-            disable("fullrun")
+            disable("fullrun_process")
         } else {
-            enable("fullrun")
+            enable("fullrun_process")
         }
         
         state$fullrunboxes <- ifrb
@@ -1218,9 +1270,6 @@ server <- function(input, output, session) {
     # Raster data will be overlaid after this
     map_reactive <- reactive({
     
-        abbrev <- sapply(strsplit(full_names[[isolate(state$region)]], "[()]+"), "[[", 2)
-        abbrev[duplicated(abbrev)] <- NA
-        
         # Use leaflet() here, and only include aspects of the map that won't need
         # to change dynamically unless the entire map is torn down and recreated.
         leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
@@ -1236,11 +1285,11 @@ server <- function(input, output, session) {
             addPolygons(group = "Stats boxes",
                         data = state$original_polylist,
                         stroke = TRUE,
-                        color = "magenta",
+                        color = "darkgrey",
                         weight = 2,
                         opacity = 1,
                         fill = FALSE,
-                        label = abbrev,#names(state$original_polylist),
+                        label = abbrev[[isolate(state$region)]],
                         labelOptions = labelOptions(noHide = TRUE,
                                                     textOnly = TRUE,
                                                     textsize = '13px',
@@ -1281,7 +1330,6 @@ server <- function(input, output, session) {
                 clearPopups() %>%
                 clearControls() %>%
                 clearImages() %>%
-                #clearGroup("Points") %>%
                 # Label map with current year and day of year
                 addControl(tags$div(tag.map.title, HTML(paste0(day_label, "<br>NO DATA AVAILABLE YET"))),
                            position = "topleft",
@@ -1302,7 +1350,6 @@ server <- function(input, output, session) {
                     clearPopups() %>%
                     clearControls() %>%
                     clearImages() %>%
-                    #clearGroup("Points") %>%
                     # Label map with current year and day of year
                     addControl(tags$div(tag.map.title, HTML(paste0(day_label, "<br>NO DATA"))),
                                position = "topleft",
@@ -1348,14 +1395,7 @@ server <- function(input, output, session) {
                 )
                 state$cm <- cm
                 
-                # # For plotting points, use an adjusted table of lat/lon/chl where the values
-                # # above/below the color scale are set to the color scale limits.
-                # pts_coloradj <- pts %>%
-                #     dplyr::mutate(., chl=if_else(chl < zlim[1], zlim[1],
-                #                                  if_else(chl > zlim[2], zlim[2], chl)))
-                # state$pts_coloradj <- pts_coloradj
-                
-                # Same as above, for raster instead
+                # Use a raster with values above/below the color scale set to the limits.
                 tr_coloradj <- calc(tr, function(x) ifelse(x <= zlim[1], zlim[1]+(1e-10), ifelse(x >= zlim[2], zlim[2]-(1e-10), x)))
                 state$tr_coloradj <- tr_coloradj
                 
@@ -1365,17 +1405,9 @@ server <- function(input, output, session) {
                     clearControls() %>%
                     clearImages() %>%
                     addRasterImage(x = tr_coloradj, colors = cm) %>%
-                    # clearGroup("Points") %>%
-                    # addCircles(data = pts_coloradj,
-                    #            ~lon, ~lat,
-                    #            color = ~cm(chl),
-                    #            radius = 2300,
-                    #            fillOpacity = 0.7,
-                    #            stroke = FALSE,
-                    #            group = "Points") %>%
                     addLegend(position = 'topright',
                               pal = cm,
-                              values = c(getValues(tr_coloradj),zlim),#pts_coloradj$chl,
+                              values = c(getValues(tr_coloradj),zlim),
                               title = leg_title,
                               bins = 10,
                               opacity = 1) %>%
@@ -1432,7 +1464,7 @@ server <- function(input, output, session) {
     observeEvent(input$fullmap_draw_new_feature, {
         state$newpoly <- input$fullmap_draw_new_feature
         state$editedpoly <- NULL
-        enable("fullrun")
+        enable("fullrun_process")
     })
     observeEvent(input$fullmap_draw_edited_features, {
         state$newpoly <- NULL
@@ -1446,7 +1478,7 @@ server <- function(input, output, session) {
                         inputId="custom_name",
                         value="")
         if (length(state$fullrunboxes)==1 & state$fullrunboxes=="custom") {
-            disable("fullrun")
+            disable("fullrun_process")
         }
     })
     
@@ -1763,8 +1795,8 @@ server <- function(input, output, session) {
                 
                 # Use point.in.polygon to extract AZMP stat boxes based on their
                 # lat/lon boundaries.
-                Longitude <- as.numeric(all_regions[[isolate(state$region)]][[state$box]]$lon)
-                Latitude <- as.numeric(all_regions[[isolate(state$region)]][[state$box]]$lat)
+                Longitude <- as.numeric(all_regions[[isolate(state$region)]][[which(state$box==poly_ID[[isolate(state$region)]])]]$lon)
+                Latitude <- as.numeric(all_regions[[isolate(state$region)]][[which(state$box==poly_ID[[isolate(state$region)]])]]$lat)
                 
                 # for highlighted box in leaflet map
                 highlight_ID <- "highlighted_box"
@@ -2152,7 +2184,6 @@ server <- function(input, output, session) {
             
         }
         
-        
         # output the graph
         # note: do not use "print(p)" or the bloomfit_click function will not work
         return(p)
@@ -2192,215 +2223,231 @@ server <- function(input, output, session) {
     
     # Take a vector of years selected by the user, and compute annual statistics
     # and bloom fits for each, using the current settings
-    output$fullrun <- downloadHandler(
-        filename <- function() {
-            isolate({
-                satellite <- state$satellite
-                region <- state$region
-                algorithm <- state$algorithm
-                year_bounds <- input$fullrunyears
-                interval <- state$interval
-                log_chla <- state$log_chla
-                fitmethod <- state$fitmethod
-            })
-            output_str(satellite=satellite,
-                       region=region,
-                       algorithm=algorithm,
-                       year=year_bounds,
-                       interval=interval,
-                       log_chla=log_chla,
-                       fitmethod=fitmethod,
-                       custom_end="fulltimeseries.zip")
-        },
-        content <- function(file) {
+    observeEvent(input$fullrun_process, {
         
-            regs <- isolate(state$fullrunboxes)
+        regs <- isolate(state$fullrunboxes)
+        
+        # if "custom" box is selected but no polygon is drawn, unselect it
+        if (is.null(isolate(state$newpoly)) & is.null(isolate(state$editedpoly))) {
+            regs <- regs[regs != "custom"]
+        }
+        
+        # Get variables
+        isolate({
+            satellite <- state$satellite
+            region <- state$region
+            algorithm <- state$algorithm
+            interval <- state$interval
+            log_chla <- state$log_chla
+            yearday <- state$yearday
+            fitmethod <- state$fitmethod
+            bloomShape <- state$bloomShape
+            tm <- state$tm
+            beta <- state$beta
+            custom_name <- state$custom_name
+            polylat <- state$polylat
+            polylon <- state$polylon
+            coord_list <- state$coord_list
+            latlon_method <- state$latlon_method
+            dailystat <- state$dailystat
+            pixrange1 <- state$pixrange1
+            pixrange2 <- state$pixrange2
+            outlier <- state$outlier
+            percent <- state$percent
+            smoothMethod <- state$smoothMethod
+            loessSpan <- state$loessSpan
+            use_weights <- state$use_weights
+            threshcoef <- state$threshcoef
+            t_range <- state$t_range
+            tm_limits <- state$tm_limits
+            ti_limits <- state$ti_limits
+        })
+        
+        # create column names for parameter table
+        pnames <- pnlist[[fitmethod]]
+        if (fitmethod=="gauss") {
+            pnames <- pnames[[bloomShape]]
+            if (beta) {pnames <- pnames[["beta"]]
+            } else {pnames <- pnames[["nonbeta"]]}
+        }
+        
+        year_bounds <- isolate(input$fullrunyears)
+        year_list <- (year_bounds[1]):(year_bounds[2])
+        
+        # grey out the screen while processing, and show progress bar
+        show_modal_progress_line(text = paste0("Computing fits for ", year_list[1], "..."))
+        
+        # Create output subfolders
+        output_dir <- file.path(tempdir(),
+                                output_str(satellite=satellite,
+                                           region=region,
+                                           algorithm=algorithm,
+                                           year=year_bounds,
+                                           interval=interval,
+                                           log_chla=log_chla,
+                                           fitmethod=fitmethod,
+                                           custom_end="fulltimeseries"))
+        dir.create(output_dir)
+        
+        steps <- 100/length(year_list)
+        progress_updates <- round(seq(steps[1], 100, by=steps),1)
+        
+        poly_names <- sapply(1:length(regs), function(r) ifelse(regs[r]=='custom',
+                                                                ifelse(nchar(custom_name)==0, "Custom polygon", custom_name),
+                                                                paste0(full_names[[region]][which(regs[r]==poly_ID[[region]])])))
+        
+        boxes <- all_regions[[region]]
+        names(boxes) <- poly_ID[[region]]
+        if ("custom" %in% regs) {
+            boxes[["custom"]] <- list()
+            boxes[["custom"]]$lat <- polylat
+            boxes[["custom"]]$lon <- polylon
+        }
+        boxes <- boxes[regs]
+        
+        total_params_df <- data.frame(matrix(nrow=(length(year_list)*length(regs)), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
+        colnames(total_params_df) <- c("Region", "Year", pnames)
+        
+        for (x in 1:length(year_list)) {
             
-            # if "custom" box is selected but no polygon is drawn, unselect it
-            if (is.null(isolate(state$newpoly)) & is.null(isolate(state$editedpoly))) {
-                regs <- regs[regs != "custom"]
-            }
+            tmp_par <- full_run(
+                year = year_list[x],
+                satellite = satellite,
+                region = region,
+                algorithm = algorithm,
+                interval = interval,
+                sslat = coord_list[[region]]$lat,
+                sslon = coord_list[[region]]$lon,
+                boxes = boxes,
+                latlon_method = latlon_method,
+                pnames = pnames,
+                yearday = yearday,
+                doys_per_week = doys_per_week,
+                doy_week_start = doy_week_start,
+                doy_week_end = doy_week_end,
+                dailystat = dailystat,
+                pixrange1 = pixrange1,
+                pixrange2 = pixrange2,
+                outlier = outlier,
+                percent = percent,
+                log_chla = log_chla,
+                poly_names = poly_names,
+                fitmethod = fitmethod,
+                bloomShape = bloomShape,
+                smoothMethod = smoothMethod,
+                loessSpan = loessSpan,
+                use_weights = use_weights,
+                threshcoef = threshcoef,
+                tm = tm,
+                beta = beta,
+                t_range = t_range,
+                tm_limits = tm_limits,
+                ti_limits = ti_limits,
+                dir_name = output_dir)
             
-            # Get variables
-            isolate({
-                satellite <- state$satellite
-                region <- state$region
-                algorithm <- state$algorithm
-                interval <- state$interval
-                log_chla <- state$log_chla
-                yearday <- state$yearday
-                fitmethod <- state$fitmethod
-                bloomShape <- state$bloomShape
-                tm <- state$tm
-                beta <- state$beta
-                custom_name <- state$custom_name
-                polylat <- state$polylat
-                polylon <- state$polylon
-                coord_list <- state$coord_list
-                latlon_method <- state$latlon_method
-                dailystat <- state$dailystat
-                pixrange1 <- state$pixrange1
-                pixrange2 <- state$pixrange2
-                outlier <- state$outlier
-                percent <- state$percent
-                smoothMethod <- state$smoothMethod
-                loessSpan <- state$loessSpan
-                use_weights <- state$use_weights
-                threshcoef <- state$threshcoef
-                t_range <- state$t_range
-                tm_limits <- state$tm_limits
-                ti_limits <- state$ti_limits
-            })
+            # add to final output dataframe
+            total_params_df[((x-1)*length(regs)+1):(x*length(regs)),] <- tmp_par
             
-            # create column names for parameter table
-            pnames <- pnlist[[fitmethod]]
-            if (fitmethod=="gauss") {
-                pnames <- pnames[[bloomShape]]
-                if (beta) {pnames <- pnames[["beta"]]
-                } else {pnames <- pnames[["nonbeta"]]}
-            }
-            
-            year_bounds <- isolate(input$fullrunyears)
-            year_list <- (year_bounds[1]):(year_bounds[2])
-            
-            # grey out the screen while processing, and show progress bar
-            show_modal_progress_line(text = paste0("Computing fits for ", year_list[1], "..."))
-            
-            # Create output subfolders
-            output_dir <- file.path(tempdir(),
-                                    output_str(satellite=satellite,
-                                               region=region,
-                                               algorithm=algorithm,
-                                               year=year_bounds,
-                                               interval=interval,
-                                               log_chla=log_chla,
-                                               fitmethod=fitmethod,
-                                               custom_end="fulltimeseries"))
-            dir.create(output_dir)
-            
-            steps <- 100/length(year_list)
-            progress_updates <- round(seq(steps[1], 100, by=steps),1)
-            
-            poly_names <- sapply(1:length(regs), function(r) ifelse(regs[r]=='custom',
-                                                                    ifelse(nchar(custom_name)==0, "Custom polygon", custom_name),
-                                                                    paste0(full_names[[region]][which(regs[r]==names(all_regions[[region]]))])))
-            
-            boxes <- all_regions[[region]]
-            if ("custom" %in% regs) {
-                boxes[["custom"]] <- list()
-                boxes[["custom"]]$lat <- polylat
-                boxes[["custom"]]$lon <- polylon
-            }
-            boxes <- boxes[regs]
-            
-            
-            total_params_df <- data.frame(matrix(nrow=(length(year_list)*length(regs)), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
-            colnames(total_params_df) <- c("Region", "Year", pnames)
-            
-            for (x in 1:length(year_list)) {
-                
-                tmp_par <- full_run(
-                    year = year_list[x],
-                    satellite = satellite,
-                    region = region,
-                    algorithm = algorithm,
-                    interval = interval,
-                    sslat = coord_list[[region]]$lat,
-                    sslon = coord_list[[region]]$lon,
-                    boxes = boxes,
-                    latlon_method = latlon_method,
-                    pnames = pnames,
-                    yearday = yearday,
-                    doys_per_week = doys_per_week,
-                    doy_week_start = doy_week_start,
-                    doy_week_end = doy_week_end,
-                    dailystat = dailystat,
-                    pixrange1 = pixrange1,
-                    pixrange2 = pixrange2,
-                    outlier = outlier,
-                    percent = percent,
-                    log_chla = log_chla,
-                    poly_names = poly_names,
-                    fitmethod = fitmethod,
-                    bloomShape = bloomShape,
-                    smoothMethod = smoothMethod,
-                    loessSpan = loessSpan,
-                    use_weights = use_weights,
-                    threshcoef = threshcoef,
-                    tm = tm,
-                    beta = beta,
-                    t_range = t_range,
-                    tm_limits = tm_limits,
-                    ti_limits = ti_limits,
-                    dir_name = output_dir)
-                
-                # add to final output dataframe
-                total_params_df[((x-1)*length(regs)+1):(x*length(regs)),] <- tmp_par
-                
-                # update progress bar
-                if (x==length(year_list)) {update_text <- "Zipping output files to download..."
-                } else {update_text <- paste0("Computing fits for ", year_list[x+1], "...")}
-                update_modal_progress(value = (progress_updates[x]/100), text = update_text)
-                
-                gc()
-                
-            }
-            
-            write.csv(total_params_df %>% dplyr::arrange(., Region, Year),
-                      file=file.path(output_dir, "bloom_fit_params.csv"),
-                      quote=FALSE,
-                      na=" ",
-                      row.names=FALSE)
-            
-            
-            # SAVE SETTINGS
-            
-            info <- settings_str(satellite = names(sensors)[sensors==satellite],
-                                 region = names(regions)[regions==region],
-                                 algorithm = names(algorithms)[algorithms==algorithm],
-                                 year_list = year_bounds,
-                                 date_var = NA,
-                                 interval = interval,
-                                 log_chla = log_chla,
-                                 polygon_name_list = poly_names,
-                                 polygon_coord_list = boxes,
-                                 percent = percent,
-                                 outlier = outlier,
-                                 dailystat = dailystat,
-                                 pixrange1 = pixrange1,
-                                 pixrange2 = pixrange2,
-                                 fitmethod = names(fitmethods)[fitmethods==fitmethod],
-                                 bloomShape = names(bloomShapes)[bloomShapes==bloomShape],
-                                 smoothMethod = names(smoothMethods)[smoothMethods==smoothMethod],
-                                 loessSpan = loessSpan,
-                                 t_range = t_range,
-                                 ti_limits = ti_limits,
-                                 tm_limits = tm_limits,
-                                 tm = tm,
-                                 beta = beta,
-                                 use_weights = use_weights,
-                                 threshcoef = threshcoef)
-            
-            if (year_bounds[1]==year_bounds[2]) {
-                year_bounds <- year_bounds[1]
-            } else {
-                year_bounds <- paste(year_bounds, collapse="-")
-            }
-            
-            fileConn <- file(file.path(output_dir, "settings.txt"))
-            writeLines(info, fileConn)
-            close(fileConn)
+            # update progress bar
+            if (x==length(year_list)) {update_text <- "Zipping output files..."
+            } else {update_text <- paste0("Computing fits for ", year_list[x+1], "...")}
+            update_modal_progress(value = (progress_updates[x]/100), text = update_text)
             
             gc()
             
-            # zip files up to be downloaded
-            # j flag prevents files from being sorted into subdirectories inside the zip file (the other flags are defaults)
-            zip(file, list.files(output_dir, full.names=TRUE), flags = "-r9Xj")
-            
-            # remove progress bar and return to normal screen
-            remove_modal_progress()
-            
         }
+        
+        write.csv(total_params_df %>% dplyr::arrange(., Region, Year),
+                  file=file.path(output_dir, "bloom_fit_params.csv"),
+                  quote=FALSE,
+                  na=" ",
+                  row.names=FALSE)
+        
+        
+        # SAVE SETTINGS
+        
+        info <- settings_str(satellite = names(sensors)[sensors==satellite],
+                             region = names(regions)[regions==region],
+                             algorithm = names(algorithms)[algorithms==algorithm],
+                             year_list = year_bounds,
+                             date_var = NA,
+                             interval = interval,
+                             log_chla = log_chla,
+                             polygon_name_list = poly_names,
+                             polygon_coord_list = boxes,
+                             percent = percent,
+                             outlier = outlier,
+                             dailystat = dailystat,
+                             pixrange1 = pixrange1,
+                             pixrange2 = pixrange2,
+                             fitmethod = names(fitmethods)[fitmethods==fitmethod],
+                             bloomShape = names(bloomShapes)[bloomShapes==bloomShape],
+                             smoothMethod = names(smoothMethods)[smoothMethods==smoothMethod],
+                             loessSpan = loessSpan,
+                             t_range = t_range,
+                             ti_limits = ti_limits,
+                             tm_limits = tm_limits,
+                             tm = tm,
+                             beta = beta,
+                             use_weights = use_weights,
+                             threshcoef = threshcoef)
+        
+        if (year_bounds[1]==year_bounds[2]) {
+            year_bounds <- year_bounds[1]
+        } else {
+            year_bounds <- paste(year_bounds, collapse="-")
+        }
+        
+        fileConn <- file(file.path(output_dir, "settings.txt"))
+        writeLines(info, fileConn)
+        close(fileConn)
+        
+        gc()
+        
+        fname <- output_str(satellite=satellite,
+                            region=region,
+                            algorithm=algorithm,
+                            year=isolate(input$fullrunyears),
+                            interval=interval,
+                            log_chla=log_chla,
+                            fitmethod=fitmethod,
+                            custom_end="fulltimeseries.zip")
+        
+        # zip files up to be downloaded
+        # j flag prevents files from being sorted into subdirectories inside the zip file (the other flags are defaults)
+        zip(file.path(output_dir, fname), list.files(output_dir, full.names=TRUE), flags = "-r9Xj")
+        
+        # remove progress bar and return to normal screen
+        remove_modal_progress()
+        
+        state$fullrun_outputdir <- output_dir
+        state$fullrun_fname <- fname
+        
+        enable("fullrun_download")
+        
+    })
+    
+    output$fullrun_fname <- renderUI({
+        if (is.null(state$fullrun_fname)) {
+            helpText("",
+                     width = widget_width,
+                     style = help_text_style)
+        } else {
+            helpText(HTML(paste0("File ready for download:<br>", gsub("_", "_ ", state$fullrun_fname))),
+                     width = widget_width,
+                     style = help_text_style)
+        }
+    })
+    
+    # Download the results from "fullrun_process"
+    output$fullrun_download <- downloadHandler(
+        filename <- function() {
+            isolate(state$fullrun_fname)
+        },
+        content <- function(file) {
+            file.copy(file.path(isolate(state$fullrun_outputdir), isolate(state$fullrun_fname)), file)
+        },
+        contentType = "application/zip"
     )
     
     
@@ -2443,16 +2490,9 @@ server <- function(input, output, session) {
                            clearControls() %>%
                            clearImages() %>%
                            addRasterImage(x = pc, colors = cm) %>%
-                           # clearGroup("Points") %>%
-                           # addCircles(data = pc, ~lon, ~lat,
-                           #            color = ~cm(chl),
-                           #            radius = 2300,
-                           #            fillOpacity = 0.7,
-                           #            stroke = FALSE,
-                           #            group = "Points") %>%
                            addLegend(position = 'topright',
                                      pal = cm,
-                                     values = c(getValues(pc), zl),#pc$chl,
+                                     values = c(getValues(pc), zl),
                                      title = lt,
                                      bins = 10,
                                      opacity = 1) %>%

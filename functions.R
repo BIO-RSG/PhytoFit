@@ -10,6 +10,10 @@ proper <- function(x) {
   paste0(toupper(substr(x,1,1)), tolower(substring(x,2)))
 }
 
+rmse <- function(v1, v2) {
+  sqrt(sum((v1 - v2)^2, na.rm=TRUE)/sum(!is.na(v1) & !is.na(v2)))
+}
+
 # Create day label for plots/maps and time index for subsetting data.
 # This changes when year, interval, or day of year change.
 get_time_vars <- function(interval, year, yearday, doys_per_week=NULL) {
@@ -155,7 +159,9 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                                use_weights, smoothMethod, loessSpan, fitmethod, bloomShape, daily_percov,
                                tm, beta, tm_limits, ti_limits, log_chla, threshcoef, doy_vec, plot_title) {
   
-  # Get vector of chlorophyll based on daily/weekly statistic and valid indices
+  # Get vector of chlorophyll based on daily/weekly statistic and valid indices.
+  # "chlall" is plotted as the points in the scatterplot, sized by percent coverage.
+  # "chlorophyll" is used for the fit.
   if(dailystat == 'average'){
     chlorophyll <- chl_mean[ind_dayrange_percov]
     chlall <- chl_mean[ind_percov]
@@ -196,7 +202,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                           beta = beta,
                           tm_limits = tm_limits,
                           ti_limits = tmp_ti_lim,
-                          logchla = log_chla)
+                          log_chla = log_chla)
     
     # collect parameters from fit
     bf_results <- gauss_res$values
@@ -217,7 +223,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                               bloomShape = bloomShape,
                               tm_limits = tm_limits,
                               ti_limits = ti_limits,
-                              logchla = log_chla)
+                              log_chla = log_chla)
     }
     
     # collect parameters from "rate of change" or "threshold" fit
@@ -231,6 +237,16 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   tmp_v[1:2] <- round(tmp_v[1:2], 3)
   tmp_v[3:6] <- round(tmp_v[3:6])
   tmp_v[7:length(tmp_v)] <- round(tmp_v[7:length(tmp_v)], 3)
+  
+  if (fitmethod == "gauss") {
+    if (!is.null(gauss_res$fit)) {
+      tmp_v <- c(tmp_v, round(ifelse(log_chla,
+                                     rmse(chlorophyll, predict(gauss_res$fit)),
+                                     rmse(log10(chlorophyll), log10(predict(gauss_res$fit)))), 3))
+    } else {
+      tmp_v <- c(tmp_v, NA)
+    }
+  }
   
   fitparams <- data.frame(parameter=pnames,
                           value=tmp_v,
@@ -256,12 +272,13 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   
   # initialize and format base plot (points sized by percent coverage)
   p <- p +
-    geom_point(data=data.frame(x=doy_vec, y=allchl, percov=allpercov,
+    geom_point(data=data.frame(x=doy_vec,
+                               y=allchl,
+                               percov=allpercov,
                                stringsAsFactors = FALSE),
                aes(x=x, y=y, size=percov), alpha=0.6) +
     ggtitle(plot_title) +
-    labs(x='Day number',
-         y=expression(paste0(interval, " ", dailystat, " chlorophyll" * "[" * mg/m^3 * "]"))) +
+    labs(x='Day number') +
     scale_x_continuous(limits=c(0,365), breaks=seq(0,365,by=50)) +
     scale_size_continuous(name = "Percent coverage",
                           breaks = c(25, 50, 75, 100),
@@ -274,7 +291,18 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
           axis.title.x=element_text(size=10),
           axis.text.x=element_text(size=12),
           axis.text.y=element_text(size=12),
-          panel.border = element_rect(colour="black", fill=NA, size=0.4))
+          panel.border = element_rect(colour="black", fill=NA, size=0.4)) +
+    annotation_custom(grobTree(textGrob(paste0("** Click a point and scroll up ",
+                                               "to see the map for that ",
+                                               ifelse(interval=="daily", "day", "week")),
+                                        x=0.01, y=0.94,hjust=0,
+                                        gp=gpar(fontsize=10, col="red", fontface="bold"))))
+  
+  if (log_chla) {
+    p <- p + labs(y=bquote(.(proper(interval)) * " " * .(dailystat) * " chlorophyll [" * ~log[10]~ mg/m^3 * "]"))
+  } else {
+    p <- p + labs(y=bquote(.(proper(interval)) * " " * .(dailystat) * " chlorophyll [" * mg/m^3 * "]"))
+  }
   
   # color of fit line, based on choice of mean/median daily/weekly statistic,
   # matched with the mean/median vertical bar coloring in the density plot
@@ -289,13 +317,25 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   maxy <- max(allchl, na.rm=TRUE)
   table_ydiff <- maxy - miny
   
+  # If you use LOESS smoothing, add the line to the data
+  if (smoothMethod == 'loess') {
+    if (!bad_loess & all(is.finite(y))) {
+      p <- p +
+        geom_line(data=data.frame(x=t, yloess=y, stringsAsFactors = FALSE),
+                  aes(x=x, y=yloess), color="green") +
+        annotation_custom(grobTree(textGrob("** LOESS smoothing",
+                                            x=0.01, y=0.89, hjust=0,
+                                            gp=gpar(fontsize=10, col="green", fontface="bold"))))
+    }
+  }
+  
   # add line and statistics based on user-selected fit method
   if (fitmethod == 'gauss') {
     
     if (is.null(gauss_res$fit)) {
       
-      p <- p + annotation_custom(grobTree(textGrob("unable to fit",
-                                                   x=0.018, y=0.93,hjust=0,
+      p <- p + annotation_custom(grobTree(textGrob("Unable to fit",
+                                                   x=0.018, y=0.8, hjust=0,
                                                    gp=gpar(fontsize=16, col="red", fontface="bold"))))
       
     } else {
@@ -329,16 +369,6 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     }
     
   } else if (fitmethod=="roc" | fitmethod=="thresh") {
-    
-    # If you use LOESS smoothing, add the line to the data
-    # (otherwise just add vertical lines for indices below)
-    if (smoothMethod == 'loess') {
-      if (!bad_loess) {
-        p <- p +
-          geom_line(data=data.frame(x=t, yfit=y, stringsAsFactors = FALSE),
-                    aes(x=x, y=yfit), color=fit_col)
-      }
-    }
     
     if (fitmethod=="thresh") {
       thresh_val <- as.numeric(bf_results$thresh)
