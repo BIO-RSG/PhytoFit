@@ -1,0 +1,407 @@
+# PhytoFit User Guide
+2020-09-25  
+Report issues to: Stephanie.Clay@dfo-mpo.gc.ca  
+  
+***
+<div align="center">
+## ACCESSING THE APP
+</div>
+
+### Option 1: DM APPS
+*(DFO VPN access required)*  
+*Address: http://dmapps:3838/PhytoFit/*
+
+<br>  
+
+### Option 2: Github
+*(Publicly available, updated more frequently)*  
+*Address: https://github.com/BIO-RSG/PhytoFit*  
+
+<br>  
+
+#### PREREQUISITES:
+1. Install the latest versions of R and RStudio.
+2. Install the necessary libraries:
+``` r
+install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "geometry", "raster", "proj4"))
+```
+3. Install a fix for the leaflet.extras package:
+``` r
+install.packages("remotes")
+remotes::install_github("bhaskarvk/leaflet.extras", ref = remotes::github_pull("184"))
+```
+4. Restart R after the packages and fix have been installed.
+5. Download repository from github.  
+
+<br>  
+
+#### INSTRUCTIONS:
+Open app.R within RStudio, and click "Run app".  
+
+<br>  
+
+#### WARNINGS FOR R USERS ONLY:
+* Memory usage increases as data is loaded/processed in the app. If the app is slowing down the computer, restart R (Session --> Restart R).  
+
+* *Warning in if (sigma_limit1 < 0) { : the condition has length > 1 and only the first element will be used.*  [This warning might appear when running a Gaussian fit if two separate days have the same maximum chl-a concentration (the first instance of the maximum concentration will be used).]  
+
+* Density plot error: *could not find function "expansion"*  
+	Solution: Update ggplot2 package  
+
+***
+<div align="center">
+## WARNINGS  
+</div>
+
+* Large custom polygons (>500 degrees square) are not allowed due to memory issues.
+
+* Small custom polygons (i.e. < a few pixels) will give unpredictable results because the map displays a projected raster of the original binned data, so the location of points is not 100% accurate, but very close. This could become noticeable if the user tries to select a very small number of datapoints on the map since the selection might contain a different number of binned values than rasterized pixels, or pixels with noticeably different values than the binned values due to projection issues.  
+
+* Do not leave the app running for an extended period of time (hours) or through several large time series processing runs (for example, using all existing boxes for all available years). It's a good idea to restart every now and then to clear memory.  
+
+
+***
+<div align="center">
+## FUTURE OPTIONS
+</div>
+
+* Manually adjust fit parameters
+* SeaWiFS and OLCI 4km
+* Infer starting guesses for *nlsLM()* from the actual values (example: B<sub>0</sub> = median chlorophyll-a), or allow user to select them
+* Exclude specific days from the fit
+* Disjoint polygons
+* Script contains code to create a popup when user clicks a single point on the map, displaying the latitude/longitude/chlorophyll value at that point. The code displays two chla values: "rasterized.chlorophyll.a", which is the value projected on the map, and "chlorophyll.a", which is the actual binned value nearest that point. [This popup feature is currently disabled because the popups interfere with drawing/editing polygons.]
+
+***
+<div align="center">
+## INSTRUCTIONS
+</div>
+
+<br>  
+
+### LEFT SIDEBAR
+
+Select:  
+
+1.  Satellite/resolution  
+    + MODIS-Aqua 4km-resolution  
+    + VIIRS-SNPP 4km-resolution  
+    + SeaWiFS 4km-resolution  
+2.  Region  
+    + Atlantic (42 to 71 degrees west, 39 to 63 degrees north)  
+    + Pacific (122 to 140 degrees west, 46 to 60 degrees north)  
+3. Algorithm  
+    + OCx (global, band ratio)  
+    + POLY4 (regional, band ratio)  
+    + GSM_GS (regional, semi-analytical)  
+Sources:  
+      + <a href=\"https://oceancolor.gsfc.nasa.gov/atbd/chlor_a/\">NASA OCx chlorophyll-a algorithm</a>  
+      + <a href=\"https://www.mdpi.com/2072-4292/11/22/2609\">*Clay, S.; Peña, A.; DeTracey, B.; Devred, E. Evaluation of Satellite-Based Algorithms to Retrieve Chlorophyll-a Concentration in the Canadian Atlantic and Pacific Oceans. Remote Sens. 2019, 11, 2609.*</a>
+4. Year  
+    + 2003-2020 (MODIS)  
+    + 2012-2020 (VIIRS)  
+    + 1998-2010 (SeaWiFS)  
+5. Temporal binning  
+    + Daily  
+    + Weekly (mean value of 8-day intervals)  
+6. Logged or unlogged chlorophyll-a  
+
+Click "Load data".  
+*NOTE: Changes to any of the 6 options above will not be used until the "load" button is clicked.*
+
+<br>  
+
+#### COLOUR SCALE
+Adjust range of data used in the map colour scale.  
+
+<br>  
+
+#### DAY OF YEAR
+Enter a day of year from 1-365 and click "Go", or use the slider and play/pause button to advance through the days automatically.  
+
+<br>  
+
+#### POLYGON
+
+Click the grey/green "Polygon" button to expand the menu, then use the drop-down menu to choose an existing polygon which will be highlighted on the map, or choose "Custom polygon" to create your own.  
+
+If you choose "Custom polygon":  
+
+1. *(Optional)* Name your polygon and click "Apply"  
+2. Choose how to define polygon vertices:  
+<br>
+    + **Option 1:** Draw it on the map  
+      
+      > <div style="font-size:70%">Scroll up to the draw toolbar at the top left corner of the map.  
+      > Controls on the toolbar: zoom in/out, draw irregular polygon or a box, edit polygon, and delete polygon.  
+      > To draw an irregular polygon, click the first draw icon (the pentagon) and click the points on the map where you want the vertices to be. To finish the polygon, click the first point or click the "finish" button.  
+      > To draw a square, use the second draw icon.  
+      > As of 26 Sep 2020, only one polygon can be drawn on the map at a given time. If you draw a new polygon, the old one will be deleted automatically.</div>  
+    + **Option 2:** Type the coordinates of the vertices and click "Create polygon"  
+    
+      > <div style="font-size:70%">Latitide/longitude formatting:  
+      >  + decimal degrees  
+      >  + separated by commas  
+      >  + use latitude/longitude < 0 for south/west</div>  
+
+<br>  
+
+#### STATISTICS
+
+Click the grey/green "Statistics" button to expand the menu.  
+
+1.  Minimum daily percent coverage  
+    If the polygon does not have the required percent coverage for the selected day/week, the density plot will not be created.       Days/weeks below this percentage will be excluded from the time series and not used in the bloom fitting.  
+
+2.  Outlier detection method  
+    Remove outliers beyond:  
+      + mean ± 2 standard deviations  
+      + mean ± 3 standard deviations  
+      + median ± 1.5 * interquartile range  
+  
+3.  Daily statistic (mean or median)  
+    Statistic computed on the chlorophyll within the selected polygon for each day/week.  
+
+4.  Range of pixel values  
+    Pixels outside this range will not be used in the computation of the statistics or bloom fit.  
+
+<br>  
+
+#### BLOOM FITTING
+
+Click the grey/green "Bloom fit" button to expand the menu.  
+
+Each point in the time series and bloom fit is the daily (or weekly) spatial average (or median) of data after removal of outliers and points outside the desired range, using the binned chlorophyll-a values. Only points with sufficient percent coverage inside the polygon on that day/week are used, within the range of days selected by the user.  
+
+
+Amplitude: Height of the curve (peak value minus background chlorophyll-a)  
+Magnitude: Area under the data points from start to end of the bloom, excluding background chlorophyll-a  
+
+**AS OF 28 SEP 2020, AMPLITUDE AND MAGNITUDE ARE CALCULATED USING THE FITTED CURVE FOR THE SHIFTED GAUSSIAN, NOT THE REAL VALUES**  
+
+<br><br>
+
+
+1.  Choose the fit method  
+    + Shifted Gaussian (recommended)  
+    + Rate of Change  
+    + Threshold  
+    See [TECH REPORT 2020 LINK] for details, or scroll down for a brief description.  
+<br>
+
+2.  Choose the shape of the curve  
+    + Symmetric  
+    + Asymmetric  
+<br>
+
+3.  Point smoothing  
+    + No smoothing  
+    + LOESS (locally estimated scatterplot smoothing)  
+      + LOESS span (a parameter to control the degree of smoothing)  
+<br>
+
+4.  t<sub>range</sub> slider  
+    *Default: 31-274*  
+    Set the range of days to use in the fit.  
+    *NOTE: The t<sub>start</sub> and t<sub>max</sub> sliders will automatically be adjusted to be within t<sub>range</sub>*.  
+<br>
+
+5.  t<sub>max</sub> slider  
+    *Default: 91-181*  
+    Set the range of days to search for the maximum concentration of the bloom.  
+    *NOTE: This is restricted by t<sub>range</sub>, and t<sub>start</sub> will be automatically adjusted based on this value*.  
+<br>
+
+6.  t<sub>start</sub> slider  
+    *Default: 60-151*  
+    Set the range of days to search for the initiation of the bloom.  
+    *NOTES:*  
+    + *This is restricted by t<sub>range</sub> and t<sub>max</sub>*  
+    + *If the t<sub>max</sub> switch (not the slider) is set to ON, this option is unavailable (see t<sub>max</sub> switch below for explanation)*  
+<br>
+
+7.  Extra options  
+
+    + For Shifted Gaussian:  
+    
+        + t<sub>max</sub> switch (NOT the slider)  
+        Allow t<sub>max</sub> to vary as a parameter within *nlsLM()*, rather than being a fixed value based on the actual maximum concentration.
+        
+          > <div style="font-size:70%">*NOTE: t<sub>start</sub> can't be restricted if this is set to ON*.  
+          > The reason for this: t<sub>start</sub> is restricted by adjusting σ, the parameter controlling the width of the curve, relative to a constant t<sub>max</sub>. If the t<sub>max</sub> button is set to ON, then both σ and t<sub>max</sub> are allowed to vary as parameters within *nlsLM()*, so they can't be used to restrict t<sub>start</sub> to a constant range of possible days.  
+          > If the t<sub>max</sub> button is OFF and t<sub>start</sub> is limited, the limitations on t<sub>start</sub> are implemented by adjusting the limitations on σ, like so:  
+          > σ<sub>upper</sub> = (t<sub>max</sub> - t<sub>start_lower</sub>) / 1.79  
+          > σ<sub>lower</sub> = (t<sub>max</sub> - t<sub>start_upper</sub>) / 1.79</div>  
+        
+        + β * t  
+        Allow a linear rate of change on either side of the bloom curve (this can tilt the horizontal line of background chlorophyll-a).  
+        
+        + weights  
+        Weight each point in the fit by the percent coverage inside the polygon on that day/week.  
+        
+    + For Threshold:  
+    
+        + threshold coefficient  
+        
+          > <div style="font-size:70%">t<sub>start</sub> is defined as the point where chlorophyll-a drops below the threshold for > 14 days, measuring the days/weeks backward from the day of maximum concentration  
+          > threshold = (threshold coefficient) * (median chlorophyll-a)  
+          > median chlorophyll-a = median of the chlorophyll-a within the selected day range and >= the selected percent coverage (i.e. all the data points used in a bloom fit)</div>  
+
+
+<br>  
+
+##### SHIFTED GAUSSIAN  
+
+Equation:
+
+$B = B_{0} + \beta*t + \frac{h}{\sqrt{2}\pi\sigma} exp(\frac{-(t- t_{max})^{2}}{2\sigma^{2}})$  
+
+
+B	= vector of mean (or median) measured concentration of chlorophyll-a for each day (or week)  
+t	= vector of days (or weeks), same length as B  
+B<sub>0</sub>	= background chlorophyll-a concentration  
+β t	= linear rate of change of B<sub>0</sub>  
+H = $\frac{h}{\sqrt{2}\pi\sigma}$ = controls the height of the curve  
+σ	= controls the width of the curve  
+t<sub>max</sub>	= day of maximum B  
+
+<br>
+
+Unknown parameters calculated by nonlinear least squares:  
+B<sub>0</sub>, h, σ (optional: β, t<sub>max</sub>)  
+
+R function used for the nonlinear least squares fit to calculate the parameters: *nlsLM* (from the *minpack.lm* package)  
+
+Lower/upper limits and starting guesses for *nlsLM*:  
+  
+|                |   | B<sub>0</sub> | h   | σ   | β      | t<sub>max</sub>           |
+|----------------|---|---------------|-----|-----|--------|---------------------------|
+| Lower limit    |   | 0             | 0   | 0   | -0.02  | User-selected             |
+| Upper limit    |   | 5             | 350 | 100 | 0.01   | User-selected             |
+| Starting guess | 1 | 0.5           | 50  | 10  | -0.002 | day of chla<sub>max</sub> |
+|                | 2 | 0.5           | 50  | 2   | -0.002 | day of chla<sub>max</sub> |
+|                | 3 | 0.5           | 10  | 2   | -0.001 | day of chla<sub>max</sub> |
+|                | 4 | 0.5           | 10  | 1   | -0.001 | day of chla<sub>max</sub> |
+
+*NOTES:*  
+
+  + *If curve is asymmetric, the same limits and guesses are used for each side*  
+  + *4 different sets of starting guesses are attempted before a dataset is declared unable to fit*  
+
+<br>
+
+B<sub>0</sub> limits if using logged chlorophyll-a: log(10<sup>-10</sup>) to log(5); starting guess: log(0.5)
+
+This will create a blue fitted curve through the points.  
+
+<br>  
+
+##### RATE OF CHANGE  
+
+This algorithm does not calculate a daily fitted equation, only the maximum, start, and end days of the bloom.  
+The maximum is selected as the day of actual maximum concentration, within the selected range.  
+The initiation is the day of the maximum rate of change in concentration, within the selected bounds.  
+If any indices cannot be computed, they will be blank and not appear on the time series plot.  
+
+B<sub>0</sub> is computed using the R function *rq()* from the *quantreg* package to perform a quantile regression (25th percentile) on the full dataset (days/weeks with sufficient percent coverage), and used to calculate the amplitude of the curve and the magnitude under the curve.  
+
+<br>  
+
+##### THRESHOLD  
+
+This algorithm does not calculate a daily fitted equation, only the maximum, start, and end days of the bloom.  
+The maximum is selected as the day of actual maximum concentration, within the selected range.  
+The initiation is the day that chlorophyll-a drops below a threshold for > 14 consecutive days, working backward from the day of maximum concentration.  
+
+If you are using non-logged chl-a:  
+
+Threshold = (Threshold coefficient) * (median chlorophyll-a used in the fit)  
+
+If you are using logged chl-a:  
+
+Threshold = log10((Threshold coefficient) * 10^(median log10(chlorophyll-a) used in the fit))  
+
+Threshold coefficient = user-selected  
+
+B<sub>0</sub> is computed using the same method as with the Rate of Change model.  
+
+<br>  
+
+#### EXPORT OPTIONS  
+
+1. Settings (.txt)  
+
+2. Map (.html)  
+
+3. Density plot (.png)  
+
+4. Time series plot (.png)  
+
+5. Annual table of daily (or weekly) statistics (.csv)  
+
+6. Table of fitted bloom parameters (.csv)  
+
+7. Downloading results from a series of years and polygons (.zip)  
+
+    + Year slider  
+    
+    + Polygons  
+        + Process all polygons  
+        + Select polygons to process  
+        Make sure you have at least one polygon selected, also if you have selected "Custom polygon", make sure the polygon is defined.  
+        Note: if you de-select all polygons, it will still use the polygon that you de-selected last.  
+        
+    + "Run time series"  
+    
+      This will create:  
+      + PNG files for the bloom fit for each of the selected years  
+      + CSV files for each year containing the statistics for each day  
+      + CSV file containing the fit parameters for those years  
+      + TXT file containing the settings for the current run  
+      Files will be zipped to a folder with the following name convention:  
+      *satellite_ region_ algorithm_ years_ interval_ (un)loggedChla_ fitmethod_ timecreated.zip*  
+    
+    + "Download results (.zip)"  
+      This will download the zipped file to your browser's downloads folder.  
+
+
+    
+
+
+<br>  
+
+### MAIN VIEW PANEL  
+
+<br>  
+
+#### MAP  
+
+TOP LEFT:  
+	Zoom controls  
+	Draw sidebar (if "custom polygon" is selected and data exists and is loaded for that day)  
+		Shapes:  
+			a. Irregular polygon (finish the polygon by clicking on the starting point)  
+			b. Rectangle  
+		Edit (click "save" when done, or cancel)  
+		Delete (click "save" when done, or cancel)  
+
+TOP RIGHT:  
+	Gridlines checkbox - uncheck to remove gridlines  
+	Stats boxes checkbox - uncheck to remove existing (pre-defined) statistics boxes  
+	Color bar, after data is loaded  
+
+BOTTOM:  
+  Download button (map downloads in html format, which allows zooming/panning)   
+
+
+<br>  
+
+#### DENSITY PLOT  
+
+
+<br>  
+
+#### TIME SERIES PLOT  
+
+Click on a data point and scroll up to see the data for that day (or week).  
+
