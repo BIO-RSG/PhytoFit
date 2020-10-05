@@ -48,9 +48,9 @@ sensors <- c("MODIS 4km" = "modis",
 regions <- c("Atlantic"="atlantic",
              "Pacific"="pacific")
 
-algorithms <- c("OCx"="ocx",
-                "POLY4"="poly4",
-                "GSM_GS"="gsmgs")
+algorithms <- c("OCx (global, band ratio)"="ocx",
+                "POLY4 (regional, band ratio)"="poly4",
+                "GSM_GS (regional, semi-analytical)"="gsmgs")
 
 # years with available data for each sensor
 years <- list("modis"=2003:2020,
@@ -204,28 +204,46 @@ ui <- fluidPage(
             helpText("Select satellite, region, chlorophyll algorithm, year, composite length (daily or weekly images), and logged or unlogged chlorophyll, then click \"Load data\".",
                       width = widget_width,
                       style = help_text_style),
+            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Satellite</font>")),
+                     width = widget_width,
+                     style = help_text_style),
             selectInput(inputId = "satellite",
                         label = NULL,
                         choices = sensors,
                         width = widget_width),
+            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Region</font>")),
+                     width = widget_width,
+                     style = help_text_style),
             selectInput(inputId = "region",
                         label = NULL,
                         choices = regions,
                         width = widget_width),
+            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Chlorophyll-a algorithm</font>")),
+                     width = widget_width,
+                     style = help_text_style),
             selectInput(inputId = "algorithm",
                         label = NULL,
                         choices = algorithms,
                         width = widget_width),
+            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Year</font>")),
+                     width = widget_width,
+                     style = help_text_style),
             selectInput(inputId = "year",
                         label = NULL,
                         choices = default_years,
                         selected = default_years[length(default_years)],
                         width = widget_width),
+            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Data composite length</font>")),
+                     width = widget_width,
+                     style = help_text_style),
             selectInput(inputId = "interval",
                         label = NULL,
                         choices = intervals,
                         selected = "daily",
                         width = widget_width),
+            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Log chlorophyll?</font>")),
+                     width = widget_width,
+                     style = help_text_style),
             switchInput(inputId = "log_chla",
                         label = HTML("log<sub>10</sub><i>chla</i>"),
                         value = TRUE,
@@ -697,8 +715,9 @@ server <- function(input, output, session) {
     observe({
         showModal(modalDialog(
                     title = "Satellite Chlorophyll Data Visualization",
-                    HTML(paste0("This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.<br><br>
-Paper detailing the chlorophyll-a algorithms (OCx, POLY4, and GSM_GS):<br><a href=\"https://www.mdpi.com/2072-4292/11/22/2609\"><i>Clay, S.; Peña, A.; DeTracey, B.; Devred, E. Evaluation of Satellite-Based Algorithms to Retrieve Chlorophyll-a Concentration in the Canadian Atlantic and Pacific Oceans. Remote Sens. 2019, 11, 2609.</i></a><br><br>
+                    HTML(paste0("This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.<br><br>",
+                                "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md\">USER GUIDE</a> (Last updated 2 Oct 2020)<br><br>",
+"Paper detailing the chlorophyll-a algorithms (OCx, POLY4, and GSM_GS):<br><a href=\"https://www.mdpi.com/2072-4292/11/22/2609\"><i>Clay, S.; Peña, A.; DeTracey, B.; Devred, E. Evaluation of Satellite-Based Algorithms to Retrieve Chlorophyll-a Concentration in the Canadian Atlantic and Pacific Oceans. Remote Sens. 2019, 11, 2609.</i></a><br><br>
 Tech Report with descriptions of the bloom fitting models (Shifted Gaussian, Rate of Change, and Threshold methods):<br>
 <i>IN PROGRESS</i><br><br>
 <b>Data used:</b><br>
@@ -1167,6 +1186,7 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
         
         if (ifrab) {
             state$fullrunboxes <- choices
+            enable("fullrun_process")
         } else {
             state$fullrunboxes <- input$fullrunboxes
         }
