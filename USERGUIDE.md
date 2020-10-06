@@ -22,9 +22,7 @@ Report issues to: Stephanie.Clay@dfo-mpo.gc.ca
 #### PREREQUISITES:
 1. Install the latest versions of R and RStudio.
 2. Install the necessary libraries:
-``` r
-install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "geometry", "raster", "proj4"))
-```
+`install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "geometry", "raster", "proj4"))`
 3. Install a fix for the leaflet.extras package:
 ``` r
 install.packages("remotes")
@@ -154,7 +152,6 @@ Click the grey/green "Statistics" button to expand the menu.
     If the polygon does not have the required percent coverage for the selected day/week, the density plot will not be created.       Days/weeks below this percentage will be excluded from the time series and not used in the bloom fitting.  
 
 2.  Outlier detection method  
-    Remove outliers beyond:  
       + mean ± 2 standard deviations  
       + mean ± 3 standard deviations  
       + median ± 1.5 * interquartile range  
@@ -200,20 +197,17 @@ Magnitude: Area under the data points from start to end of the bloom, excluding 
       + LOESS span (a parameter to control the degree of smoothing)  
 <br>
 
-4.  t<sub>range</sub> slider  
-    *Default: 31-274*  
+4.  t<sub>range</sub> slider  *(Default: 31-274)*  
     Set the range of days to use in the fit.  
     *NOTE: The t<sub>start</sub> and t<sub>max</sub> sliders will automatically be adjusted to be within t<sub>range</sub>*.  
 <br>
 
-5.  t<sub>max</sub> slider  
-    *Default: 91-181*  
+5.  t<sub>max</sub> slider  *(Default: 91-181)*  
     Set the range of days to search for the maximum concentration of the bloom.  
     *NOTE: This is restricted by t<sub>range</sub>, and t<sub>start</sub> will be automatically adjusted based on this value*.  
 <br>
 
-6.  t<sub>start</sub> slider  
-    *Default: 60-151*  
+6.  t<sub>start</sub> slider  *(Default: 60-151)*  
     Set the range of days to search for the initiation of the bloom.  
     *NOTES:*  
     + *This is restricted by t<sub>range</sub> and t<sub>max</sub>*  
@@ -404,4 +398,37 @@ BOTTOM:
 #### TIME SERIES PLOT  
 
 Click on a data point and scroll up to see the data for that day (or week).  
+
+
+
+***
+## AZMP FITTING PARAMETERS  
+
+AZMP boxes are typically fitted using a Fortran script, examining and adjusting every fit manually.  
+Results found here: ftp://ftp.dfo-mpo.gc.ca/bometrics/spring-bloom  
+
+
+Data used in the fit:  
+  * Sensor: VIIRS-SNPP  
+  * Resolution: ~1 km  
+  * Mapped to (39-82N, 42-95W) using cylindrical projection  
+  * Chlorophyll algorithm: Standard ocean colour algorithm (OCx) from NASA, NOT logged  
+  * Temporal binning: Weekly (daily can be too spiky, semi-monthly might miss the bloom)  
+
+Statistics used in the fit:  
+  * Minimum weekly percent coverage inside a box: 1%  
+  * Outliers NOT removed  
+  * Weekly statistic used in a box: Mean  
+  * Range of pixel values used: <= 64 mg/m^3
+
+Bloom fitting:  
+  * Model: Symmetric Shifted Gaussian  
+  * Range of days used in fit: Feb-July, and Feb-Aug for more northern boxes (>= 56N)
+  * No limit on day of max concentration or start of bloom, and points NOT weighted by percent coverage inside the box.  
+
+Fits flagged if the following occurs:  
+  * Box has < 10% coverage (if so, the individual images that produced the stats are examined, and some might be removed and the bloom refitted, or they might be left in with a note of caution because removing them could remove the bloom from the image)  
+  * Ratio of peak chla concentrations (i.e. (chla<sub>max_curve</sub>) / (chla<sub>max_real</sub>) ) is not between 0.75 and 1.25  
+  * Ratio of magnitudes (area under the curve), Magnitude<sub>real</sub> / Magnitude<sub>curve</sub> is >= 0.15  
+  * Sigma (parameter controlling the width of the curve) is <= time resolution (i.e 1 day, or a week)  
 
