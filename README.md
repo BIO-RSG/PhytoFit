@@ -14,10 +14,11 @@ This app can be used to display satellite chlorophyll concentration, and calcula
 2. Install the necessary libraries:
 `fst, shiny, shinyWidgets, shinyjs, shinybusy, htmlwidgets, leaflet, leaflet.extras, quantreg, minpack.lm, rgdal, sp, ggplot2, grid, gridExtra, dplyr, geometry, raster, proj4`
 
-3. Install a necessary fix for the leaflet.extras package:
+3. Install a necessary fix for the leaflet.extras package, and a custom package (oceancolouR):
 ``` r
 # install.packages("remotes")
 remotes::install_github("bhaskarvk/leaflet.extras", ref = remotes::github_pull("184"))
+remotes::install_github("BIO-RSG/oceancolouR")
 ```
 
 4. Restart R after the packages and fix have been installed.

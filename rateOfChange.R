@@ -20,7 +20,8 @@ rateOfChange <- function(y, yall, t, tall, bloomShape = "symmetric", tm_limits =
   
   # To collect output later
   values <- data.frame(matrix(nrow=1,ncol=8), stringsAsFactors = FALSE)
-  colnames(values) <- c("Mean", "Median", "ti", "tm", "tt", "td", "mag", "amp")
+  colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]",
+                        "t[duration]", "Magnitude", "Amplitude")
   ti <- tm <- tt <- td <- mag <- amp <- NA
   
   values[1,1:2] <- c(mean(y, na.rm=TRUE), median(y, na.rm=TRUE))

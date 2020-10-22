@@ -5,7 +5,8 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                      dailystat, pixrange1, pixrange2, outlier, percent, log_chla, poly_names,
                      fitmethod, bloomShape, smoothMethod, loessSpan=NA, use_weights,
                      threshcoef=NA, tm=FALSE, beta=FALSE, t_range = c(1,365),
-                     tm_limits = c(1,365), ti_limits = c(1,365), dir_name) {
+                     tm_limits = c(1,365), ti_limits = c(1,365), dir_name,
+                     flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2) {
     
     
     #***************************************************************************
@@ -22,7 +23,7 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
     
     # create output dataframe for fitted coefficients
     full_fit_params <- data.frame(matrix(nrow=length(boxes), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
-    colnames(full_fit_params) <- c("Region", "Year", sub("\u03B2", "beta", pnames))
+    colnames(full_fit_params) <- c("Region", "Year", pnames)
     
     for (reg_ind in 1:length(boxes)) {
         
@@ -157,7 +158,11 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                                           log_chla = log_chla,
                                           threshcoef = threshcoef,
                                           doy_vec = doy_vec,
-                                          plot_title = plot_title)
+                                          plot_title = plot_title,
+                                          flag1_lim1 = flag1_lim1,
+                                          flag1_lim2 = flag1_lim2,
+                                          flag2_lim1 = flag2_lim1,
+                                          flag2_lim2 = flag2_lim2)
             
             p <- bf_data$p
             fitparams <- bf_data$fitparams
@@ -169,9 +174,8 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                 ggtitle(plot_title) +
                 annotation_custom(grobTree(textGrob(em)))
             
-            fitparams <- data.frame(parameter=pnames,
-                                    value=rep(NA, length(pnames)),
-                                    stringsAsFactors = FALSE)
+            fitparams <- data.frame(matrix(rep(NA, length(pnames)), nrow=1), stringsAsFactors = FALSE)
+            colnames(fitparams) <- pnames
             
         }
         
@@ -192,7 +196,7 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                height=5,
                units="in")
         
-        full_fit_params[reg_ind,] <- c(toupper(names(boxes)[reg_ind]), year, fitparams$value)
+        full_fit_params[reg_ind,] <- c(toupper(names(boxes)[reg_ind]), year, as.numeric(fitparams))
         
         gc()
         

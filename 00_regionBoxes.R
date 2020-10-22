@@ -222,10 +222,10 @@ SRS <- list(lat = c(51.41228, 51.30903, 51.24933, 51.24275, 51.29508, 51.32347, 
 
 
 # List of polygon objects that were created above.
-all_regions <- list(atlantic = list(AC, BRA, CS_V01, CS_V02, CLS, CSS, ELS, ESS,
-                                    FP, GB, GS, HB, HIB, HS, LAS, LS, MS_V01, MS_V02,
-                                    NCLS, NEGSL_V01, NEGSL_V02, NENS, NWGSL_V01, NWGSL_V02,
-                                    NLS, SES, SAB, SPB, WSS, NL, CL, NGB, FC),
+all_regions <- list(atlantic = list(AC, BRA, CS_V01, CS_V02, CL, CLS, CSS, ELS, ESS,
+                                    FC, FP, GB, GS, HB, HIB, HS, LAS, LS, MS_V01, MS_V02,
+                                    NCLS, NEGSL_V01, NEGSL_V02, NENS, NGB, NL, NWGSL_V01, NWGSL_V02,
+                                    NLS, SES, SAB, SPB, WSS),
                     pacific = list(AOI, BS, EHV, GH, GHE, GHW, GHS, GHO, SI, SRN, SRC, SRS))
 
 # Full names of the polygons, followed by the capitalized abbreviation in brackets,
@@ -234,10 +234,12 @@ full_names <- list(atlantic = c('Avalon Channel (AC)',
                                 'Bravo Station (BRA)',
                                 'Cabot Strait (CS) V01',
                                 'Cabot Strait (CS) V02',
+                                'Central Labrador (CL)',
                                 'Central Labrador Sea (CLS)',
                                 'Central Scotian Shelf (CSS)',
                                 'Eastern Labrador Shelf (ELS)',
                                 'Eastern Scotian Shelf (ESS)',
+                                'Flemish Cap (FC)',
                                 'Flemish Pass (FP)',
                                 'Georges Bank (GB)',
                                 'Greenland Shelf (GS)',
@@ -252,17 +254,15 @@ full_names <- list(atlantic = c('Avalon Channel (AC)',
                                 'Northeast Gulf of St. Lawrence (NEGSL) V01',
                                 'Northeast Gulf of St. Lawrence (NEGSL) V02',
                                 'Northeast Newfoundland Shelf (NENS)',
+                                'Northern Grand Bank (NGB)',
+                                'Northern Labrador (NL)',
                                 'Northwest Gulf of St. Lawrence (NWGSL) V01',
                                 'Northwest Gulf of St. Lawrence (NWGSL) V02',
                                 'Northern Labrador Shelf (NLS)',
                                 'Southeast Shoal (SES)',
                                 'St. Anthony Bank (SAB)',
                                 'St. Pierre Bank (SPB)',
-                                'Western Scotian Shelf (WSS)',
-                                'Northern Labrador (NL)',
-                                'Central Labrador (CL)',
-                                'Northern Grand Bank (NGB)',
-                                'Flemish Cap (FC)'),
+                                'Western Scotian Shelf (WSS)'),
                   pacific = c('Offshore Pacific Area of Interest (AOI)',
                               'Bowie Seamount MPA (BS)',
                               'Endeavour Hydrothermal Vents MPA (EHV)',
@@ -279,20 +279,19 @@ full_names <- list(atlantic = c('Avalon Channel (AC)',
 # This is an ID for the polygons on the map (it only appears in the output filenames
 # and settings, and needs to be unique -- so if a polygon has multiple versions,
 # its IDs should be something like ABBREV_V01, ABBREV_V02, ...)
-poly_ID <- list(atlantic=c("AC", "BRA", "CS_V01", "CS_V02", "CLS", "CSS", "ELS",
-                           "ESS", "FP", "GB", "GS", "HB", "HIB", "HS", "LAS", 
+poly_ID <- list(atlantic=c("AC", "BRA", "CS_V01", "CS_V02", "CL", "CLS", "CSS", "ELS",
+                           "ESS", "FC", "FP", "GB", "GS", "HB", "HIB", "HS", "LAS", 
                            "LS", "MS_V01", "MS_V02", "NCLS", "NEGSL_V01", "NEGSL_V02",
-                           "NENS", "NWGSL_V01", "NWGSL_V02", "NLS", "SES", "SAB", "SPB", "WSS",
-                           "NL", "CL", "NGB", "FC"),
+                           "NENS", "NGB", "NL", "NWGSL_V01", "NWGSL_V02", "NLS", "SES", "SAB", "SPB", "WSS"),
                 pacific=c("AOI", "BS", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI", "SRN", "SRC", "SRS"))
 
 # This is the abbreviation that appears next to the polygon on the map.
 # If there are multiple versions of a box, you have a couple options:
 #     If they overlap, try only using the abbreviation once, and the rest of the values should be NA (not in quotes).
 #     If they don't overlap, give them unique names (for example, the abbreviation with a number on the end).
-abbrev <- list(atlantic=c("AC", "BRA", "CS", NA, "CLS", "CSS", "ELS", "ESS", "FP",
+abbrev <- list(atlantic=c("AC", "BRA", "CS", NA, "CL", "CLS", "CSS", "ELS", "ESS", "FC", "FP",
                           "GB", "GS", "HB", "HIB", "HS", "LAS", "LS", "MS", NA,
-                          "NCLS", "NEGSL", NA, "NENS", "NWGSL", NA, "NLS", "SES",
-                          "SAB", "SPB", "WSS", "NL", "CL", "NGB", "FC"),
+                          "NCLS", "NEGSL", NA, "NENS", "NGB", "NL", "NWGSL", NA, "NLS", "SES",
+                          "SAB", "SPB", "WSS"),
                pacific=c("AOI", "BS", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI", "SRN", "SRC", "SRS"))
 

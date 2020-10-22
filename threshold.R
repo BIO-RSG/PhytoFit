@@ -14,7 +14,8 @@ threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm
 
   # To collect output later
   values <- data.frame(matrix(nrow=1,ncol=9), stringsAsFactors = FALSE)
-  colnames(values) <- c("Mean", "Median", "ti", "tm", "tt", "td", "mag", "amp", "thresh")
+  colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]",
+                        "t[duration]", "Magnitude", "Amplitude", "Threshold")
   ti <- tm <- tt <- td <- mag <- amp <- thresh <- NA
   
   # make sure all values of y and t are valid
