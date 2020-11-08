@@ -177,6 +177,8 @@ Gaussian fit only:
 Amplitude<sub>fit</sub>: Height of the curve at t<sub>max</sub> (peak value minus background chlorophyll-a)  
 Magnitude<sub>fit</sub>: Area under the curve from start to end of the bloom, excluding background chlorophyll-a  
 
+Amplitude units: mg m<sup>-3</sup>  
+Magnitude units: (mg m<sup>-3</sup>) * days  
 
 <br><br>
 
@@ -255,18 +257,19 @@ Magnitude<sub>fit</sub>: Area under the curve from start to end of the bloom, ex
 
 ##### SHIFTED GAUSSIAN  
 
-Equation:
+<a target="_blank" href="userguide_bf_eq01.png">
+<img src="userguide_bf_eq01.png" alt="screencap" width="280"/>
+</a>
 
-$B = B_{0} + \beta*t + \frac{h}{\sqrt{2}\pi\sigma} exp(\frac{-(t- t_{max})^{2}}{2\sigma^{2}})$  
-
-
-B	= vector of mean (or median) measured concentration of chlorophyll-a for each day (or week)  
-t	= vector of days (or weeks), same length as B  
-B<sub>0</sub>	= background chlorophyll-a concentration  
-β t	= linear rate of change of B<sub>0</sub>  
-H = $\frac{h}{\sqrt{2}\pi\sigma}$ = controls the height of the curve  
-σ	= controls the width of the curve  
-t<sub>max</sub>	= day of maximum B  
+| Parameter | Units | Description |
+| --------- | ----- | ----------- |
+| B | mg m<sup>-3</sup> | vector of mean (or median) measured chla concentration for each day (or week) |
+| t | day of year | vector of days, same length as B |
+| B<sub>0</sub> | mg m<sup>-3</sup> | background chlorophyll-a concentration |  
+| β (beta) |	mg m<sup>-3</sup> day<sup>-1</sup> | linear rate of change of B<sub>0</sub> |  
+| h | unitless | controls the height of the curve |  
+| σ (sigma)	| unitless | controls the width of the curve |  
+| t<sub>max</sub>	| day of year | day of maximum B |  
 
 <br>
 
@@ -288,8 +291,9 @@ Lower/upper limits and starting guesses for *nlsLM*:
 
 *NOTES:*  
 
-  + *If curve is asymmetric, the same limits and guesses are used for each side*  
-  + *4 different sets of starting guesses are attempted before a dataset is declared unable to fit*  
+* _If curve is asymmetric, the same limits and guesses are used for each side_  
+* _4 different sets of starting guesses are attempted before a dataset is declared unable to fit_  
+* _If you're fitting weekly data, the week numbers are converted to the day of year at the start of each week, so the units are still day of year_  
 
 <br>
 
