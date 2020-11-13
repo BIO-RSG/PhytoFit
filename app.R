@@ -3,6 +3,9 @@ gc()
 
 # LIBRARIES ####
 
+# suppress some repetitive warnings when using addRasterImage in leafletProxy
+options("rgdal_show_exportToProj4_warnings"="none")
+
 library(fst)            # for speedier data file loading
 library(shiny)
 library(shinyWidgets)   # for updating buttons
@@ -22,13 +25,11 @@ library(dplyr)          # for formatting data tables
 library(geometry)       # to check if user-entered lat/lons make a polygon with area too large (degrees^2)
 library(raster)         # to use rasters on the map instead of binned points (faster, less accurate)
 library(proj4)          # to use custom projection with the map
+library(oceancolouR)
 # library(htmlTable)      # for making tables in popups
 # library(geosphere)      # for calculating accurate distances between single point click and data point plotted on the map
 # library(RSQLite)        # for reading satellite data from databases instead of .rda files
 # library(dbplyr)         # also for databases
-
-# suppress some repetitive warnings when using addRasterImage in leafletProxy
-options("rgdal_show_exportToProj4_warnings"="none")
 
 source("rateOfChange.R")    # rate of change (ROC) function for bloom fit
 source("threshold.R")       # threshold function for bloom fit
@@ -74,20 +75,21 @@ smoothMethods <- c("No smoothing" = "nofit",
 
 # bloom fit table parameter names, depending on fitmethod, bloomShape, beta (code \u03B2 to get the symbol)
 pnlist <- list("gauss"=list("symmetric"=list("beta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                                                      "Magnitude", "Amplitude", "B0", "h", "sigma", "\u03B2", "RMSE"),
+                                                      "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]",
+                                                      "B0", "h", "sigma", "beta", "Flags", "RMSE"),
                                              "nonbeta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                                                         "Magnitude", "Amplitude", "B0", "h", "sigma", "RMSE")),
+                                                         "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]",
+                                                         "B0", "h", "sigma", "Flags", "RMSE")),
                             "asymmetric"=list("beta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                                                       "Magnitude[left]", "Amplitude[left]",
-                                                       "B0[left]", "h[left]", "sigma[left]",
-                                                       "Magnitude[right]", "Amplitude[right]",
-                                                       "B0[right]", "h[right]", "sigma[right]",
-                                                       "\u03B2[left]", "\u03B2[right]", "RMSE"),
+                                                       "Magnitude[real_left]", "Magnitude[fit_left]", "Amplitude[real_left]", "Amplitude[fit_left]",
+                                                       "B0[left]", "h[left]", "sigma[left]", "beta[left]", "Flags[left]",
+                                                       "Magnitude[real_right]", "Magnitude[fit_right]", "Amplitude[real_right]", "Amplitude[fit_right]",
+                                                       "B0[right]", "h[right]", "sigma[right]", "beta[right]", "Flags[right]", "RMSE"),
                                               "nonbeta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                                                          "Magnitude[left]", "Amplitude[left]",
-                                                          "B0[left]", "h[left]", "sigma[left]",
-                                                          "Magnitude[right]", "Amplitude[right]",
-                                                          "B0[right]", "h[right]", "sigma[right]", "RMSE"))),
+                                                          "Magnitude[real_left]", "Magnitude[fit_left]", "Amplitude[real_left]", "Amplitude[fit_left]",
+                                                          "B0[left]", "h[left]", "sigma[left]", "Flags[left]",
+                                                          "Magnitude[real_right]", "Magnitude[fit_right]", "Amplitude[real_right]", "Amplitude[fit_right]",
+                                                          "B0[right]", "h[right]", "sigma[right]", "Flags[right]", "RMSE"))),
                "roc"=c("Mean", "Median", "t[start]", "t[max]", "t[end]",
                        "t[duration]", "Magnitude", "Amplitude"),
                "thresh"=c("Mean", "Median", "t[start]", "t[max]", "t[end]",
@@ -140,6 +142,8 @@ button_style <- "background-image: linear-gradient(#ddd, #eee);
                  outline-width: 1px;"
 
 help_text_style <- "white-space: normal; font-size: 10px;"
+label_text_style <- "white-space: normal; font-size: 14px; color: #555555; font-weight: bold; margin-bottom: 1px; margin-top: -10px;"
+label_text_style_main_options <- "white-space: normal; font-size: 10px; color: #555555; margin-bottom: 1px; margin-top: -10px;"
 
 # Remove polygon programmatically (instead of making the user manually delete it
 # with the draw toolbar) -- this is used when, for example, the user selects a
@@ -162,6 +166,7 @@ remove_custom_poly <- tags$script(HTML(
 #       - styles the horizontal bar in the sidebar,
 #       - creates the multi-column styling in the "full run" polygon selection,
 #       - reduces padding inside widget boxes
+#       - reduces padding between widget boxes
 sidebar_tags_style <- tags$style(HTML(
             "hr {border-top: 1px solid #bbbbbb;}
             .multicol {
@@ -174,6 +179,8 @@ sidebar_tags_style <- tags$style(HTML(
                      }
             .form-control { height:auto; padding:3px 3px;}"
 ))
+
+
 
 
 #*******************************************************************************
@@ -201,49 +208,46 @@ ui <- fluidPage(
             
             # UI LOAD OPTIONS ####
             
-            helpText("Select satellite, region, chlorophyll algorithm, year, composite length (daily or weekly images), and logged or unlogged chlorophyll, then click \"Load data\".",
-                      width = widget_width,
-                      style = help_text_style),
-            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Satellite</font>")),
+            helpText("Satellite / spatial resolution",
                      width = widget_width,
-                     style = help_text_style),
+                     style = label_text_style_main_options),
             selectInput(inputId = "satellite",
                         label = NULL,
                         choices = sensors,
                         width = widget_width),
-            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Region</font>")),
+            helpText("Region",
                      width = widget_width,
-                     style = help_text_style),
+                     style = label_text_style_main_options),
             selectInput(inputId = "region",
                         label = NULL,
                         choices = regions,
                         width = widget_width),
-            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Chlorophyll-a algorithm</font>")),
+            helpText("Chlorophyll algorithm",
                      width = widget_width,
-                     style = help_text_style),
+                     style = label_text_style_main_options),
             selectInput(inputId = "algorithm",
                         label = NULL,
                         choices = algorithms,
                         width = widget_width),
-            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Year</font>")),
+            helpText("Year",
                      width = widget_width,
-                     style = help_text_style),
+                     style = label_text_style_main_options),
             selectInput(inputId = "year",
                         label = NULL,
                         choices = default_years,
                         selected = default_years[length(default_years)],
                         width = widget_width),
-            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Data composite length</font>")),
+            helpText("Data composite length",
                      width = widget_width,
-                     style = help_text_style),
+                     style = label_text_style_main_options),
             selectInput(inputId = "interval",
                         label = NULL,
                         choices = intervals,
                         selected = "daily",
                         width = widget_width),
-            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Log chlorophyll?</font>")),
+            helpText("Log chlorophyll",
                      width = widget_width,
-                     style = help_text_style),
+                     style = label_text_style_main_options),
             switchInput(inputId = "log_chla",
                         label = HTML("log<sub>10</sub><i>chla</i>"),
                         value = TRUE,
@@ -262,15 +266,15 @@ ui <- fluidPage(
             
             # UI MAP COLOUR SCALE ####
             
-            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Adjust map colour scale</font>")),
+            helpText("Adjust map colour scale",
                      width = widget_width,
-                     style = help_text_style),
+                     style = label_text_style),
             div(style="display: inline-block; vertical-align:top; width: 50px;",
                 textInput(inputId = "zlim1",
                           label = NULL,
                           value = round(log10(0.05),2))),
             div(style="display: inline-block; vertical-align:top; width: 10px;",
-                helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040;\">&ndash;</font>")))),
+                helpText(HTML(paste0("<font style=\"font-size: 14px; color: #555555;\">&ndash;</font>")))),
             div(style="display: inline-block; vertical-align:top; width: 50px;",
                 textInput(inputId = "zlim2",
                           label = NULL,
@@ -283,7 +287,7 @@ ui <- fluidPage(
             
             # UI YEAR DAY ####
             
-            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Choose day of year</font></br>",
+            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">Choose day of year</font></br>",
                                  "Enter the day of year and click \"Go\", or drag the slider to view the map for that day. ",
                                  "Use the \"play/pause\" button on the slider to move through a sequence of daily/weekly chlorophyll maps automatically.<br>",
                                  "NOTE: If you are viewing weekly (8-day) data, the day of year will reset to the first day of the selected week.")),
@@ -366,11 +370,11 @@ ui <- fluidPage(
                                       width = widget_width,
                                       style = help_text_style),
                              textInput(inputId = "manual_lats",
-                                       label = HTML("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">List of latitudes:</font>"),
+                                       label = HTML("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">List of latitudes:</font>"),
                                        value = "",
                                        width = widget_width),
                              textInput(inputId = "manual_lons",
-                                       label = HTML("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">List of longitudes:</font>"),
+                                       label = HTML("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">List of longitudes:</font>"),
                                        value = "",
                                        width = widget_width),
                              actionButton(inputId = 'draw',
@@ -399,7 +403,7 @@ ui <- fluidPage(
             
             br(),
             
-            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">Minimum daily/weekly % coverage</font></br>",
+            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Minimum daily/weekly % coverage</font></br>",
                                  "Days with less than the minimum percent coverage in the selected polygon will not be plotted on the density plot or time series, or used in the bloom fit.")),
                      width = widget_width,
                      style = help_text_style),
@@ -409,7 +413,7 @@ ui <- fluidPage(
                          min = 0,
                          max = 100,
                          width = widget_width),
-            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">Outlier detection method</font></br>",
+            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Outlier detection method</font></br>",
                                  "SD = standard deviation</br>",
                                  "IQR = interquartile range")),
                      width = widget_width,
@@ -422,7 +426,7 @@ ui <- fluidPage(
                                     '1.5 IQR' = 'iqr15'),
                         selected = 'none',
                         width = widget_width),
-            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">Daily/weekly statistic</font></br>",
+            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Daily/weekly statistic</font></br>",
                                  "Choose to use either daily/weekly mean or median chlorophyll in the time series and bloom fit.")),
                      width = widget_width,
                      style = help_text_style),
@@ -432,7 +436,7 @@ ui <- fluidPage(
                                     'Median' = 'median'),
                         selected = 'average',
                         width = widget_width),
-            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">Range of pixel values</font></br>",
+            helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Range of pixel values</font></br>",
                                  "Choose the range of values allowed in the calculation of the statistics and bloom fit (pixels outside this range will be omitted).</br>",
                                  "If a limit is left blank, it will be ignored.")),
                      width = widget_width,
@@ -445,7 +449,7 @@ ui <- fluidPage(
                           label = NULL,
                           value = NA)),
             div(style="display: inline-block; vertical-align:top; width: 10px;",
-                helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040;\">&ndash;</font>")))),
+                helpText(HTML(paste0("<font style=\"font-size: 14px; color: #555555;\">&ndash;</font>")))),
             div(style="display: inline-block; vertical-align:top; width: 50px;",
                 textInput(inputId = "pixrange2",
                           label = NULL,
@@ -491,7 +495,7 @@ ui <- fluidPage(
                         selected = 'nofit',
                         width = widget_width),
             conditionalPanel(condition = "input.smoothMethod == 'loess'",
-                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">LOESS span</font></br>",
+                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">LOESS span</font></br>",
                                                   "Controls the degree of smoothing.")),
                                       width = widget_width,
                                       style = help_text_style),
@@ -506,19 +510,19 @@ ui <- fluidPage(
                      width = widget_width,
                      style = help_text_style),
             sliderInput(inputId = 't_range',
-                        label = HTML("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">t<sub>range</sub></font>"),
+                        label = HTML("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">t<sub>range</sub></font>"),
                         min = 1,
                         max = 365,
                         value = c(31,274),
                         ticks = FALSE),
             sliderInput(inputId = 'tm_limits',
-                        label = HTML("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">t<sub>max</sub></font>"),
+                        label = HTML("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">t<sub>max</sub></font>"),
                         min = 1,
                         max = 365,
                         value = c(91,181),
                         ticks = FALSE),
             sliderInput(inputId = 'ti_limits',
-                        label = HTML("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">t<sub>start</sub></font>"),
+                        label = HTML("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">t<sub>start</sub></font>"),
                         min = 1,
                         max = 365,
                         value = c(60,151),
@@ -544,9 +548,57 @@ ui <- fluidPage(
                              switchInput(inputId = 'use_weights',
                                          label = 'weights',
                                          value = FALSE,
-                                         onStatus = "success")),
+                                         onStatus = "success"),
+                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flags</font></br>",
+                                                  "Fits will be flagged if they meet the criteria below, which indicate potential problems with the fit (NOTE: this does not affect the fit itself). Combinations of flags will be written as a single number (so the possible values are 1, 2, 3, 12, 13, 23, or 123).")),
+                                      width = widget_width,
+                                      style = help_text_style),
+                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 1: Amplitude ratio</font></br>",
+                                                  "Flag 1 will occur if the ratio of amplitudes (amplitude of the fitted curve at t<sub>max</sub>",
+                                                  " over the amplitude of the real values at t<sub>max</sub>) is outside the range selected below.")),
+                                      width = widget_width,
+                                      style = help_text_style),
+                             div(style="display: inline-block; vertical-align:top; width: 50px;",
+                                 textInput(inputId = "flag1_lim1",
+                                           label = NULL,
+                                           value = 0.75)),
+                             div(style="display: inline-block; vertical-align:top; width: 10px;",
+                                 helpText(HTML(paste0("<font style=\"font-size: 14px; color: #555555;\">&ndash;</font>")))),
+                             div(style="display: inline-block; vertical-align:top; width: 50px;",
+                                 textInput(inputId = "flag1_lim2",
+                                           label = NULL,
+                                           value = 1.25)),
+                             div(style="display: inline-block;vertical-align:top; width: 60px;",
+                                 actionButton(inputId="apply_flag1_lim",
+                                              label="Apply",
+                                              style=button_style)),
+                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 2: Magnitude ratio</font></br>",
+                                                  "Flag 2 will occur if the ratio of magnitudes (area under the fitted curve over the area under the real values)",
+                                                  " is outside the range selected below.")),
+                                      width = widget_width,
+                                      style = help_text_style),
+                             div(style="display: inline-block; vertical-align:top; width: 50px;",
+                                 textInput(inputId = "flag2_lim1",
+                                           label = NULL,
+                                           value = 0.85)),
+                             div(style="display: inline-block; vertical-align:top; width: 10px;",
+                                 helpText(HTML(paste0("<font style=\"font-size: 14px; color: #555555;\">&ndash;</font>")))),
+                             div(style="display: inline-block; vertical-align:top; width: 50px;",
+                                 textInput(inputId = "flag2_lim2",
+                                           label = NULL,
+                                           value = 1.15)),
+                             div(style="display: inline-block;vertical-align:top; width: 60px;",
+                                 actionButton(inputId="apply_flag2_lim",
+                                              label="Apply",
+                                              style=button_style)),
+                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 3: Small sigma</font></br>",
+                                                  "Flag 3 will occur if sigma (the parameter controlling the width of the curve)",
+                                                  " is the same size or smaller than the time resolution (1 for daily data,",
+                                                  " 8 for weekly data).")),
+                                      width = widget_width,
+                                      style = help_text_style)),
             conditionalPanel(condition = "input.fitmethod == 'thresh'",
-                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">Threshold coefficient</font></br>",
+                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Threshold coefficient</font></br>",
                                                   "The start of the bloom is considered to be the point before t<sub>max</sub> ",
                                                   "when chlorophyll concentration drops below a threshold for > 14 days.</br>",
                                                   "Threshold = chla<sub>med</sub> * threshold coefficient</br>",
@@ -574,7 +626,7 @@ ui <- fluidPage(
             
             hr(),
             
-            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Time series</font></br>",
+            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">Time series</font></br>",
                                  "Select a series of years and the polygons you would like to process, ",
                                  "then click \"Run time series\" to generate the following:</br>",
                                  "<ul>",
@@ -642,7 +694,7 @@ ui <- fluidPage(
                br(),
                br(),
                plotOutput(outputId = 'bloomfit',
-                          height = '360px',
+                          height = '440px',
                           click = 'bloomfit_click'),
                disabled(downloadButton(outputId = "savebloomfit",
                                        label = "Download time series plot of daily/weekly chlorophyll (.png)",
@@ -689,6 +741,10 @@ server <- function(input, output, session) {
     state$sschla <- matrix(nrow=1,ncol=365)
     state$zlim1 <- log10(0.05)
     state$zlim2 <- log10(20)
+    state$flag1_lim1 <- 0.75
+    state$flag1_lim2 <- 1.25
+    state$flag2_lim1 <- 0.85
+    state$flag2_lim2 <- 1.15
     state$pixrange1 <- -Inf
     state$pixrange2 <- Inf
     state$latlon_method <- "drawPoly"
@@ -724,7 +780,8 @@ Tech Report with descriptions of the bloom fitting models (Shifted Gaussian, Rat
 Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a>, and weekly composites are generated by taking the average of each pixel over an 8-day period (46 weeks/year), following the same system as NASA OBPG. The binned data is used for statistics and bloom fitting, and rasterized and projected onto the map using <a href=\"https://spatialreference.org/ref/sr-org/7483/\">EPSG:3857</a> (the Web Mercator projection) for faster image loading.<br>
 <a href=\"https://oceancolor.gsfc.nasa.gov/atbd/chlor_a/\">NASA OCx chlorophyll-a algorithm</a><br>
 <a href=\"https://oceancolor.gsfc.nasa.gov/products/\">Level-3 binned files</a><br>
-                                    <a href=\"https://oceancolor.gsfc.nasa.gov/docs/format/l3bins/\">Binning scheme</a><br><br>
+                                    <a href=\"https://oceancolor.gsfc.nasa.gov/docs/format/l3bins/\">Binning scheme</a><br>
+                                    <a href=\"https://oceancolor.gsfc.nasa.gov/atbd/ocl2flags/\">Level-3 binned default flags</a><br><br>
                                     <b>Contact:</b><br>
                                     Stephanie.Clay@dfo-mpo.gc.ca<br><br>
                                     <b>Dataset last updated:</b><br>", data_last_updated)),
@@ -879,7 +936,7 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
         names(choices) <- c("Custom polygon", full_names[[state$region]])
         
         selectInput(inputId = 'box',
-                    label = HTML("<font style=\"font-size: 14px; color: #404040; font-weight: bold;\">Choose a polygon</font>"),
+                    label = HTML("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">Choose a polygon</font>"),
                     choices = choices,
                     selected = 'custom',
                     width = widget_width)
@@ -933,6 +990,10 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
         if (is.finite(zlim1) & is.finite(zlim2) & zlim2 >= zlim1) {
             state$zlim1 <- zlim1
             state$zlim2 <- zlim2
+        } else {
+            # if values are invalid, reset them to the previous values
+            updateTextInput(session, inputId = "zlim1", value = round(state$zlim1,2))
+            updateTextInput(session, inputId = "zlim2", value = round(state$zlim2,2))
         }
         
     })
@@ -1055,6 +1116,34 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
     })
     observeEvent(input$use_weights,{
         state$use_weights <- input$use_weights
+    })
+    observeEvent(input$apply_flag1_lim, {
+        flag1_lim1 <- as.numeric(input$flag1_lim1)
+        flag1_lim2 <- as.numeric(input$flag1_lim2)
+        # Check if values are valid (not NA, NaN, Inf, -Inf, or lim1 > lim2),
+        # and if so, apply them to the reactive state variables
+        if (is.finite(flag1_lim1) & is.finite(flag1_lim2) & flag1_lim2 >= flag1_lim1) {
+            state$flag1_lim1 <- flag1_lim1
+            state$flag1_lim2 <- flag1_lim2
+        } else {
+            # if values are invalid, reset them to the previous values
+            updateTextInput(session, inputId = "flag1_lim1", value = state$flag1_lim1)
+            updateTextInput(session, inputId = "flag1_lim2", value = state$flag1_lim2)
+        }
+    })
+    observeEvent(input$apply_flag2_lim, {
+        flag2_lim1 <- as.numeric(input$flag2_lim1)
+        flag2_lim2 <- as.numeric(input$flag2_lim2)
+        # Check if values are valid (not NA, NaN, Inf, -Inf, or zlim1 > zlim2),
+        # and if so, apply them to the reactive state variables
+        if (is.finite(flag2_lim1) & is.finite(flag2_lim2) & flag2_lim2 >= flag2_lim1) {
+            state$flag2_lim1 <- flag2_lim1
+            state$flag2_lim2 <- flag2_lim2
+        } else {
+            # if values are invalid, reset them to the previous values
+            updateTextInput(session, inputId = "flag2_lim1", value = state$flag2_lim1)
+            updateTextInput(session, inputId = "flag2_lim2", value = state$flag2_lim2)
+        }
     })
     
     # get ranges of days used for fitting and certain parameters
@@ -1725,9 +1814,9 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
             str3a <- "Longitudes:"
             str3b <- paste0(state$polylon, collapse=", ")
 
-            HTML(paste0("<font style=\"font-size: 18px; color: #404040; font-weight: bold;\">", str1, "</font><br/>",
-                        "<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">", str2a, "</font> ", str2b, "<br/>",
-                        "<font style=\"font-size: 12px; color: #404040; font-weight: bold;\">", str3a, "</font> ", str3b))
+            HTML(paste0("<font style=\"font-size: 18px; color: #555555; font-weight: bold;\">", str1, "</font><br/>",
+                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">", str2a, "</font> ", str2b, "<br/>",
+                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">", str3a, "</font> ", str3b))
             
         }
         
@@ -2177,7 +2266,11 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                                           log_chla = isolate(state$log_chla),
                                           threshcoef = state$threshcoef,
                                           doy_vec = doy_vec,
-                                          plot_title = plot_title)
+                                          plot_title = plot_title,
+                                          flag1_lim1 = state$flag1_lim1,
+                                          flag1_lim2 = state$flag1_lim2,
+                                          flag2_lim1 = state$flag2_lim1,
+                                          flag2_lim2 = state$flag2_lim2)
             
             p <- bf_data$p
             
@@ -2283,6 +2376,10 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
             t_range <- state$t_range
             tm_limits <- state$tm_limits
             ti_limits <- state$ti_limits
+            flag1_lim1 <- state$flag1_lim1
+            flag1_lim2 <- state$flag1_lim2
+            flag2_lim1 <- state$flag2_lim1
+            flag2_lim2 <- state$flag2_lim2
         })
         
         # create column names for parameter table
@@ -2365,7 +2462,11 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                 t_range = t_range,
                 tm_limits = tm_limits,
                 ti_limits = ti_limits,
-                dir_name = output_dir)
+                dir_name = output_dir,
+                flag1_lim1 = flag1_lim1,
+                flag1_lim2 = flag1_lim2,
+                flag2_lim1 = flag2_lim1,
+                flag2_lim2 = flag2_lim2)
             
             # add to final output dataframe
             total_params_df[((x-1)*length(regs)+1):(x*length(regs)),] <- tmp_par
@@ -2618,9 +2719,7 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                        custom_end="bloom_parameters.csv")
             },
         content <- function(file) {
-            tmp_params <- isolate(state$fitparams)
-            tmp_params[,"parameter"] <- sapply(1:nrow(tmp_params), function(i) {sub("\u03B2", "beta", tmp_params[i,"parameter"])})
-            write.csv(tmp_params,
+            write.csv(isolate(state$fitparams),
                       file=file,
                       quote=FALSE,
                       na=" ",

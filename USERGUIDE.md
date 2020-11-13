@@ -170,11 +170,15 @@ Click the grey/green "Bloom fit" button to expand the menu.
 
 Each point in the time series and bloom fit is the daily (or weekly) spatial average (or median) of data after removal of outliers and points outside the desired range, using the binned chlorophyll-a values. Only points with sufficient percent coverage inside the polygon on that day/week are used, within the range of days selected by the user.  
 
+Amplitude<sub>real</sub>: Height of the real data values at t<sub>max</sub> (peak value minus background chlorophyll-a)  
+Magnitude<sub>real</sub>: Area under the real data points from start to end of the bloom, excluding background chlorophyll-a  
 
-Amplitude: Height of the curve (peak value minus background chlorophyll-a)  
-Magnitude: Area under the data points from start to end of the bloom, excluding background chlorophyll-a  
+Gaussian fit only:  
+Amplitude<sub>fit</sub>: Height of the curve at t<sub>max</sub> (peak value minus background chlorophyll-a)  
+Magnitude<sub>fit</sub>: Area under the curve from start to end of the bloom, excluding background chlorophyll-a  
 
-**AS OF 28 SEP 2020, AMPLITUDE AND MAGNITUDE ARE CALCULATED USING THE FITTED CURVE FOR THE SHIFTED GAUSSIAN, NOT THE REAL VALUES**  
+Amplitude units: mg m<sup>-3</sup>  
+Magnitude units: (mg m<sup>-3</sup>) * days  
 
 <br><br>
 
@@ -233,6 +237,13 @@ Magnitude: Area under the data points from start to end of the bloom, excluding 
         + weights  
         Weight each point in the fit by the percent coverage inside the polygon on that day/week.  
         
+        + Flags  
+          Fits are flagged (unaffected but marked) if the following occurs:  
+          Flag 1: (Fitted curve at t<sub>max</sub>) / (Real value at t<sub>max</sub>) is outside the range specified by the user (default: 0.75-1.25)  
+          Flag 2: (Magnitude under curve) / (Magnitude under real values) is outside the range specified by the user (default: 0.85-1.15)  
+          Flag 3: Sigma (parameter controlling the width of the curve) is <= time resolution (i.e 1 for daily data, or 8 for weekly data)  
+        
+        
     + For Threshold:  
     
         + threshold coefficient  
@@ -246,18 +257,19 @@ Magnitude: Area under the data points from start to end of the bloom, excluding 
 
 ##### SHIFTED GAUSSIAN  
 
-Equation:
+<a target="_blank" href="userguide_bf_eq01.png">
+<img src="userguide_bf_eq01.png" alt="screencap" width="280"/>
+</a>
 
-$B = B_{0} + \beta*t + \frac{h}{\sqrt{2}\pi\sigma} exp(\frac{-(t- t_{max})^{2}}{2\sigma^{2}})$  
-
-
-B	= vector of mean (or median) measured concentration of chlorophyll-a for each day (or week)  
-t	= vector of days (or weeks), same length as B  
-B<sub>0</sub>	= background chlorophyll-a concentration  
-β t	= linear rate of change of B<sub>0</sub>  
-H = $\frac{h}{\sqrt{2}\pi\sigma}$ = controls the height of the curve  
-σ	= controls the width of the curve  
-t<sub>max</sub>	= day of maximum B  
+| Parameter | Units | Description |
+| --------- | ----- | ----------- |
+| B | mg m<sup>-3</sup> | vector of mean (or median) measured chla concentration for each day (or week) |
+| t | day of year | vector of days, same length as B |
+| B<sub>0</sub> | mg m<sup>-3</sup> | background chlorophyll-a concentration |  
+| β (beta) |	mg m<sup>-3</sup> day<sup>-1</sup> | linear rate of change of B<sub>0</sub> |  
+| h | unitless | controls the height of the curve |  
+| σ (sigma)	| unitless | controls the width of the curve |  
+| t<sub>max</sub>	| day of year | day of maximum B |  
 
 <br>
 
@@ -279,8 +291,9 @@ Lower/upper limits and starting guesses for *nlsLM*:
 
 *NOTES:*  
 
-  + *If curve is asymmetric, the same limits and guesses are used for each side*  
-  + *4 different sets of starting guesses are attempted before a dataset is declared unable to fit*  
+* _If curve is asymmetric, the same limits and guesses are used for each side_  
+* _4 different sets of starting guesses are attempted before a dataset is declared unable to fit_  
+* _If you're fitting weekly data, the week numbers are converted to the day of year at the start of each week, so the units are still day of year_  
 
 <br>
 
@@ -335,31 +348,27 @@ B<sub>0</sub> is computed using the same method as with the Rate of Change model
 
 6. Table of fitted bloom parameters (.csv)  
 
-7. Downloading results from a series of years and polygons (.zip)  
+7. Download results from a series of years and polygons (.zip)  
+  Instructions:  
+  * Select years using year slider  
+  * Select polygons with the radio buttons  
+    * Process all polygons, or  
+    * Select polygons to process  
+    Make sure you have at least one polygon selected, also if you have selected "Custom polygon", make sure the polygon is defined.  
+    Note: if you de-select all polygons, it will still use the polygon that you de-selected last.  
+  
+  * Click "Run time series"  
+    This will create:  
+    * PNG files for the bloom fit for each of the selected years  
+    * CSV files for each year containing the statistics for each day  
+    * CSV file containing the fit parameters for those years  
+    * TXT file containing the settings for the current run  
+    Files will be zipped to a folder with the following name convention:  
+    **satellite_ region_ algorithm_ years_ interval_ (un)loggedChla_ fitmethod_ timecreated.zip**  
+  
+  * "Download results (.zip)"  
+    This will download the zipped file to your browser's downloads folder.  
 
-    + Year slider  
-    
-    + Polygons  
-        + Process all polygons  
-        + Select polygons to process  
-        Make sure you have at least one polygon selected, also if you have selected "Custom polygon", make sure the polygon is defined.  
-        Note: if you de-select all polygons, it will still use the polygon that you de-selected last.  
-        
-    + "Run time series"  
-    
-      This will create:  
-      + PNG files for the bloom fit for each of the selected years  
-      + CSV files for each year containing the statistics for each day  
-      + CSV file containing the fit parameters for those years  
-      + TXT file containing the settings for the current run  
-      Files will be zipped to a folder with the following name convention:  
-      *satellite_ region_ algorithm_ years_ interval_ (un)loggedChla_ fitmethod_ timecreated.zip*  
-    
-    + "Download results (.zip)"  
-      This will download the zipped file to your browser's downloads folder.  
-
-
-    
 
 
 <br>  

@@ -1,19 +1,3 @@
-# Pad a number with leading zeroes to make it length "len".
-pad_num <- function(num, len) {
-  num_len <- nchar(as.character(floor(num)))
-  if (num_len > len) {len <- num_len}
-  paste0(paste(replicate(len - num_len, '0'), collapse=''), num)
-}
-
-# Capitalize the first letter of a word
-proper <- function(x) {
-  paste0(toupper(substr(x,1,1)), tolower(substring(x,2)))
-}
-
-rmse <- function(v1, v2) {
-  sqrt(sum((v1 - v2)^2, na.rm=TRUE)/sum(!is.na(v1) & !is.na(v2)))
-}
-
 # Create day label for plots/maps and time index for subsetting data.
 # This changes when year, interval, or day of year change.
 get_time_vars <- function(interval, year, yearday, doys_per_week=NULL) {
@@ -157,11 +141,12 @@ get_stats <- function(rchla, outlier) {
 get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_median, lenok, ind_dayrange_percov,
                                ind_percov, ydays_dayrange_percov, ydays_percov, ydays_dayrange, rchla_nrow,
                                use_weights, smoothMethod, loessSpan, fitmethod, bloomShape, daily_percov,
-                               tm, beta, tm_limits, ti_limits, log_chla, threshcoef, doy_vec, plot_title) {
+                               tm, beta, tm_limits, ti_limits, log_chla, threshcoef, doy_vec, plot_title,
+                               flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2) {
   
   # Get vector of chlorophyll based on daily/weekly statistic and valid indices.
   # "chlall" is plotted as the points in the scatterplot, sized by percent coverage.
-  # "chlorophyll" is used for the fit.
+  # "chlorophyll" is used for the fit (all chl within the day range, with sufficient percent coverage).
   if(dailystat == 'average'){
     chlorophyll <- chl_mean[ind_dayrange_percov]
     chlall <- chl_mean[ind_percov]
@@ -181,31 +166,62 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     y <- chlorophyll
   }
   
-  if(fitmethod == 'gauss'){
+  if (fitmethod == 'gauss') {
     
-    if (use_weights) {
-      weights <- daily_percov * 100
-      weights <- weights[ind_dayrange_percov]
-    } else {
-      weights <- rep(1,length(chlorophyll))
-    }
+    if (use_weights) {weights <- 100 * daily_percov[ind_dayrange_percov]
+    } else {weights <- rep(1,length(chlorophyll))}
     
-    if (tm) {
-      tmp_ti_lim <- c(1,365)
-    } else {
-      tmp_ti_lim <- ti_limits
-    }
+    if (tm) {tmp_ti_lim <- c(1,365)
+    } else {tmp_ti_lim <- ti_limits}
     
     gauss_res <- gaussFit(t = t, y = y, w = weights,
                           bloomShape = bloomShape,
-                          tm = tm,
-                          beta = beta,
+                          tm = tm, beta = beta,
                           tm_limits = tm_limits,
                           ti_limits = tmp_ti_lim,
-                          log_chla = log_chla)
+                          log_chla = log_chla,
+                          interval = interval,
+                          flag1_lim1 = flag1_lim1,
+                          flag1_lim2 = flag1_lim2,
+                          flag2_lim1 = flag2_lim1,
+                          flag2_lim2 = flag2_lim2)
     
     # collect parameters from fit
     bf_results <- gauss_res$values
+    bf_results[,3:6] <- round(as.numeric(bf_results[,3:6])) # round days
+    
+    # CALCULATE RMSE AND FITTED VECTOR IF NON-NULL FIT EXISTS
+    # For the fitted vector, you use everything in the selected day range, even 
+    # though some of those points were not used in the fit because they were NA
+    # or had insufficient coverage.
+    if (is.null(gauss_res$fit)) {
+      bf_results$RMSE <- NA
+    } else {
+      bf_results$RMSE <- ifelse(log_chla,
+                                rmse(chlorophyll, predict(gauss_res$fit)),
+                                rmse(log10(chlorophyll), log10(predict(gauss_res$fit))))
+      if (bloomShape=="symmetric") {
+        yfit <- shifted_gaussian(tv = ydays_dayrange,
+                                 B0 = bf_results$B0,
+                                 beta = ifelse(beta, bf_results[,"beta"], 0),
+                                 h = bf_results$h,
+                                 sigma = bf_results$sigma,
+                                 tmax = bf_results[,"t[max]"])
+      } else if (bloomShape=="asymmetric") {
+        yfit <- c(shifted_gaussian(tv = ydays_dayrange[ydays_dayrange <= bf_results[,"t[max]"]],
+                                   B0 = bf_results[,"B0[left]"],
+                                   beta = ifelse(beta, bf_results[,"beta[left]"], 0),
+                                   h = bf_results[,"h[left]"],
+                                   sigma = bf_results[,"sigma[left]"],
+                                   tmax = bf_results[,"t[max]"]),
+                  shifted_gaussian(tv = ydays_dayrange[ydays_dayrange > bf_results[,"t[max]"]],
+                                   B0 = bf_results[,"B0[right]"],
+                                   beta = ifelse(beta, bf_results[,"beta[right]"], 0),
+                                   h = bf_results[,"h[right]"],
+                                   sigma = bf_results[,"sigma[right]"],
+                                   tmax = bf_results[,"t[max]"]))
+      }
+    }
     
     
   } else if (fitmethod=="roc" | fitmethod=="thresh") {
@@ -228,32 +244,17 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     
     # collect parameters from "rate of change" or "threshold" fit
     bf_results <- bf_results$values
+    bf_results[,3:6] <- round(as.numeric(bf_results[,3:6])) # round days
     
   }
   
-  # Format parameters in a table to print on bloom fit plot
-  # and (optionally) to output csv file
-  tmp_v <- as.numeric(bf_results)
-  tmp_v[1:2] <- round(tmp_v[1:2], 3)
-  tmp_v[3:6] <- round(tmp_v[3:6])
-  tmp_v[7:length(tmp_v)] <- round(tmp_v[7:length(tmp_v)], 3)
-  
-  if (fitmethod == "gauss") {
-    if (!is.null(gauss_res$fit)) {
-      tmp_v <- c(tmp_v, round(ifelse(log_chla,
-                                     rmse(chlorophyll, predict(gauss_res$fit)),
-                                     rmse(log10(chlorophyll), log10(predict(gauss_res$fit)))), 3))
-    } else {
-      tmp_v <- c(tmp_v, NA)
-    }
-  }
-  
-  fitparams <- data.frame(parameter=pnames,
-                          value=tmp_v,
-                          stringsAsFactors = FALSE)
-  
+  # format output table for plotting
+  tab_to_plot <- data.frame(parameter=sapply(1:ncol(bf_results), function(i) sub("beta", "\u03B2", colnames(bf_results)[i])),
+                            value=unlist(bf_results),
+                            stringsAsFactors = FALSE)
+  tab_to_plot[c(1,2,7:nrow(tab_to_plot)),"value"] <- round(tab_to_plot[c(1,2,7:nrow(tab_to_plot)),"value"], 3)
   # convert parameter table to tableGrob to overlay on ggplot
-  values_df <- tableGrob(d = fitparams, rows = NULL, cols = NULL,
+  values_df <- tableGrob(d = tab_to_plot, rows = NULL, cols = NULL,
                          # Define theme to parse plotmath expressions
                          theme = ttheme_minimal(core=list(fg_params=list(parse=TRUE, hjust=0, x=0.02),
                                                           bg_params = list(fill="white", alpha=0.6)),
@@ -272,11 +273,9 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   
   # initialize and format base plot (points sized by percent coverage)
   p <- p +
-    geom_point(data=data.frame(x=doy_vec,
-                               y=allchl,
-                               percov=allpercov,
-                               stringsAsFactors = FALSE),
+    geom_point(data=data.frame(x=doy_vec, y=allchl, percov=allpercov, stringsAsFactors = FALSE),
                aes(x=x, y=y, size=percov), alpha=0.6) +
+    geom_vline(xintercept=as.numeric(bf_results[,c("t[start]", "t[max]", "t[end]")]), col="black", alpha=0.6) +
     ggtitle(plot_title) +
     labs(x='Day number') +
     scale_x_continuous(limits=c(0,365), breaks=seq(0,365,by=50)) +
@@ -285,37 +284,23 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                           limits = c(10, 100),
                           labels = c(25, 50, 75, 100),
                           range = c(1, 6)) +
-    theme(legend.position="bottom",#c(0.93, 0.79),
+    theme(legend.position="bottom",
           legend.title=element_text(size=12),
           axis.title.y=element_text(size=10),
           axis.title.x=element_text(size=10),
           axis.text.x=element_text(size=12),
           axis.text.y=element_text(size=12),
           panel.border = element_rect(colour="black", fill=NA, size=0.4)) +
-    annotation_custom(grobTree(textGrob(paste0("** Click a point and scroll up ",
-                                               "to see the map for that ",
+    annotation_custom(grobTree(textGrob(paste0("** Click a point and scroll up to see the map for that ",
                                                ifelse(interval=="daily", "day", "week")),
                                         x=0.01, y=0.94,hjust=0,
-                                        gp=gpar(fontsize=10, col="red", fontface="bold"))))
+                                        gp=gpar(fontsize=10, col="black", fontface="bold"))))
   
   if (log_chla) {
     p <- p + labs(y=bquote(.(proper(interval)) * " " * .(dailystat) * " chlorophyll [" * ~log[10]~ mg/m^3 * "]"))
   } else {
     p <- p + labs(y=bquote(.(proper(interval)) * " " * .(dailystat) * " chlorophyll [" * mg/m^3 * "]"))
   }
-  
-  # color of fit line, based on choice of mean/median daily/weekly statistic,
-  # matched with the mean/median vertical bar coloring in the density plot
-  fit_col <- ifelse(dailystat=="average","dodgerblue2","red2")
-  
-  # color and transparency of vertical bars marking indices of fit
-  ind_col <- "black"
-  ind_alpha <- 0.6
-  
-  # parameter table location variables
-  miny <- min(allchl, na.rm=TRUE)
-  maxy <- max(allchl, na.rm=TRUE)
-  table_ydiff <- maxy - miny
   
   # If you use LOESS smoothing, add the line to the data
   if (smoothMethod == 'loess') {
@@ -329,65 +314,38 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     }
   }
   
+  # color of fit line, based on choice of mean/median daily/weekly statistic,
+  # matched with the mean/median vertical bar coloring in the density plot
+  fit_col <- ifelse(dailystat=="average","dodgerblue2","red2")
+  
   # add line and statistics based on user-selected fit method
   if (fitmethod == 'gauss') {
-    
     if (is.null(gauss_res$fit)) {
-      
       p <- p + annotation_custom(grobTree(textGrob("Unable to fit",
                                                    x=0.018, y=0.8, hjust=0,
                                                    gp=gpar(fontsize=16, col="red", fontface="bold"))))
-      
     } else {
-      
-      # fitted data (everything in the day range)
-      if (bloomShape=="symmetric") {
-        
-        tmp_beta <- ifelse(beta, as.numeric(bf_results$beta_value), 0)
-        yfit <- as.numeric(bf_results$B0) + tmp_beta * ydays_dayrange + as.numeric(bf_results$h) / (sqrt(2*pi) * as.numeric(bf_results$sigma)) * exp(- (ydays_dayrange - as.numeric(bf_results$tm))^2 / (2 * as.numeric(bf_results$sigma)^2))
-        
-      } else if (bloomShape=="asymmetric") {
-        
-        tmp_betaL <- ifelse(beta, as.numeric(bf_results$beta_valueL), 0)
-        tmp_betaR <- ifelse(beta, as.numeric(bf_results$beta_valueR), 0)
-        Lidx <- ydays_dayrange <= as.numeric(bf_results$tm)
-        Ridx <- ydays_dayrange > as.numeric(bf_results$tm)
-        yfitL <- as.numeric(bf_results$B0L) + tmp_betaL * ydays_dayrange[Lidx] + as.numeric(bf_results$hL) / (sqrt(2*pi) * as.numeric(bf_results$sigmaL)) * exp(- (ydays_dayrange[Lidx] - as.numeric(bf_results$tm))^2 / (2 * as.numeric(bf_results$sigmaL)^2))
-        yfitR <- as.numeric(bf_results$B0R) + tmp_betaR * ydays_dayrange[Ridx] + as.numeric(bf_results$hR) / (sqrt(2*pi) * as.numeric(bf_results$sigmaR)) * exp(- (ydays_dayrange[Ridx] - as.numeric(bf_results$tm))^2 / (2 * as.numeric(bf_results$sigmaR)^2))
-        yfit <- c(yfitL, yfitR)
-        
-      }
-      
       # add data to base plot
       p <- p +
         geom_line(data=data.frame(x=ydays_dayrange, yfit=yfit, stringsAsFactors = FALSE),
                   aes(x=x, y=yfit), color=fit_col) +
-        geom_vline(xintercept=as.numeric(bf_results$ti), col=ind_col, alpha=ind_alpha) +
-        geom_vline(xintercept=as.numeric(bf_results$tm), col=ind_col, alpha=ind_alpha) +
-        geom_vline(xintercept=as.numeric(bf_results$tt), col=ind_col, alpha=ind_alpha)
-      
+        annotation_custom(grobTree(textGrob(ifelse(smoothMethod == 'loess',
+                                                   "** Gaussian fitted to LOESS",
+                                                   "** Gaussian fitted to points"),
+                                            x=0.01, y=0.84, hjust=0,
+                                            gp=gpar(fontsize=10, col=fit_col, fontface="bold"))))
     }
-    
-  } else if (fitmethod=="roc" | fitmethod=="thresh") {
-    
-    if (fitmethod=="thresh") {
-      thresh_val <- as.numeric(bf_results$thresh)
-      p <- p +
-        geom_hline(yintercept=thresh_val, color="red", alpha=0.4) +
-        geom_label(aes(5, thresh_val, label="Threshold", vjust=0), color="red", label.size=0, position=position_dodge(0.9), alpha=0.5)
-    }
-    
+  } else if (fitmethod=="thresh") {
+    thresh_val <- as.numeric(bf_results[,"Threshold"])
     p <- p +
-      geom_vline(xintercept=as.numeric(bf_results$ti), col=ind_col, alpha=ind_alpha) +
-      geom_vline(xintercept=as.numeric(bf_results$tm), col=ind_col, alpha=ind_alpha) +
-      geom_vline(xintercept=as.numeric(bf_results$tt), col=ind_col, alpha=ind_alpha)
-    
+      geom_hline(yintercept=thresh_val, color="red", alpha=0.4) +
+      geom_label(aes(5, thresh_val, label="Threshold", vjust=0), color="red", label.size=0, position=position_dodge(0.9), alpha=0.5)
   }
   
   # add the parameter table to the right side of the plot
-  p <- p + annotation_custom(values_df, xmin=330, xmax=360, ymin=-Inf, ymax=Inf)
+  p <- p + annotation_custom(values_df, xmin=325, xmax=360, ymin=-Inf, ymax=Inf)
   
-  return(list(p=p, fitparams=fitparams, chlall=chlall))
+  return(list(p=p, fitparams=bf_results, chlall=chlall))
   
 }
 

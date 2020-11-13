@@ -14,12 +14,26 @@ asymm_gaussian <- function(t, tm_value, beta_valueL, beta_valueR, B0L, B0R, sigm
     
 }
 
+# Compare the real and fitted time series, and flag it if it meets certain criteria
+flag_check <- function(mag_real, mag_fit, amp_real, amp_fit, sigma, time_res=1, flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2) {
+  
+  flags <- c(ifelse(amp_fit/amp_real <= flag1_lim1 | amp_fit/amp_real >= flag1_lim2, TRUE, FALSE),
+             ifelse(mag_fit/mag_real <= flag2_lim1 | mag_fit/mag_real >= flag2_lim2, TRUE, FALSE),
+             ifelse(sigma <= time_res, TRUE, FALSE))
+  
+  return(as.numeric(paste0(which(flags), collapse="")))
+  
+}
+
+
 # This is the main function that organizes the data and the limits and starting
 # guesses for the nonlinear least squares regression to find the best fit.
 # The function then computes the fit, using a simple gaussian model if the user
 # chose a symmetric bloom shape, or the asymm_gaussian function above if the
 # user chose the asymmetric shape.
-gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE, tm_limits = c(1,365), ti_limits = c(1,365), log_chla = FALSE){
+gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE,
+                     tm_limits = c(1,365), ti_limits = c(1,365), log_chla = FALSE,
+                     interval = "daily", flag1_lim1 = 0.75, flag1_lim2 = 1.25, flag2_lim1 = 0.85, flag2_lim2 = 1.15){
   
     # t, y, w              = numeric vectors: day of year, chlorophyll concentration, and weights
     # bloomShape           = string: "symmetric" or "asymmetric"
@@ -43,16 +57,19 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     # To collect output later
     if (bloomShape=="symmetric") {
       
-      values <- data.frame(matrix(nrow=1,ncol=11), stringsAsFactors = FALSE)
-      colnames(values) <- c("Mean", "Median", "ti", "tm", "tt", "td", "mag", "amp", "B0", "h", "sigma")
+      values <- data.frame(matrix(nrow=1,ncol=15), stringsAsFactors = FALSE)
+      colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
+                            "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]",
+                            "B0", "h", "sigma", "beta", "Flags")
       
     } else if (bloomShape=="asymmetric") {
       
-      values <- data.frame(matrix(nrow=1,ncol=16), stringsAsFactors = FALSE)
-      colnames(values) <- c("Mean", "Median", "ti", "tm", "tt", "td",
-                            "magL", "ampL", "B0L", "hL", "sigmaL",
-                            "magR", "ampR", "B0R", "hR", "sigmaR")
-      
+      values <- data.frame(matrix(nrow=1,ncol=24), stringsAsFactors = FALSE)
+      colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
+                            "Magnitude[real_left]", "Magnitude[fit_left]", "Amplitude[real_left]", "Amplitude[fit_left]",
+                            "B0[left]", "h[left]", "sigma[left]", "beta[left]", "Flags[left]",
+                            "Magnitude[real_right]", "Magnitude[fit_right]", "Amplitude[real_right]", "Amplitude[fit_right]",
+                            "B0[right]", "h[right]", "sigma[right]", "beta[right]", "Flags[right]")
     }
     
     values[1,1:2] <- c(mean(chlorophyll, na.rm=TRUE), median(chlorophyll, na.rm=TRUE))
@@ -98,13 +115,6 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
       params[[1]]$beta_value <- params[[2]]$beta_value <- -0.002
       params[[3]]$beta_value <- params[[4]]$beta_value <- -0.001
       
-      if (bloomShape=="symmetric") {
-        values[1,"beta_value"] <- NA
-      } else if (bloomShape=="asymmetric") {
-        values[1,"beta_valueL"] <- NA
-        values[1,"beta_valueR"] <- NA
-      }
-      
     } else {
       
       beta_value <- 0
@@ -113,6 +123,9 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
       } else if (bloomShape=="asymmetric") {
         beta_valueL <- beta_valueR <- 0
       }
+      
+      # remove beta column(s)
+      values <- values[,!startsWith(colnames(values), "beta")]
       
     }
     
@@ -204,22 +217,34 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           tmidx <- which.min(abs(yday - tm_value))
           ttidx <- which.min(abs(yday - tt))
           
-          fitted_values <- predict(fit)
-          
-          Bmax <- fitted_values[tmidx]
-          
           if (beta) {
             bkrnd <- B0 + (beta_value * (yday[tiidx:ttidx]))
             bkrndBm <-  B0 + (beta_value * tm_value)
-            values[1,"beta_value"] <- beta_value
+            values[1,"beta"] <- beta_value
           } else {
             bkrnd <- bkrndBm <- B0
           }
           
-          mag <- sum(diff(yday[tiidx:ttidx]) * (head(fitted_values[tiidx:ttidx] - bkrnd, -1) + tail(fitted_values[tiidx:ttidx] - bkrnd, -1))/2)
-          amp <- Bmax - bkrndBm
+          fitted_values <- predict(fit)
           
-          values[1,3:11] <- c(ti, tm_value, tt, td, mag, amp, B0, h, sigma)
+          mag_real <- sum(diff(yday[tiidx:ttidx]) * (head(chlorophyll[tiidx:ttidx] - bkrnd, -1) + tail(chlorophyll[tiidx:ttidx] - bkrnd, -1))/2)
+          mag_fit <- sum(diff(yday[tiidx:ttidx]) * (head(fitted_values[tiidx:ttidx] - bkrnd, -1) + tail(fitted_values[tiidx:ttidx] - bkrnd, -1))/2)
+          amp_real <- chlorophyll[tmidx] - bkrndBm
+          amp_fit <- fitted_values[tmidx] - bkrndBm
+          
+          flags <- flag_check(mag_real=mag_real,
+                              mag_fit=mag_fit,
+                              amp_real=amp_real,
+                              amp_fit=amp_fit,
+                              sigma=sigma,
+                              time_res=ifelse(interval=="daily", 1, 8),
+                              flag1_lim1=flag1_lim1,
+                              flag1_lim2=flag1_lim2,
+                              flag2_lim1=flag2_lim1,
+                              flag2_lim2=flag2_lim2)
+          
+          val_inds <- ifelse(beta, list(c(3:13, 15)), list(3:14))
+          values[1,val_inds[[1]]] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit, B0, h, sigma, flags)
           
         }
         
@@ -313,19 +338,14 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           tmidx <- which.min(abs(yday - tm_value))
           ttidx <- which.min(abs(yday - tt))
           
-          fitted_values <- predict(fit)
-          
-          BmaxL <- fitted_values[tmidx]
-          BmaxR <- fitted_values[tmidx+1]
-          
           if (beta) {
             
             bkrndL <- B0L + (beta_valueL * (yday[tiidx:tmidx]))
             bkrndR <- B0R + (beta_valueR * (yday[(tmidx+1):ttidx]))
             bkrndBmL <-  B0L + (beta_valueL * yday[tmidx])
             bkrndBmR <-  B0R + (beta_valueR * yday[tmidx + 1])
-            values[1,"beta_valueL"] <- beta_valueL
-            values[1,"beta_valueR"] <- beta_valueR
+            values[1,"beta[left]"] <- beta_valueL
+            values[1,"beta[right]"] <- beta_valueR
             
           } else {
             
@@ -334,16 +354,43 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
             
           }
           
+          fitted_values <- predict(fit)
           
-          magL <- sum(diff(yday[tiidx:tmidx]) * (head(fitted_values[tiidx:tmidx] - bkrndL, -1) + tail(fitted_values[tiidx:tmidx] - bkrndL, -1))/2)
-          magR <- sum(diff(yday[(tmidx+1):ttidx]) * (head(fitted_values[(tmidx+1):ttidx] - bkrndR, -1) + tail(fitted_values[(tmidx+1):ttidx] - bkrndR, -1))/2)
+          magL_real <- sum(diff(yday[tiidx:tmidx]) * (head(chlorophyll[tiidx:tmidx] - bkrndL, -1) + tail(chlorophyll[tiidx:tmidx] - bkrndL, -1))/2)
+          magR_real <- sum(diff(yday[(tmidx+1):ttidx]) * (head(chlorophyll[(tmidx+1):ttidx] - bkrndR, -1) + tail(chlorophyll[(tmidx+1):ttidx] - bkrndR, -1))/2)
+          magL_fit <- sum(diff(yday[tiidx:tmidx]) * (head(fitted_values[tiidx:tmidx] - bkrndL, -1) + tail(fitted_values[tiidx:tmidx] - bkrndL, -1))/2)
+          magR_fit <- sum(diff(yday[(tmidx+1):ttidx]) * (head(fitted_values[(tmidx+1):ttidx] - bkrndR, -1) + tail(fitted_values[(tmidx+1):ttidx] - bkrndR, -1))/2)
           
-          ampL <- BmaxL - bkrndBmL
-          ampR <- BmaxR - bkrndBmR
+          ampL_real <- chlorophyll[tmidx] - bkrndBmL
+          ampR_real <- chlorophyll[tmidx+1] - bkrndBmR
+          ampL_fit <- fitted_values[tmidx] - bkrndBmL
+          ampR_fit <- fitted_values[tmidx+1] - bkrndBmR
           
-          values[1,3:16] <- c(ti, tm_value, tt, td,
-                              magL, ampL, B0L, hL, sigmaL,
-                              magR, ampR, B0R, hR, sigmaR)
+          flagsL <- flag_check(mag_real=magL_real,
+                               mag_fit=magL_fit,
+                               amp_real=ampL_real,
+                               amp_fit=ampL_fit,
+                               sigma=sigmaL,
+                               time_res=ifelse(interval=="daily", 1, 8),
+                               flag1_lim1=flag1_lim1,
+                               flag1_lim2=flag1_lim2,
+                               flag2_lim1=flag2_lim1,
+                               flag2_lim2=flag2_lim2)
+          flagsR <- flag_check(mag_real=magR_real,
+                               mag_fit=magR_fit,
+                               amp_real=ampR_real,
+                               amp_fit=ampR_fit,
+                               sigma=sigmaR,
+                               time_res=ifelse(interval=="daily", 1, 8),
+                               flag1_lim1=flag1_lim1,
+                               flag1_lim2=flag1_lim2,
+                               flag2_lim1=flag2_lim1,
+                               flag2_lim2=flag2_lim2)
+          
+          val_inds <- ifelse(beta, list(c(3:13, 15:22, 24)), list(3:22))
+          values[1,val_inds[[1]]] <- c(ti, tm_value, tt, td,
+                                  magL_real, magL_fit, ampL_real, ampL_fit, B0L, hL, sigmaL, flagsL,
+                                  magR_real, magR_fit, ampR_real, ampR_fit, B0R, hR, sigmaR, flagsR)
           
         }
         
