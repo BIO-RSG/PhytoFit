@@ -772,7 +772,7 @@ server <- function(input, output, session) {
         showModal(modalDialog(
                     title = "Satellite Chlorophyll Data Visualization",
                     HTML(paste0("This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.<br><br>",
-                                "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md\">USER GUIDE</a> (Last updated 2 Oct 2020)<br><br>",
+                                "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md\">USER GUIDE</a> (In progress)<br><br>",
 "Paper detailing the chlorophyll-a algorithms (OCx, POLY4, and GSM_GS):<br><a href=\"https://www.mdpi.com/2072-4292/11/22/2609\"><i>Clay, S.; Peña, A.; DeTracey, B.; Devred, E. Evaluation of Satellite-Based Algorithms to Retrieve Chlorophyll-a Concentration in the Canadian Atlantic and Pacific Oceans. Remote Sens. 2019, 11, 2609.</i></a><br><br>
 Tech Report with descriptions of the bloom fitting models (Shifted Gaussian, Rate of Change, and Threshold methods):<br>
 <i>IN PROGRESS</i><br><br>
