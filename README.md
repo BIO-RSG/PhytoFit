@@ -23,7 +23,10 @@ remotes::install_github("BIO-RSG/oceancolouR")
 
 4. Restart R after the packages and fix have been installed.
 
-5. Download this repository.
+5. Download this repository one of two ways:  
+
+- Code --> Download ZIP  
+- Using git (this will make it easier to download updates in the future): Open git bash terminal, navigate to the folder where you want to download the repository, and type: `git clone https://github.com/BIO-RSG/PhytoFit.git`  
 
 
 ## Running
