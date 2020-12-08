@@ -1394,6 +1394,9 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                     lat = state$center_lat,
                     zoom = state$zoom_level) %>%
             # Add mouse coordinates to top of map
+            # Note: need to "remove" first, otherwise it gets stuck if you try
+            # to reload the base map (for example, switching from Atlantic to Pacific)
+            removeMouseCoordinates() %>%
             addMouseCoordinates() %>%
             # Add boxes based on the current AZMP statistic boxes
             addPolygons(group = "Stats boxes",
