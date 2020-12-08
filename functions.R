@@ -389,12 +389,11 @@ settings_str <- function(satellite, region, algorithm, year_list, date_var, inte
             paste0(proper(interval), " statistic:"), proper(dailystat), "",
             paste0("Minimum value used in statistics and fit: ", pixrange1,
                    "\nMaximum value used in statistics and fit: ", pixrange2), "",
-            "Fit method:", ifelse(fitmethod=="gauss", "Shifted Gaussian curve",
-                                  ifelse(fitmethod=="roc", "Rate of change", "Threshold")), "",
+            "Fit method:", fitmethod, "",
             "Bloom fit shape:", bloomShape, "",
             "Smoothing method:", smoothMethod, "")
   
-  if (smoothMethod=="LOESS smooth") {
+  if (smoothMethod=="LOESS") {
     info <- c(info, "LOESS span:", loessSpan, "")
   }
   
