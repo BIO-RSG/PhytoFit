@@ -14,6 +14,7 @@ library(shinybusy)      # to show progress when processing a full time series
 library(htmlwidgets)    # to use saveWidget to save the map
 library(leaflet)        # for creating map
 library(leaflet.extras) # for custom polygon drawings on map
+library(leafem)         # mouse coordinates at top of map
 library(quantreg)       # used in the fitting models
 library(minpack.lm)     # to use nlsLM for asymmetric gaussian fit
 library(rgdal)          # needed for some other packages
@@ -1392,6 +1393,8 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
             setView(lng = state$center_lon,
                     lat = state$center_lat,
                     zoom = state$zoom_level) %>%
+            # Add mouse coordinates to top of map
+            addMouseCoordinates() %>%
             # Add boxes based on the current AZMP statistic boxes
             addPolygons(group = "Stats boxes",
                         data = state$original_polylist,
