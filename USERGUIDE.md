@@ -3,9 +3,9 @@
 Report issues to: Stephanie.Clay@dfo-mpo.gc.ca  
   
 ***
-<div align="center">
+
 ## ACCESSING THE APP
-</div>
+
 
 ### Option 1: DM APPS
 *(DFO VPN access required)*  
@@ -47,9 +47,9 @@ Open app.R within RStudio, and click "Run app".
 	Solution: Update ggplot2 package  
 
 ***
-<div align="center">
+
 ## WARNINGS  
-</div>
+
 
 * Large custom polygons (>500 degrees square) are not allowed due to memory issues.
 
@@ -59,9 +59,9 @@ Open app.R within RStudio, and click "Run app".
 
 
 ***
-<div align="center">
+
 ## FUTURE OPTIONS
-</div>
+
 
 * Manually adjust fit parameters
 * SeaWiFS and OLCI 4km
@@ -71,9 +71,9 @@ Open app.R within RStudio, and click "Run app".
 * Script contains code to create a popup when user clicks a single point on the map, displaying the latitude/longitude/chlorophyll value at that point. The code displays two chla values: "rasterized.chlorophyll.a", which is the value projected on the map, and "chlorophyll.a", which is the actual binned value nearest that point. [This popup feature is currently disabled because the popups interfere with drawing/editing polygons.]
 
 ***
-<div align="center">
+
 ## REFERENCES AND DATA SOURCES
-</div>
+
 
 Paper detailing the chlorophyll-a algorithms (*OCx*, *POLY4*, and *GSM_GS*):  
 [Clay, S.; Peña, A.; DeTracey, B.; Devred, E. Evaluation of Satellite-Based Algorithms to Retrieve Chlorophyll-a Concentration in the Canadian Atlantic and Pacific Oceans. Remote Sens. 2019, 11, 2609.](https://www.mdpi.com/2072-4292/11/22/2609)  
@@ -91,9 +91,9 @@ Daily level-3 binned files are downloaded from [NASA OBPG](https://oceancolor.gs
 
 
 ***
-<div align="center">
+
 ## INSTRUCTIONS
-</div>
+
 
 <br>  
 
@@ -147,17 +147,17 @@ If you choose "Custom polygon":
 <br>
     + **Option 1:** Draw it on the map  
       
-      > <div style="font-size:70%">Scroll up to the draw toolbar at the top left corner of the map.  
-      > Controls on the toolbar: zoom in/out, draw irregular polygon or a box, edit polygon, and delete polygon.  
-      > To draw an irregular polygon, click the first draw icon (the pentagon) and click the points on the map where you want the vertices to be. To finish the polygon, click the first point or click the "finish" button.  
-      > To draw a square, use the second draw icon.  
-      > As of 26 Sep 2020, only one polygon can be drawn on the map at a given time. If you draw a new polygon, the old one will be deleted automatically.</div>  
+      Scroll up to the draw toolbar at the top left corner of the map.  
+      Controls on the toolbar: zoom in/out, draw irregular polygon or a box, edit polygon, and delete polygon.  
+      To draw an irregular polygon, click the first draw icon (the pentagon) and click the points on the map where you want the vertices to be. To finish the polygon, click the first point or click the "finish" button.  
+      To draw a square, use the second draw icon.  
+      As of 26 Sep 2020, only one polygon can be drawn on the map at a given time. If you draw a new polygon, the old one will be deleted automatically. 
     + **Option 2:** Type the coordinates of the vertices and click "Create polygon"  
     
-      > <div style="font-size:70%">Latitide/longitude formatting:  
-      >  + decimal degrees  
-      >  + separated by commas  
-      >  + use latitude/longitude < 0 for south/west</div>  
+      Latitide/longitude formatting:  
+        + decimal degrees  
+        + separated by commas  
+        + use latitude/longitude < 0 for south/west  
 
 <br>  
 
@@ -242,11 +242,11 @@ Magnitude units: (mg m<sup>-3</sup>) * days
         + t<sub>max</sub> switch (NOT the slider)  
         Allow t<sub>max</sub> to vary as a parameter within *nlsLM()*, rather than being a fixed value based on the actual maximum concentration.
         
-          > <div style="font-size:70%">*NOTE: t<sub>start</sub> can't be restricted if this is set to ON*.  
+          > *NOTE: t<sub>start</sub> can't be restricted if this is set to ON*.  
           > The reason for this: t<sub>start</sub> is restricted by adjusting σ, the parameter controlling the width of the curve, relative to a constant t<sub>max</sub>. If the t<sub>max</sub> button is set to ON, then both σ and t<sub>max</sub> are allowed to vary as parameters within *nlsLM()*, so they can't be used to restrict t<sub>start</sub> to a constant range of possible days.  
           > If the t<sub>max</sub> button is OFF and t<sub>start</sub> is limited, the limitations on t<sub>start</sub> are implemented by adjusting the limitations on σ, like so:  
           > σ<sub>upper</sub> = (t<sub>max</sub> - t<sub>start_lower</sub>) / 1.79  
-          > σ<sub>lower</sub> = (t<sub>max</sub> - t<sub>start_upper</sub>) / 1.79</div>  
+          > σ<sub>lower</sub> = (t<sub>max</sub> - t<sub>start_upper</sub>) / 1.79  
         
         + β * t  
         Allow a linear rate of change on either side of the bloom curve (this can tilt the horizontal line of background chlorophyll-a).  
@@ -265,9 +265,9 @@ Magnitude units: (mg m<sup>-3</sup>) * days
     
         + threshold coefficient  
         
-          > <div style="font-size:70%">t<sub>start</sub> is defined as the point where chlorophyll-a drops below the threshold for > 14 days, measuring the days/weeks backward from the day of maximum concentration  
+          > t<sub>start</sub> is defined as the point where chlorophyll-a drops below the threshold for > 14 days, measuring the days/weeks backward from the day of maximum concentration  
           > threshold = (threshold coefficient) * (median chlorophyll-a)  
-          > median chlorophyll-a = median of the chlorophyll-a within the selected day range and >= the selected percent coverage (i.e. all the data points used in a bloom fit)</div>  
+          > median chlorophyll-a = median of the chlorophyll-a within the selected day range and >= the selected percent coverage (i.e. all the data points used in a bloom fit) 
 
 
 <br>  
