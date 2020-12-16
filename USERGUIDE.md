@@ -270,6 +270,7 @@ Magnitude units: (mg m<sup>-3</sup>) * days
           > median chlorophyll-a = median of the chlorophyll-a within the selected day range and >= the selected percent coverage (i.e. all the data points used in a bloom fit) 
 
 
+
 <br>  
 
 ##### SHIFTED GAUSSIAN  
