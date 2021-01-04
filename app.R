@@ -768,12 +768,15 @@ server <- function(input, output, session) {
         toggleState("ti_limits", condition = !input$tm)
     })
     
-    # Initial popup description
+    
+    # START SCREEN POPUP ####
+    
     observe({
         showModal(modalDialog(
                     title = "Satellite Chlorophyll Data Visualization",
                     HTML(paste0("This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.<br><br>",
                                 "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md\">USER GUIDE</a> (In progress)<br><br>",
+                                "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/fst_tutorial.md\">Using the raw (binned) data</a><br>This is a quick tutorial explaining how the raw satellite chlorophyll data used in PhytoFit can be read into R and manipulated for other purposes.<br><br>",
 "Paper detailing the chlorophyll-a algorithms (OCx, POLY4, and GSM_GS):<br><a href=\"https://www.mdpi.com/2072-4292/11/22/2609\"><i>Clay, S.; Peña, A.; DeTracey, B.; Devred, E. Evaluation of Satellite-Based Algorithms to Retrieve Chlorophyll-a Concentration in the Canadian Atlantic and Pacific Oceans. Remote Sens. 2019, 11, 2609.</i></a><br><br>
 Tech Report with descriptions of the bloom fitting models (Shifted Gaussian, Rate of Change, and Threshold methods):<br>
 <i>IN PROGRESS</i><br><br>
@@ -1481,16 +1484,13 @@ Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc
                                   lat = sslat[chla_ind],
                                   chl = sschla[chla_ind,time_ind],
                                   stringsAsFactors = FALSE)
-                
                 state$pts <- pts
                 
                 coordinates(pts) = ~lon+lat
                 
                 # create an empty raster object to the extent of the points
-                xres <- 0.065
-                yres <- (2/3) * xres
-                tr <- raster(ext=extent(pts),
-                             resolution = c(xres,yres))
+                tr <- raster(ext=extent(pts), resolution = c(0.065,0.04333333))
+                
                 # rasterize your irregular points
                 tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = T) # we use a mean function here to regularly grid the irregular input points
                 # state$tr <- tr # only used for input$fullmap_click, currently disabled
