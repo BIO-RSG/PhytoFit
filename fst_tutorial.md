@@ -5,7 +5,7 @@ You can download the raw data used in PhytoFit in *fst* format (stored in the `d
 ### Files you will need:  
 
 - data/*region*/*region_sensor_algorithm_year*.fst  
-- coords.rds ([here](https://github.com/BIO-RSG/PhytoFit/raw/master/coords.rds))  
+- [coords.rds](https://github.com/BIO-RSG/PhytoFit/raw/master/coords.rds)  
 
 ### Example:
 
