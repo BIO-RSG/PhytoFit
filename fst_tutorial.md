@@ -1,6 +1,6 @@
 # Using the raw chlorophyll data
 
-You can download the raw data used in PhytoFit in *fst* format (stored in the `data/` subdirectory), which can be read into R.  
+You can download the raw data used in PhytoFit in *fst* format (stored in the `data/` subdirectory [here](https://github.com/BIO-RSG/PhytoFit/tree/master/data)), which can be read into R.  
 
 ### Files you will need:  
 
@@ -16,12 +16,6 @@ First, load the necessary packages:
 ```{r}
 library(fst)    # to load the data
 library(sp)     # to subset the region by lat/lon
-library(dplyr)  # dataframe manipulation tools
-
-# packages required to view the data on a map, with land boundaries
-library(raster)         # to rasterize the binned data
-library(latticeExtra)   # to plot the land boundaries
-data("wrld_simpl", package = "maptools")
 ```
 
 To read a file:
@@ -87,16 +81,22 @@ str(df)
 View the data for day of year 126:  
 
 ```{r}
+# packages required to view the data on a map, with land boundaries
+library(dplyr)          # dataframe manipulation tools
+library(raster)         # to rasterize the binned data
+library(latticeExtra)   # to plot the land boundaries
+data("wrld_simpl", package = "maptools")
+
 df <- df %>%
+  # use only the data for day 126
   dplyr::filter(day == 126) %>%
+  # remove the "day" column
   dplyr::select(-day)
 
 coordinates(df) <- ~longitude + latitude
 
 # create an empty raster object to the extent of the points
-xres <- 0.065
-yres <- (2/3) * xres
-rast <- raster(ext=extent(df), resolution = c(xres,yres))
+rast <- raster(ext=extent(df), resolution = c(0.065,0.04333333))
 
 # rasterize the irregular points
 rast <- rasterize(df, rast, df$chlorophyll, fun = mean, na.rm = TRUE)
