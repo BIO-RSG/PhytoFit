@@ -13,6 +13,9 @@ A collection of helpful troubleshooting notes or links collected as the app was 
 **Error message**: *Density plot error: could not find function "expansion"*  
 **Solution**: Update ggplot2  
 
+**Error message**: *Error in .getReactiveEnvironment()$currentContext() : Operation not allowed without an active reactive context. (You tried to do something that can only be done from inside a reactive expression or observer.)*  
+**Solution**: This is a *shiny* error that means, for example, that you tried to do something with a reactive variable outside of a reactive expression like reactive, observe, eventReactive, observeEvent, or a render function. Make sure all your reactive variables are within these types of expressions.  
+
 ***
 
 
@@ -80,7 +83,7 @@ https://riptutorial.com/shiny/topic/10787/reactive--reactivevalue-and-eventreact
 | eventReactive | events specified in first argument | returns a value in the reactive or render object where it's called, changing it |
 
 `reactiveValues()`:  
-"input" is a list of reactive values, but creating another reactiveValues list (the "state" list in this app) gives you more control over what user input
+"input" is a list of reactive values, but creating another reactiveValues list (the "state" list in PhytoFit) gives you more control over what user input
 will trigger which functions, and whether or not the values in stats/plots/etc use the current user (widget) input.  
 EXAMPLE specific to PhytoFit:  
 
@@ -97,10 +100,6 @@ EXAMPLE specific to PhytoFit:
 
 To wrap the text in an actionButton:  
 `actionButton(inputId, label, width, style = "white-space: normal;")`  
-
-ERROR MESSAGE:  *Error in .getReactiveEnvironment()$currentContext() : Operation not allowed without an active reactive context. (You tried to do something that can only be done from inside a reactive expression or observer.)*  
-This means you tried to do something with a reactiveValue (for example, the "input" or "state" variables in this app) outside of a reactive expression
-like reactive, observe, eventReactive, or observeEvent - actions on reactiveValues must be within one of those (or a "render" function).  
 
 Hide download buttons if data has not been loaded yet:  
 https://stackoverflow.com/questions/53616176/shiny-use-validate-inside-downloadhandler  
