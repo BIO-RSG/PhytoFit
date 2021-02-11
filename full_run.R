@@ -6,7 +6,7 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                      fitmethod, bloomShape, smoothMethod, loessSpan=NA, use_weights,
                      threshcoef=NA, tm=FALSE, beta=FALSE, t_range = c(1,365),
                      tm_limits = c(1,365), ti_limits = c(1,365), dir_name,
-                     flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2) {
+                     flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, ti_threshold=0.2, tt_threshold=0.2) {
     
     
     #***************************************************************************
@@ -99,7 +99,7 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
             
             daily_percov <- lenok / nrow(rchla)
             ind_percov <- daily_percov > percent
-            ind_dayrange <- doy_vec > first_day & doy_vec <= min(last_day-1, available_days)
+            ind_dayrange <- doy_vec >= first_day & doy_vec <= min(last_day, available_days)
             ind_dayrange_percov <- ind_percov & ind_dayrange
             ydays_percov <- doy_vec[ind_percov] # all days with high enough percent coverage
             ydays_dayrange <- doy_vec[ind_dayrange]
@@ -162,7 +162,9 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                                           flag1_lim1 = flag1_lim1,
                                           flag1_lim2 = flag1_lim2,
                                           flag2_lim1 = flag2_lim1,
-                                          flag2_lim2 = flag2_lim2)
+                                          flag2_lim2 = flag2_lim2,
+                                          ti_threshold = ti_threshold,
+                                          tt_threshold = tt_threshold)
             
             p <- bf_data$p
             fitparams <- bf_data$fitparams

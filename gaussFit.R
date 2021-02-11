@@ -33,22 +33,32 @@ flag_check <- function(mag_real, mag_fit, amp_real, amp_fit, sigma, time_res=1, 
 # user chose the asymmetric shape.
 gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE,
                      tm_limits = c(1,365), ti_limits = c(1,365), log_chla = FALSE,
-                     interval = "daily", flag1_lim1 = 0.75, flag1_lim2 = 1.25, flag2_lim1 = 0.85, flag2_lim2 = 1.15){
+                     interval = "daily", flag1_lim1 = 0.75, flag1_lim2 = 1.25,
+                     flag2_lim1 = 0.85, flag2_lim2 = 1.15, ti_threshold = 0.2,
+                     tt_threshold = 0.2, ydays_dayrange){
   
     # t, y, w              = numeric vectors: day of year, chlorophyll concentration, and weights
+    #                        (reduced by selected day range and percent coverage)
     # bloomShape           = string: "symmetric" or "asymmetric"
     # tm, beta             = logical values
     # tm_limits, ti_limits = numeric vectors: the range of days to search for max chla concentration and the start of the bloom
-    # log_chla              = boolean: TRUE if chlorophyll values are logged (need this to know whether or not to log B0 parameter)
+    # log_chla             = boolean: TRUE if chlorophyll values are logged (need this to know whether or not to log B0 parameter)
+    # ydays_dayrange       = numeric vector: day of year, reduced by selected day range
   
     # FORMULAS:
-    #   t_init = tmax - 1.79*sigma
+    #   t_init = tmax - sqrt(-2 * log(ti_threshold)) * sigma
+    #          = tmax - 1.79*sigma (for default 20% threshold)
     #   H = amplitude = h / (sqrt(2*pi)*sigma) = Bmax - B0
     #   tm FALSE and beta TRUE:
     #         t_dur = 2*(t_max - t_init) = 3.59*sigma
     #   tm TRUE and beta TRUE:
     #         t_dur = 3.59 * sigma
-  
+    
+    # Calculate the scaling factor that will later be used to get the approximate
+    # number of days between tmax and ti
+    ti_width <- sqrt(-2 * log(ti_threshold))
+    tt_width <- sqrt(-2 * log(tt_threshold))
+    
     chlorophyll <- y
     yday <- t
     
@@ -56,14 +66,11 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     
     # To collect output later
     if (bloomShape=="symmetric") {
-      
       values <- data.frame(matrix(nrow=1,ncol=15), stringsAsFactors = FALSE)
       colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
                             "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]",
                             "B0", "h", "sigma", "beta", "Flags")
-      
     } else if (bloomShape=="asymmetric") {
-      
       values <- data.frame(matrix(nrow=1,ncol=24), stringsAsFactors = FALSE)
       colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
                             "Magnitude[real_left]", "Magnitude[fit_left]", "Amplitude[real_left]", "Amplitude[fit_left]",
@@ -157,8 +164,8 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     # so there's no way to use either one to restrict ti
     if (!tm & !all(ti_limits==c(1,365))) {
       
-      sigma_limit2 <- (tm_value - ti_limits[1])/1.79
-      sigma_limit1 <- (tm_value - ti_limits[2])/1.79
+      sigma_limit2 <- (tm_value - ti_limits[1])/ti_width
+      sigma_limit1 <- (tm_value - ti_limits[2])/ti_width
       
       if (sigma_limit1 < 0) {sigma_limit1 <- 0}
       
@@ -203,11 +210,65 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           tm_value <- unname(coef(fit)[tm_ind])
         }
         
-        ti <- tm_value - 1.79 * sigma
-        td <- 3.59 * sigma
+        ti <- tm_value - ti_width * sigma
+        td <- 2 * ti_width * sigma
         tt <- ti + td
         
-        if (ti < 0) {
+        # Experimental code below to allow user to adjust the threshold use to
+        # calculate ti, down to a lower limit based on h/sigma.
+        # NOTE: The asymmetric code hasn't been adjusted for this yet.
+        
+        # # Calculate approximate start day of the bloom using the log formula
+        # ti <- tm_value - ti_width * sigma
+        # 
+        # # Calculate the minimum accepted start day of the bloom, to make sure
+        # # the one calculated with the log formula is valid.
+        # # With the user-selected range of days allowed in the fit, get the day
+        # # where the fitted values first diverge from the background chla by at least 0.004 * h / sigma
+        # fitted_values <- shifted_gaussian(tv = ydays_dayrange,
+        #                                   B0 = B0,
+        #                                   beta = beta_value,
+        #                                   h = h,
+        #                                   sigma = sigma,
+        #                                   tmax = tm_value)
+        # bg_line <- beta_value * ydays_dayrange + B0
+        # ti_min <- ydays_dayrange[which(abs(fitted_values - bg_line) > 0.004*h/sigma)[1]]
+        # 
+        # # run a few checks to see if the log-calculated ti index is valid
+        # invalid_ti <- FALSE
+        # if (length(ti_min)==0) {
+        #   invalid_ti <- TRUE
+        # } else if (ti <= ti_min) {
+        #   # ti calculated using threshold - is it too early? then reset ti
+        #   ti <- ti_min
+        #   # is the calculated ti too late?
+        #   if (ti_min==ydays_dayrange[1]) {
+        #     # get the curve and background values the day before ti_min
+        #     day_before <- ydays_dayrange[1]-1
+        #     chla_tminus1 <- predict(fit, data.frame(t=day_before))
+        #     bg_tminus1 <- beta_value * day_before + B0
+        #     # if the difference for the day before is also over the threshold,
+        #     # then ti should have been earlier
+        #     if (abs(chla_tminus1 - bg_tminus1) > 0.004*h/sigma) {
+        #       invalid_ti <- TRUE
+        #     }
+        #   }
+        # }
+        # 
+        # # based on ti, calculate the duration and the termination
+        # td <- 2 * (tm_value-ti)
+        # tt <- ti + td
+        # 
+        # # get the indices of valid ydays closest to ti, td, tm
+        # tiidx <- which.min(abs(yday - ti))
+        # tmidx <- which.min(abs(yday - tm_value))
+        # ttidx <- which.min(abs(yday - tt))
+        # 
+        # if (!(tiidx < tmidx & ti < tm_value)) {invalid_ti <- TRUE}
+        # 
+        # if (invalid_ti) {
+        
+        if (ti < 1) {
           
           fit <- NULL
           
@@ -224,8 +285,6 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           } else {
             bkrnd <- bkrndBm <- B0
           }
-          
-          fitted_values <- predict(fit)
           
           mag_real <- sum(diff(yday[tiidx:ttidx]) * (head(chlorophyll[tiidx:ttidx] - bkrnd, -1) + tail(chlorophyll[tiidx:ttidx] - bkrnd, -1))/2)
           mag_fit <- sum(diff(yday[tiidx:ttidx]) * (head(fitted_values[tiidx:ttidx] - bkrnd, -1) + tail(fitted_values[tiidx:ttidx] - bkrnd, -1))/2)
@@ -323,12 +382,12 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           tm_value <- unname(coef(fit)[tm_ind])
         }
         
-        ti <- tm_value - 1.79 * sigmaL
-        td <- 3.59/2 * sigmaL + 3.59/2 * sigmaR
+        ti <- tm_value - ti_width * sigmaL
+        td <- ti_width * sigmaL + tt_width * sigmaR
         tt <- ti + td
         
         
-        if (ti < 0) {
+        if (ti < 1) {
           
           fit <- NULL
           

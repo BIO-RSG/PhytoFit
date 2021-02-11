@@ -142,7 +142,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                                ind_percov, ydays_dayrange_percov, ydays_percov, ydays_dayrange, rchla_nrow,
                                use_weights, smoothMethod, loessSpan, fitmethod, bloomShape, daily_percov,
                                tm, beta, tm_limits, ti_limits, log_chla, threshcoef, doy_vec, plot_title,
-                               flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2) {
+                               flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, ti_threshold=0.2, tt_threshold=0.2) {
   
   # Get vector of chlorophyll based on daily/weekly statistic and valid indices.
   # "chlall" is plotted as the points in the scatterplot, sized by percent coverage.
@@ -184,7 +184,10 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                           flag1_lim1 = flag1_lim1,
                           flag1_lim2 = flag1_lim2,
                           flag2_lim1 = flag2_lim1,
-                          flag2_lim2 = flag2_lim2)
+                          flag2_lim2 = flag2_lim2,
+                          ti_threshold = ti_threshold,
+                          tt_threshold = tt_threshold,
+                          ydays_dayrange = ydays_dayrange)
     
     # collect parameters from fit
     bf_results <- gauss_res$values

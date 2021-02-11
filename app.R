@@ -5,7 +5,6 @@ gc()
 
 # suppress some repetitive warnings when using addRasterImage in leafletProxy
 options("rgdal_show_exportToProj4_warnings"="none")
-
 library(fst)            # for speedier data file loading
 library(shiny)
 library(shinyWidgets)   # for updating buttons
@@ -56,8 +55,8 @@ algorithms <- c("OCx (global, band ratio)"="ocx",
                 "EOF (regional, empirical)"="eof")
 
 # years with available data for each sensor
-years <- list("modis"=2003:2020,
-              "viirs"=2012:2020,
+years <- list("modis"=2003:2021,
+              "viirs"=2012:2021,
               "seawifs"=1997:2010)
 for (i in 1:length(years)) {names(years[[i]]) <- years[[i]]}
 default_years <- years[["modis"]]
@@ -533,6 +532,27 @@ ui <- fluidPage(
                         value = c(60,151),
                         ticks = FALSE),
             conditionalPanel(condition = "input.fitmethod == 'gauss'",
+                             # helpText(HTML("Set the threshold for defining the start of the bloom (percentage of the amplitude of the curve).</br>Possible values: 1 - 50"),
+                             #          width = widget_width,
+                             #          style = help_text_style),
+                             # numericInput(inputId = 'ti_threshold',
+                             #              label = NULL,
+                             #              value = 20,
+                             #              min = 1,
+                             #              max = 50,
+                             #              step = 1,
+                             #              width = widget_width),
+                             # conditionalPanel(condition = "input.bloomShape == 'asymmetric'",
+                             #                  helpText(HTML("Similarly, set the threshold for defining the end of the bloom."),
+                             #                           width = widget_width,
+                             #                           style = help_text_style),
+                             #                  numericInput(inputId = 'tt_threshold',
+                             #                               label = NULL,
+                             #                               value = 20,
+                             #                               min = 1,
+                             #                               max = 50,
+                             #                               step = 1,
+                             #                               width = widget_width)),
                              helpText(HTML("Switch to ON to consider t<sub>max</sub> a parameter in the regression."),
                                       width = widget_width,
                                       style = help_text_style),
@@ -758,6 +778,8 @@ server <- function(input, output, session) {
     state$editedpoly <- NULL
     state$fullrunboxes <- "custom"
     state$fullrun_fname <- NULL
+    state$ti_threshold <- 0.2
+    state$tt_threshold <- 0.2
     # default box - need this so when everything first evaluates, some functions
     # dependent on it know what to do (since the box option doesn't appear until
     # the box UI renders, then evaluates AFTER that)
@@ -1120,6 +1142,34 @@ server <- function(input, output, session) {
     })
     
     # GAUSS METHOD SPECIFICALLY
+    # observeEvent(input$ti_threshold,{
+    #     # Check if value is valid and within the 0-50 range,
+    #     # and if so, apply it to the reactive state variable
+    #     ti_threshold <- input$ti_threshold
+    #     if (!is.finite(ti_threshold)) {
+    #         updateNumericInput(session, inputId = "ti_threshold", value = (state$ti_threshold * 100))
+    #     } else if (ti_threshold < 1) {
+    #         updateNumericInput(session, inputId = "ti_threshold", value = 1)
+    #     } else if (ti_threshold > 50) {
+    #         updateNumericInput(session, inputId = "ti_threshold", value = 50)
+    #     } else {
+    #         state$ti_threshold <- ti_threshold/100
+    #     }
+    # })
+    # observeEvent(input$tt_threshold,{
+    #     # Check if value is valid and within the 0-50 range,
+    #     # and if so, apply it to the reactive state variable
+    #     tt_threshold <- input$tt_threshold
+    #     if (!is.finite(tt_threshold)) {
+    #         updateNumericInput(session, inputId = "tt_threshold", value = (state$tt_threshold * 100))
+    #     } else if (tt_threshold < 1) {
+    #         updateNumericInput(session, inputId = "tt_threshold", value = 1)
+    #     } else if (tt_threshold > 50) {
+    #         updateNumericInput(session, inputId = "tt_threshold", value = 50)
+    #     } else {
+    #         state$tt_threshold <- tt_threshold/100
+    #     }
+    # })
     observeEvent(input$tm,{
         state$tm <- input$tm
     })
@@ -1532,7 +1582,7 @@ server <- function(input, output, session) {
                     addRasterImage(x = tr_coloradj, colors = cm) %>%
                     addLegend(position = 'topright',
                               pal = cm,
-                              values = c(getValues(tr_coloradj),zlim),
+                              values = zlim,#c(getValues(tr_coloradj),zlim),
                               title = leg_title,
                               bins = 10,
                               opacity = 1) %>%
@@ -1540,7 +1590,7 @@ server <- function(input, output, session) {
                     addControl(tags$div(tag.map.title, HTML(day_label)),
                                position = "topleft",
                                className = "map-title")
-                
+                # }))
                 # now that data has been loaded, make the download button visible
                 enable("savemap")
                 
@@ -2227,7 +2277,7 @@ server <- function(input, output, session) {
                 
                 daily_percov <- lenok / nrow(rchla)
                 ind_percov <- daily_percov > state$percent
-                ind_dayrange <- doy_vec > first_day & doy_vec <= min(last_day-1, available_days)
+                ind_dayrange <- doy_vec >= first_day & doy_vec <= min(last_day, available_days)
                 ind_dayrange_percov <- ind_percov & ind_dayrange
                 ydays_percov <- doy_vec[ind_percov] # all days with high enough percent coverage
                 ydays_dayrange <- doy_vec[ind_dayrange]
@@ -2284,7 +2334,9 @@ server <- function(input, output, session) {
                                           flag1_lim1 = state$flag1_lim1,
                                           flag1_lim2 = state$flag1_lim2,
                                           flag2_lim1 = state$flag2_lim1,
-                                          flag2_lim2 = state$flag2_lim2)
+                                          flag2_lim2 = state$flag2_lim2,
+                                          ti_threshold = state$ti_threshold,
+                                          tt_threshold = state$tt_threshold)
             
             p <- bf_data$p
             
@@ -2394,6 +2446,8 @@ server <- function(input, output, session) {
             flag1_lim2 <- state$flag1_lim2
             flag2_lim1 <- state$flag2_lim1
             flag2_lim2 <- state$flag2_lim2
+            ti_threshold = state$ti_threshold
+            tt_threshold = state$tt_threshold
         })
         
         # create column names for parameter table
@@ -2480,7 +2534,9 @@ server <- function(input, output, session) {
                 flag1_lim1 = flag1_lim1,
                 flag1_lim2 = flag1_lim2,
                 flag2_lim1 = flag2_lim1,
-                flag2_lim2 = flag2_lim2)
+                flag2_lim2 = flag2_lim2,
+                ti_threshold = ti_threshold,
+                tt_threshold = tt_threshold)
             
             # add to final output dataframe
             total_params_df[((x-1)*length(regs)+1):(x*length(regs)),] <- tmp_par
