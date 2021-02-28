@@ -88,7 +88,7 @@ rateOfChange <- function(y, yall, t, tall, bloomShape = "symmetric", tm_limits =
       
     } else if (bloomShape == 'asymmetric') {
       
-      # calculate integral (magnitude)
+      # get the index of 2*tm so that you can search for tt before this point
       revidx <- which(abs(t - 2*tm)==min(abs(t - 2*tm),na.rm=TRUE))
       
       if (revidx != maxidx) {

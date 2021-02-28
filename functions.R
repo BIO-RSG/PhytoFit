@@ -142,7 +142,8 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                                ind_percov, ydays_dayrange_percov, ydays_percov, ydays_dayrange, rchla_nrow,
                                use_weights, smoothMethod, loessSpan, fitmethod, bloomShape, daily_percov,
                                tm, beta, tm_limits, ti_limits, log_chla, threshcoef, doy_vec, plot_title,
-                               flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, ti_threshold=0.2, tt_threshold=0.2) {
+                               flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, ti_threshold=0.2, tt_threshold=0.2,
+                               rm_bkrnd=FALSE, ti_threshold_type = "percent_thresh", ti_threshold_constant = 0.1) {
   
   # Get vector of chlorophyll based on daily/weekly statistic and valid indices.
   # "chlall" is plotted as the points in the scatterplot, sized by percent coverage.
@@ -187,7 +188,10 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                           flag2_lim2 = flag2_lim2,
                           ti_threshold = ti_threshold,
                           tt_threshold = tt_threshold,
-                          ydays_dayrange = ydays_dayrange)
+                          ydays_dayrange = ydays_dayrange,
+                          rm_bkrnd = rm_bkrnd,
+                          ti_threshold_type = ti_threshold_type,
+                          ti_threshold_constant = ti_threshold_constant)
     
     # collect parameters from fit
     bf_results <- gauss_res$values
@@ -211,18 +215,19 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                                  sigma = bf_results$sigma,
                                  tmax = bf_results[,"t[max]"])
       } else if (bloomShape=="asymmetric") {
-        yfit <- c(shifted_gaussian(tv = ydays_dayrange[ydays_dayrange <= bf_results[,"t[max]"]],
-                                   B0 = bf_results[,"B0[left]"],
-                                   beta = ifelse(beta, bf_results[,"beta[left]"], 0),
-                                   h = bf_results[,"h[left]"],
-                                   sigma = bf_results[,"sigma[left]"],
-                                   tmax = bf_results[,"t[max]"]),
-                  shifted_gaussian(tv = ydays_dayrange[ydays_dayrange > bf_results[,"t[max]"]],
-                                   B0 = bf_results[,"B0[right]"],
-                                   beta = ifelse(beta, bf_results[,"beta[right]"], 0),
-                                   h = bf_results[,"h[right]"],
-                                   sigma = bf_results[,"sigma[right]"],
-                                   tmax = bf_results[,"t[max]"]))
+        fitL <- shifted_gaussian(tv = ydays_dayrange[ydays_dayrange <= bf_results[,"t[max]"]],
+                                 B0 = bf_results[,"B0[left]"],
+                                 beta = ifelse(beta, bf_results[,"beta[left]"], 0),
+                                 h = bf_results[,"h[left]"],
+                                 sigma = bf_results[,"sigma[left]"],
+                                 tmax = bf_results[,"t[max]"])
+        fitR <- shifted_gaussian(tv = ydays_dayrange[ydays_dayrange > bf_results[,"t[max]"]],
+                                 B0 = bf_results[,"B0[right]"],
+                                 beta = ifelse(beta, bf_results[,"beta[right]"], 0),
+                                 h = bf_results[,"h[right]"],
+                                 sigma = bf_results[,"sigma[right]"],
+                                 tmax = bf_results[,"t[max]"])
+        yfit <- c(fitL, fitR)
       }
     }
     

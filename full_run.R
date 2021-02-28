@@ -6,7 +6,8 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                      fitmethod, bloomShape, smoothMethod, loessSpan=NA, use_weights,
                      threshcoef=NA, tm=FALSE, beta=FALSE, t_range = c(1,365),
                      tm_limits = c(1,365), ti_limits = c(1,365), dir_name,
-                     flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, ti_threshold=0.2, tt_threshold=0.2) {
+                     flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, ti_threshold=0.2, tt_threshold=0.2,
+                     rm_bkrnd=FALSE, ti_threshold_type = "percent_thresh", ti_threshold_constant = 0.1) {
     
     
     #***************************************************************************
@@ -164,7 +165,10 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                                           flag2_lim1 = flag2_lim1,
                                           flag2_lim2 = flag2_lim2,
                                           ti_threshold = ti_threshold,
-                                          tt_threshold = tt_threshold)
+                                          tt_threshold = tt_threshold,
+                                          rm_bkrnd = rm_bkrnd,
+                                          ti_threshold_type = ti_threshold_type,
+                                          ti_threshold_constant = ti_threshold_constant)
             
             p <- bf_data$p
             fitparams <- bf_data$fitparams

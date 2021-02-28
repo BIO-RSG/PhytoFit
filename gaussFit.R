@@ -14,6 +14,14 @@ asymm_gaussian <- function(t, tm_value, beta_valueL, beta_valueR, B0L, B0R, sigm
     
 }
 
+# Calculate the background line between ti and tt in the asymmetric case
+get_asymm_bkrnd <- function(B0L, B0R, beta_valueL, beta_valueR, yday) {
+  bkrndL <- B0L + beta_valueL * yday[1]
+  bkrndR <- B0R + beta_valueR * yday[length(yday)]
+  bloom_bkrnd_line <- find_line(yday[1], bkrndL, yday[length(yday)], bkrndR)
+  return(bloom_bkrnd_line$intercept + bloom_bkrnd_line$slope * yday)
+}
+
 # Compare the real and fitted time series, and flag it if it meets certain criteria
 flag_check <- function(mag_real, mag_fit, amp_real, amp_fit, sigma, time_res=1, flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2) {
   
@@ -35,7 +43,8 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                      tm_limits = c(1,365), ti_limits = c(1,365), log_chla = FALSE,
                      interval = "daily", flag1_lim1 = 0.75, flag1_lim2 = 1.25,
                      flag2_lim1 = 0.85, flag2_lim2 = 1.15, ti_threshold = 0.2,
-                     tt_threshold = 0.2, ydays_dayrange){
+                     tt_threshold = 0.2, ydays_dayrange, rm_bkrnd=FALSE,
+                     ti_threshold_type="percent_thresh", ti_threshold_constant=0.1){
   
     # t, y, w              = numeric vectors: day of year, chlorophyll concentration, and weights
     #                        (reduced by selected day range and percent coverage)
@@ -68,15 +77,14 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     if (bloomShape=="symmetric") {
       values <- data.frame(matrix(nrow=1,ncol=15), stringsAsFactors = FALSE)
       colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                            "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]",
-                            "B0", "h", "sigma", "beta", "Flags")
+                            "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
+                            "B0", "h", "sigma", "beta")
     } else if (bloomShape=="asymmetric") {
-      values <- data.frame(matrix(nrow=1,ncol=24), stringsAsFactors = FALSE)
+      values <- data.frame(matrix(nrow=1,ncol=19), stringsAsFactors = FALSE)
       colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                            "Magnitude[real_left]", "Magnitude[fit_left]", "Amplitude[real_left]", "Amplitude[fit_left]",
-                            "B0[left]", "h[left]", "sigma[left]", "beta[left]", "Flags[left]",
-                            "Magnitude[real_right]", "Magnitude[fit_right]", "Amplitude[real_right]", "Amplitude[fit_right]",
-                            "B0[right]", "h[right]", "sigma[right]", "beta[right]", "Flags[right]")
+                            "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
+                            "B0[left]", "h[left]", "sigma[left]", "beta[left]",
+                            "B0[right]", "h[right]", "sigma[right]", "beta[right]")
     }
     
     values[1,1:2] <- c(mean(chlorophyll, na.rm=TRUE), median(chlorophyll, na.rm=TRUE))
@@ -210,9 +218,25 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           tm_value <- unname(coef(fit)[tm_ind])
         }
         
-        ti <- tm_value - ti_width * sigma
-        td <- 2 * ti_width * sigma
-        tt <- ti + td
+        if (ti_threshold_type=="percent_thresh") {
+          ti <- tm_value - ti_width * sigma
+          td <- 2 * ti_width * sigma
+          tt <- ti + td
+        } else {
+          # make a fitted curve to search for a threshold
+          tmp_yday <- seq(ti_limits[1], ti_limits[2], by=1)
+          tmp_chlorophyll <- shifted_gaussian(tmp_yday, B0, beta_value, h, sigma, tm_value)
+          tmp_bkrnd <- B0 + beta_value * tmp_yday
+          if (log_chla) {
+            tmp_chlorophyll <- 10^tmp_chlorophyll
+            tmp_bkrnd <- 10^tmp_bkrnd
+          }
+          ti_ind <- tmp_yday < tm_value & tmp_yday >= ti_limits[1] & tmp_yday <= ti_limits[2]
+          ti <- tmp_yday[ti_ind][which(abs(tmp_chlorophyll-tmp_bkrnd)[ti_ind] >= ti_threshold_constant)[1]]
+          td <- (tm_value-ti) * 2
+          tt <- ti + td
+        }
+        
         
         # Experimental code below to allow user to adjust the threshold use to
         # calculate ti, down to a lower limit based on h/sigma.
@@ -268,30 +292,69 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
         # 
         # if (invalid_ti) {
         
-        if (ti < 1) {
+        if (!is.finite(ti) | !is.finite(tt)) {
+          
+          fit <- NULL
+          
+        } else if (ti < 1) {
           
           fit <- NULL
           
         } else {
           
-          tiidx <- which.min(abs(yday - ti))
-          tmidx <- which.min(abs(yday - tm_value))
-          ttidx <- which.min(abs(yday - tt))
-          
           if (beta) {
-            bkrnd <- B0 + (beta_value * (yday[tiidx:ttidx]))
-            bkrndBm <-  B0 + (beta_value * tm_value)
             values[1,"beta"] <- beta_value
-          } else {
-            bkrnd <- bkrndBm <- B0
           }
           
-          fitted_values <- predict(fit)
+          tiidx <- which.min(abs(yday - ti))
+          ttidx <- which.min(abs(yday - tt))
           
-          mag_real <- sum(diff(yday[tiidx:ttidx]) * (head(chlorophyll[tiidx:ttidx] - bkrnd, -1) + tail(chlorophyll[tiidx:ttidx] - bkrnd, -1))/2)
-          mag_fit <- sum(diff(yday[tiidx:ttidx]) * (head(fitted_values[tiidx:ttidx] - bkrnd, -1) + tail(fitted_values[tiidx:ttidx] - bkrnd, -1))/2)
-          amp_real <- chlorophyll[tmidx] - bkrndBm
-          amp_fit <- fitted_values[tmidx] - bkrndBm
+          
+          # # NEED TO FINISH THE CODE BELOW AND NOTE THE POSSIBLE CHANGES TO THE MAGNITUDE/AMPLITUDE FROM THIS
+          # # if the calculate ti does not land on a day with valid data, temporarily add
+          # # an extra index at ti and calculate the theoretical chla at that point
+          # # (only need this for the real values, not the fitted curve)
+          # if (yday[tiidx] > ti) {
+          #   # add an extra index to the beginning
+          #   
+          # } else if (yday[tiidx] < ti) {
+          #   # shift the first index forward until it's aligned with ti
+          #   
+          # }
+          # # ALSO CHECK TT
+          
+          
+          # reduce real vectors to the bloom to calculate "real" amplitude and magnitude
+          yday <- yday[tiidx:ttidx]
+          chlorophyll <- chlorophyll[tiidx:ttidx]
+          
+          # calculate background chla corresponding to the real vector
+          bkrnd <- B0 + beta_value * yday
+          
+          # get higher res curve and background to calculate "fit" amplitude and magnitude
+          fitted_yday <- seq(ti, tt, by=(tt-ti)/200)
+          fitted_chlorophyll <- shifted_gaussian(fitted_yday, B0, beta_value, h, sigma, tm_value)
+          fitted_bkrnd <- B0 + beta_value * fitted_yday
+          
+          # transform back to linear space to do amplitude and magnitude calculations
+          if (log_chla) {
+            chlorophyll <- 10^chlorophyll
+            fitted_chlorophyll <- 10^fitted_chlorophyll
+            bkrnd <- 10^bkrnd
+            fitted_bkrnd <- 10^fitted_bkrnd
+          }
+          
+          if (rm_bkrnd) {
+            chlorophyll <- chlorophyll - bkrnd
+            fitted_chlorophyll <- fitted_chlorophyll - fitted_bkrnd
+          }
+          
+          # calculate magnitude and amplitude using real values
+          mag_real <- sum(diff(yday) * (head(chlorophyll, -1) + tail(chlorophyll, -1))/2)
+          amp_real <- max(chlorophyll, na.rm=TRUE)
+          # calculate magnitude and amplitude using fitted values
+          mag_fit <- sum(diff(fitted_yday) * (head(fitted_chlorophyll, -1) + tail(fitted_chlorophyll, -1))/2)
+          amp_fit <- fitted_chlorophyll[which.min(abs(fitted_yday - tm_value))[1]]
           
           flags <- flag_check(mag_real=mag_real,
                               mag_fit=mag_fit,
@@ -304,8 +367,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                               flag2_lim1=flag2_lim1,
                               flag2_lim2=flag2_lim2)
           
-          val_inds <- ifelse(beta, list(c(3:13, 15)), list(3:14))
-          values[1,val_inds[[1]]] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit, B0, h, sigma, flags)
+          values[1,3:14] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit, flags, B0, h, sigma)
           
         }
         
@@ -384,74 +446,108 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           tm_value <- unname(coef(fit)[tm_ind])
         }
         
-        ti <- tm_value - ti_width * sigmaL
-        td <- ti_width * sigmaL + tt_width * sigmaR
-        tt <- ti + td
+        if (ti_threshold_type=="percent_thresh") {
+          ti <- tm_value - ti_width * sigmaL
+          td <- ti_width * sigmaL + tt_width * sigmaR
+          tt <- ti + td
+        } else {
+          # make a fitted curve to search for a threshold
+          tmp_yday <- seq(ti_limits[1], ydays_dayrange[length(ydays_dayrange)], by=1)
+          tmp_chlorophyll <- c(shifted_gaussian(tmp_yday[tmp_yday <= tm_value], B0L, beta_valueL, hL, sigmaL, tm_value),
+                               shifted_gaussian(tmp_yday[tmp_yday > tm_value], B0R, beta_valueR, hR, sigmaR, tm_value))
+          tmp_bkrnd <- get_asymm_bkrnd(B0L, B0R, beta_valueL, beta_valueR, tmp_yday)
+          if (log_chla) {
+            tmp_chlorophyll <- 10^tmp_chlorophyll
+            tmp_bkrnd <- 10^tmp_bkrnd
+          }
+          ti_ind <- tmp_yday < tm_value & tmp_yday >= ti_limits[1] & tmp_yday <= ti_limits[2]
+          tt_ind <- tmp_yday > tm_value
+          ti <- tmp_yday[ti_ind][which(abs(tmp_chlorophyll-tmp_bkrnd)[ti_ind] >= ti_threshold_constant)[1]]
+          tt <- tmp_yday[tt_ind][which(abs(tmp_chlorophyll-tmp_bkrnd)[tt_ind] < ti_threshold_constant)[1]]
+          td <- tt - ti
+        }
         
         
-        if (ti < 1) {
+        if (!is.finite(ti) | !is.finite(tt)) {
+          
+          fit <- NULL
+          
+        } else if (ti < 1) {
           
           fit <- NULL
           
         } else {
           
-          tiidx <- which.min(abs(yday - ti))
-          tmidx <- which.min(abs(yday - tm_value))
-          ttidx <- which.min(abs(yday - tt))
-          
           if (beta) {
-            
-            bkrndL <- B0L + (beta_valueL * (yday[tiidx:tmidx]))
-            bkrndR <- B0R + (beta_valueR * (yday[(tmidx+1):ttidx]))
-            bkrndBmL <-  B0L + (beta_valueL * yday[tmidx])
-            bkrndBmR <-  B0R + (beta_valueR * yday[tmidx + 1])
             values[1,"beta[left]"] <- beta_valueL
             values[1,"beta[right]"] <- beta_valueR
-            
-          } else {
-            
-            bkrndL <- bkrndBmL <- B0L
-            bkrndR <- bkrndBmR <- B0R
-            
           }
           
-          fitted_values <- predict(fit)
+          tiidx <- which.min(abs(yday - ti))
+          ttidx <- which.min(abs(yday - tt))
           
-          magL_real <- sum(diff(yday[tiidx:tmidx]) * (head(chlorophyll[tiidx:tmidx] - bkrndL, -1) + tail(chlorophyll[tiidx:tmidx] - bkrndL, -1))/2)
-          magR_real <- sum(diff(yday[(tmidx+1):ttidx]) * (head(chlorophyll[(tmidx+1):ttidx] - bkrndR, -1) + tail(chlorophyll[(tmidx+1):ttidx] - bkrndR, -1))/2)
-          magL_fit <- sum(diff(yday[tiidx:tmidx]) * (head(fitted_values[tiidx:tmidx] - bkrndL, -1) + tail(fitted_values[tiidx:tmidx] - bkrndL, -1))/2)
-          magR_fit <- sum(diff(yday[(tmidx+1):ttidx]) * (head(fitted_values[(tmidx+1):ttidx] - bkrndR, -1) + tail(fitted_values[(tmidx+1):ttidx] - bkrndR, -1))/2)
           
-          ampL_real <- chlorophyll[tmidx] - bkrndBmL
-          ampR_real <- chlorophyll[tmidx+1] - bkrndBmR
-          ampL_fit <- fitted_values[tmidx] - bkrndBmL
-          ampR_fit <- fitted_values[tmidx+1] - bkrndBmR
+          # # NEED TO FINISH THE CODE BELOW AND NOTE THE POSSIBLE CHANGES TO THE MAGNITUDE/AMPLITUDE FROM THIS
+          # # if the calculate ti does not land on a day with valid data, temporarily add
+          # # an extra index at ti and calculate the theoretical chla at that point
+          # # (only need this for the real values, not the fitted curve)
+          # if (yday[tiidx] > ti) {
+          #   # add an extra index to the beginning
+          #   
+          # } else if (yday[tiidx] < ti) {
+          #   # shift the first index forward until it's aligned with ti
+          #   
+          # }
+          # # ALSO CHECK TT
           
-          flagsL <- flag_check(mag_real=magL_real,
-                               mag_fit=magL_fit,
-                               amp_real=ampL_real,
-                               amp_fit=ampL_fit,
-                               sigma=sigmaL,
-                               time_res=ifelse(interval=="daily", 1, 8),
-                               flag1_lim1=flag1_lim1,
-                               flag1_lim2=flag1_lim2,
-                               flag2_lim1=flag2_lim1,
-                               flag2_lim2=flag2_lim2)
-          flagsR <- flag_check(mag_real=magR_real,
-                               mag_fit=magR_fit,
-                               amp_real=ampR_real,
-                               amp_fit=ampR_fit,
-                               sigma=sigmaR,
-                               time_res=ifelse(interval=="daily", 1, 8),
-                               flag1_lim1=flag1_lim1,
-                               flag1_lim2=flag1_lim2,
-                               flag2_lim1=flag2_lim1,
-                               flag2_lim2=flag2_lim2)
           
-          val_inds <- ifelse(beta, list(c(3:13, 15:22, 24)), list(3:22))
-          values[1,val_inds[[1]]] <- c(ti, tm_value, tt, td,
-                                  magL_real, magL_fit, ampL_real, ampL_fit, B0L, hL, sigmaL, flagsL,
-                                  magR_real, magR_fit, ampR_real, ampR_fit, B0R, hR, sigmaR, flagsR)
+          # reduce real vectors to the bloom to calculate "real" amplitude and magnitude
+          yday <- yday[tiidx:ttidx]
+          chlorophyll <- chlorophyll[tiidx:ttidx]
+          
+          # calculate background chla corresponding to the real vector, between ti and tt
+          bkrnd <- get_asymm_bkrnd(B0L, B0R, beta_valueL, beta_valueR, yday)
+          
+          # get higher res curve and background to calculate "fit" amplitude and magnitude
+          fitted_yday <- seq(ti, tt, by=(tt-ti)/200)
+          fitted_chlorophyll <- c(shifted_gaussian(fitted_yday[fitted_yday <= tm_value], B0L, beta_valueL, hL, sigmaL, tm_value),
+                                  shifted_gaussian(fitted_yday[fitted_yday > tm_value], B0R, beta_valueR, hR, sigmaR, tm_value))
+          fitted_bkrnd <- get_asymm_bkrnd(B0L, B0R, beta_valueL, beta_valueR, fitted_yday)
+          
+          # transform back to linear space to do amplitude and magnitude calculations
+          if (log_chla) {
+            chlorophyll <- 10^chlorophyll
+            fitted_chlorophyll <- 10^fitted_chlorophyll
+            bkrnd <- 10^bkrnd
+            fitted_bkrnd <- 10^fitted_bkrnd
+          }
+          
+          if (rm_bkrnd) {
+            chlorophyll <- chlorophyll - bkrnd
+            fitted_chlorophyll <- fitted_chlorophyll - fitted_bkrnd
+          }
+          
+          # calculate magnitude and amplitude using real values
+          mag_real <- sum(diff(yday) * (head(chlorophyll, -1) + tail(chlorophyll, -1))/2)
+          amp_real <- max(chlorophyll, na.rm=TRUE)
+          # calculate magnitude and amplitude using fitted values
+          mag_fit <- sum(diff(fitted_yday) * (head(fitted_chlorophyll, -1) + tail(fitted_chlorophyll, -1))/2)
+          amp_fit <- fitted_chlorophyll[which.min(abs(fitted_yday - tm_value))[1]]
+          
+          flags <- flag_check(mag_real=mag_real,
+                              mag_fit=mag_fit,
+                              amp_real=amp_real,
+                              amp_fit=amp_fit,
+                              sigma=min(sigmaL, sigmaR),
+                              time_res=ifelse(interval=="daily", 1, 8),
+                              flag1_lim1=flag1_lim1,
+                              flag1_lim2=flag1_lim2,
+                              flag2_lim1=flag2_lim1,
+                              flag2_lim2=flag2_lim2)
+          
+          val_inds <- ifelse(beta, list(c(3:14,16:18)), list(3:17))
+          values[1,val_inds[[1]]] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit,
+                                       flags, B0L, hL, sigmaL, B0R, hR, sigmaR)
           
         }
         

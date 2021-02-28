@@ -171,8 +171,8 @@ SOL <- list(lat = c(41, 43, 43, 41, 41),
 AOI <- list(lat = c(49.682, 51.064, 50.770, 50.405, 50.231, 49.529, 49.265, 49.000, 49.069, 47.793, 46.527, 49.682), 
             lon = c(-134.901, -130.506, -130.078, -130.010, -129.534, -128.692, -129.027, -128.245, -128.158, -126.749, -129.129, -134.901))
 
-# Bowie Seamount MPA
-BS <- list(lat = c(53.05211, 53.27247, 53.66367, 53.65500, 53.87131, 53.82211, 53.66736, 53.23311, 53.05211),
+# SGaan Kinghlas-Bowie Seamount MPA
+SK_B <- list(lat = c(53.05211, 53.27247, 53.66367, 53.65500, 53.87131, 53.82211, 53.66736, 53.23311, 53.05211),
            lon = c(-135.8405, -134.9987, -135.2847, -135.8963, -136.5064, -136.7925, -136.9510, -136.1667, -135.8405))
 
 # Endeavour Hydrothermal Vents MPA
@@ -226,7 +226,7 @@ all_regions <- list(atlantic = list(AC, BRA, CS_V01, CS_V02, CL, CLS, CSS, ELS, 
                                     FC, FP, GB, GS, HB, HIB, HS, LAS, LS, MS_V01, MS_V02,
                                     NCLS, NEGSL_V01, NEGSL_V02, NENS, NGB, NL, NWGSL_V01, NWGSL_V02,
                                     NLS, SES, SAB, SPB, WSS),
-                    pacific = list(AOI, BS, EHV, GH, GHE, GHW, GHS, GHO, SI, SRN, SRC, SRS))
+                    pacific = list(AOI, SK_B, EHV, GH, GHE, GHW, GHS, GHO, SI, SRN, SRC, SRS))
 
 # Full names of the polygons, followed by the capitalized abbreviation in brackets,
 # and then (optionally) "V" and the version number.
@@ -264,7 +264,7 @@ full_names <- list(atlantic = c('Avalon Channel (AC)',
                                 'St. Pierre Bank (SPB)',
                                 'Western Scotian Shelf (WSS)'),
                   pacific = c('Offshore Pacific Area of Interest (AOI)',
-                              'Bowie Seamount MPA (BS)',
+                              'SGaan Kinghlas-Bowie Seamount MPA (SK_B)',
                               'Endeavour Hydrothermal Vents MPA (EHV)',
                               'Gwaii Haanas (GH)',
                               'Gwaii Haanas east (GHE)',
@@ -283,7 +283,7 @@ poly_ID <- list(atlantic=c("AC", "BRA", "CS_V01", "CS_V02", "CL", "CLS", "CSS", 
                            "ESS", "FC", "FP", "GB", "GS", "HB", "HIB", "HS", "LAS", 
                            "LS", "MS_V01", "MS_V02", "NCLS", "NEGSL_V01", "NEGSL_V02",
                            "NENS", "NGB", "NL", "NWGSL_V01", "NWGSL_V02", "NLS", "SES", "SAB", "SPB", "WSS"),
-                pacific=c("AOI", "BS", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI", "SRN", "SRC", "SRS"))
+                pacific=c("AOI", "SK_B", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI", "SRN", "SRC", "SRS"))
 
 # This is the abbreviation that appears next to the polygon on the map.
 # If there are multiple versions of a box, you have a couple options:
@@ -293,5 +293,5 @@ abbrev <- list(atlantic=c("AC", "BRA", "CS", NA, "CL", "CLS", "CSS", "ELS", "ESS
                           "GB", "GS", "HB", "HIB", "HS", "LAS", "LS", "MS", NA,
                           "NCLS", "NEGSL", NA, "NENS", "NGB", "NL", "NWGSL", NA, "NLS", "SES",
                           "SAB", "SPB", "WSS"),
-               pacific=c("AOI", "BS", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI", "SRN", "SRC", "SRS"))
+               pacific=c("AOI", "SK_B", "EHV", "GH", "GHE", "GHW", "GHS", "GHO", "SI", "SRN", "SRC", "SRS"))
 

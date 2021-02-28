@@ -44,7 +44,8 @@ source("functions.R")       # extra functions
 
 sensors <- c("MODIS 4km" = "modis",
              "VIIRS 4km" = "viirs",
-             "SeaWiFS 4km" = "seawifs")
+             "SeaWiFS 4km" = "seawifs",
+             "MODIS 1km" = "modis1km")
 
 regions <- c("Atlantic"="atlantic",
              "Pacific"="pacific")
@@ -57,12 +58,16 @@ algorithms <- c("OCx (global, band ratio)"="ocx",
 # years with available data for each sensor
 years <- list("modis"=2003:2021,
               "viirs"=2012:2021,
-              "seawifs"=1997:2010)
+              "seawifs"=1997:2010,
+              "modis1km"=2003:2021)
 for (i in 1:length(years)) {names(years[[i]]) <- years[[i]]}
 default_years <- years[["modis"]]
 
 intervals <- c("Daily"="daily",
                "Weekly"="weekly")
+
+latlon_methods <- c("Draw polygon on map" = "drawPoly",
+                    "Type coordinates" = "typeCoords")
 
 fitmethods <- c("Shifted Gaussian" = "gauss",
                 "Rate of Change" = "roc",
@@ -73,6 +78,9 @@ bloomShapes <- c("Symmetric" = "symmetric",
 
 smoothMethods <- c("No smoothing" = "nofit",
                    "LOESS" = "loess")
+
+ti_threshold_types <- c("20% amplitude" = "percent_thresh",
+                        "Constant threshold" = "constant_thresh")
 
 # bloom fit table parameter names, depending on fitmethod, bloomShape, beta (code \u03B2 to get the symbol)
 pnlist <- list("gauss"=list("symmetric"=list("beta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
@@ -102,12 +110,13 @@ doy_week_start <- as.integer(8*(0:45)+1) # note: this is the same for leap years
 doy_week_end <- c(doy_week_start[2:length(doy_week_start)] - 1, 365)
 doys_per_week <- lapply(1:length(doy_week_start), function(i) {doy_week_start[i]:doy_week_end[i]})
 
-
 # get the date that the data was last updated
 data_last_updated <- file.info(list.files("data", pattern=".fst", full.names = TRUE, recursive = TRUE))$mtime
 most_recent <- which.max(as.numeric(data_last_updated))
 data_last_updated <- data_last_updated[most_recent]
 
+# Load coordinates
+coord_list <- readRDS("coords.rds")
 
 
 #*******************************************************************************
@@ -216,6 +225,9 @@ ui <- fluidPage(
                         label = NULL,
                         choices = sensors,
                         width = widget_width),
+            helpText("**1km-resolution data only exists in a box encompassing the Gulf of Saint Lawrence (41-53 N, 49-75 W), using the EOF algorithm",
+                     width = widget_width,
+                     style = paste(help_text_style, "margin-bottom: 20px; margin-top: -15px;")),
             helpText("Region",
                      width = widget_width,
                      style = label_text_style_main_options),
@@ -230,7 +242,7 @@ ui <- fluidPage(
                         label = NULL,
                         choices = algorithms,
                         width = widget_width),
-            helpText("**EOF data only exists in a box encompassing the Gulf of Saint Lawrence (41-53 N, 49-71 W)",
+            helpText("**EOF data only exists in a box encompassing the Gulf of Saint Lawrence (41-53 N, 49-75 W)",
                      width = widget_width,
                      style = paste(help_text_style, "margin-bottom: 20px; margin-top: -15px;")),
             helpText("Year",
@@ -353,9 +365,7 @@ ui <- fluidPage(
                                       style = help_text_style),
                              radioButtons(inputId = "latlon_method",
                                           label = NULL,
-                                          choiceNames = c("Draw polygon on map",
-                                                          "Type coordinates"),
-                                          choiceValues = c("drawPoly", "typeCoords"),
+                                          choices = latlon_methods,
                                           selected = "drawPoly",
                                           width = widget_width)),
             
@@ -436,7 +446,7 @@ ui <- fluidPage(
                      style = help_text_style),
             selectInput(inputId = 'dailystat',
                         label = NULL,
-                        choices = c('Mean' = 'average',
+                        choices = c('Arithmetic mean' = 'average',
                                     'Median' = 'median'),
                         selected = 'average',
                         width = widget_width),
@@ -553,6 +563,22 @@ ui <- fluidPage(
                              #                               max = 50,
                              #                               step = 1,
                              #                               width = widget_width)),
+                             helpText(HTML("Select the method used to calculate t<sub>start</sub> :<br>Either 20% of the curve amplitude (peak minus background), or a constant threshold between 0.05 and 1."),
+                                      width = widget_width,
+                                      style = help_text_style),
+                             radioButtons(inputId = "ti_threshold_type",
+                                          label = NULL,
+                                          choices = ti_threshold_types,
+                                          selected = "percent_thresh",
+                                          width = widget_width),
+                             div(style="display: inline-block; margin-left: 20px; margin-top: -12px; vertical-align:top; width: 80px;",
+                                 numericInput(inputId = "ti_threshold_constant",
+                                              label = NULL,
+                                              value = 0.1,
+                                              min = 0.05,
+                                              max = 1,
+                                              step = 0.05,
+                                              width = widget_width)),
                              helpText(HTML("Switch to ON to consider t<sub>max</sub> a parameter in the regression."),
                                       width = widget_width,
                                       style = help_text_style),
@@ -574,6 +600,13 @@ ui <- fluidPage(
                                          label = 'weights',
                                          value = FALSE,
                                          onStatus = "success"),
+                             helpText(HTML("When calculating magnitude (area under the curve between t<sub>start</sub> and t<sub>end</sub>) and amplitude of the bloom, should the background be removed first?"),
+                                      width = widget_width,
+                                      style = help_text_style),
+                             checkboxInput(inputId = "rm_bkrnd",
+                                           label = "Remove background",
+                                           value = FALSE,
+                                           width = widget_width),
                              helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flags</font></br>",
                                                   "Fits will be flagged if they meet the criteria below, which indicate potential problems with the fit (NOTE: this does not affect the fit itself). Combinations of flags will be written as a single number (so the possible values are 1, 2, 3, 12, 13, 23, or 123).")),
                                       width = widget_width,
@@ -791,9 +824,12 @@ server <- function(input, output, session) {
     # if "tm" is on (i.e. day of max. concentration is a parameter in the bloom fit),
     # then the start of the bloom can't be restricted, so turn off that slider button
     observe({
-        toggleState("ti_limits", condition = !input$tm)
+        toggleState("ti_limits", condition = !input$tm | input$ti_threshold_type=="constant_thresh")
     })
-    
+    # for shifted gaussian, if using 20% threshold, grey out the option for a constant threshold value
+    observe({
+        toggleState("ti_threshold_constant", condition = input$ti_threshold_type=="constant_thresh")
+    })
     
     # START SCREEN POPUP ####
     
@@ -801,7 +837,8 @@ server <- function(input, output, session) {
         showModal(modalDialog(
                     title = "Satellite Chlorophyll Data Visualization",
                     HTML(paste0("This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.<br><br>",
-                                "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md\">USER GUIDE</a> (In progress)<br><br>",
+                                "<a href=\"https://github.com/BIO-RSG/PhytoFit\">Github repository</a> (All code and data can be accessed here)<br><br>",
+                                "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md\">User guide</a> (In progress)<br><br>",
                                 "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/fst_tutorial.md\">Using the raw (binned) data</a><br>This is a quick tutorial explaining how the raw satellite chlorophyll data used in PhytoFit can be read into R and manipulated for other purposes.<br><br>",
                                 "<b>Sources:</b><br>",
                                 "Bloom fitting models (Shifted Gaussian, Rate of Change, and Threshold methods):<br>",
@@ -823,9 +860,6 @@ server <- function(input, output, session) {
                     footer = modalButton("OK")
         ))
     })
-    
-    # Load coordinates
-    state$coord_list <- readRDS("coords.rds")
     
     
     #***************************************************************************
@@ -1170,6 +1204,23 @@ server <- function(input, output, session) {
     #         state$tt_threshold <- tt_threshold/100
     #     }
     # })
+    observeEvent(input$ti_threshold_type,{
+        state$ti_threshold_type <- input$ti_threshold_type
+    })
+    observeEvent(input$ti_threshold_constant,{
+        ittt <- input$ti_threshold_constant
+        # run some checks
+        if (is.finite(ittt)) {
+            if (ittt < 0.05) {
+                ittt <- 0.05
+                updateNumericInput(session, inputId = "ti_threshold_constant", value = 0.05)
+            } else if (ittt > 1) {
+                ittt <- 1
+                updateNumericInput(session, inputId = "ti_threshold_constant", value = 1)
+            }
+            state$ti_threshold_constant <- ittt
+        }
+    })
     observeEvent(input$tm,{
         state$tm <- input$tm
     })
@@ -1178,6 +1229,9 @@ server <- function(input, output, session) {
     })
     observeEvent(input$use_weights,{
         state$use_weights <- input$use_weights
+    })
+    observeEvent(input$rm_bkrnd,{
+        state$rm_bkrnd <- input$rm_bkrnd
     })
     observeEvent(input$apply_flag1_lim, {
         flag1_lim1 <- as.numeric(input$flag1_lim1)
@@ -1404,8 +1458,16 @@ server <- function(input, output, session) {
         enable("savesettings")
         
         # Load full map data
-        sslat <- state$coord_list[[state$region]]$lat
-        sslon <- state$coord_list[[state$region]]$lon
+        if (grepl("1km", state$satellite)) {
+            sslat <- coord_list[["gosl_1km"]]$lat
+            sslon <- coord_list[["gosl_1km"]]$lon
+        } else if (state$algorithm=="eof") {
+            sslat <- coord_list[["gosl_4km"]]$lat
+            sslon <- coord_list[["gosl_4km"]]$lon
+        } else {
+            sslat <- coord_list[[state$region]]$lat
+            sslon <- coord_list[[state$region]]$lon
+        }
         all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
                              state$yearday, state$interval, state$log_chla, length(sslat),
                              doys_per_week, doy_week_start, doy_week_end)
@@ -2336,7 +2398,10 @@ server <- function(input, output, session) {
                                           flag2_lim1 = state$flag2_lim1,
                                           flag2_lim2 = state$flag2_lim2,
                                           ti_threshold = state$ti_threshold,
-                                          tt_threshold = state$tt_threshold)
+                                          tt_threshold = state$tt_threshold,
+                                          rm_bkrnd = state$rm_bkrnd,
+                                          ti_threshold_type = state$ti_threshold_type,
+                                          ti_threshold_constant = state$ti_threshold_constant)
             
             p <- bf_data$p
             
@@ -2428,7 +2493,6 @@ server <- function(input, output, session) {
             custom_name <- state$custom_name
             polylat <- state$polylat
             polylon <- state$polylon
-            coord_list <- state$coord_list
             latlon_method <- state$latlon_method
             dailystat <- state$dailystat
             pixrange1 <- state$pixrange1
@@ -2448,6 +2512,9 @@ server <- function(input, output, session) {
             flag2_lim2 <- state$flag2_lim2
             ti_threshold = state$ti_threshold
             tt_threshold = state$tt_threshold
+            rm_bkrnd = state$rm_bkrnd
+            ti_threshold_type = state$ti_threshold_type
+            ti_threshold_constant = state$ti_threshold_constant
         })
         
         # create column names for parameter table
@@ -2495,6 +2562,17 @@ server <- function(input, output, session) {
         total_params_df <- data.frame(matrix(nrow=(length(year_list)*length(regs)), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
         colnames(total_params_df) <- c("Region", "Year", pnames)
         
+        if (grepl("1km", satellite)) {
+            sslat <- coord_list[["gosl_1km"]]$lat
+            sslon <- coord_list[["gosl_1km"]]$lon
+        } else if (algorithm=="eof") {
+            sslat <- coord_list[["gosl_4km"]]$lat
+            sslon <- coord_list[["gosl_4km"]]$lon
+        } else {
+            sslat <- coord_list[[region]]$lat
+            sslon <- coord_list[[region]]$lon
+        }
+        
         for (x in 1:length(year_list)) {
             
             tmp_par <- full_run(
@@ -2503,8 +2581,8 @@ server <- function(input, output, session) {
                 region = region,
                 algorithm = algorithm,
                 interval = interval,
-                sslat = coord_list[[region]]$lat,
-                sslon = coord_list[[region]]$lon,
+                sslat = sslat,
+                sslon = sslon,
                 boxes = boxes,
                 latlon_method = latlon_method,
                 pnames = pnames,
@@ -2536,7 +2614,10 @@ server <- function(input, output, session) {
                 flag2_lim1 = flag2_lim1,
                 flag2_lim2 = flag2_lim2,
                 ti_threshold = ti_threshold,
-                tt_threshold = tt_threshold)
+                tt_threshold = tt_threshold,
+                rm_bkrnd = rm_bkrnd,
+                ti_threshold_type = ti_threshold_type,
+                ti_threshold_constant = ti_threshold_constant)
             
             # add to final output dataframe
             total_params_df[((x-1)*length(regs)+1):(x*length(regs)),] <- tmp_par
