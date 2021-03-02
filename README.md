@@ -12,7 +12,7 @@ This app can be used to display satellite chlorophyll concentration, and calcula
 1. Install the latest versions of R and RStudio.
 
 2. Install the necessary libraries:
-`fst, shiny, shinyWidgets, shinyjs, shinybusy, htmlwidgets, leaflet, leaflet.extras, quantreg, minpack.lm, rgdal, sp, ggplot2, grid, gridExtra, dplyr, geometry, raster, proj4`
+`fst, shiny, shinyWidgets, shinyjs, shinybusy, htmlwidgets, leaflet, leaflet.extras, leafem, quantreg, minpack.lm, rgdal, sp, ggplot2, grid, gridExtra, dplyr, geometry, raster, proj4`
 
 3. Install a necessary fix for the leaflet.extras package, and a custom package (oceancolouR):
 ``` r
@@ -27,6 +27,8 @@ remotes::install_github("BIO-RSG/oceancolouR")
 
 - Code --> Download ZIP  
 - Using git (this will make it easier to download updates in the future): Open git bash terminal, navigate to the folder where you want to download the repository, and type: `git clone https://github.com/BIO-RSG/PhytoFit.git`  
+
+**WARNING: individual data files are generally < 50mb, but the entire dataset is several GB. Check if you have enough space on your drive.**
 
 
 ## Running

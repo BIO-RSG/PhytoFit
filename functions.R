@@ -141,7 +141,7 @@ get_stats <- function(rchla, outlier) {
 get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_median, lenok, ind_dayrange_percov,
                                ind_percov, ydays_dayrange_percov, ydays_percov, ydays_dayrange, rchla_nrow,
                                use_weights, smoothMethod, loessSpan, fitmethod, bloomShape, daily_percov,
-                               tm, beta, tm_limits, ti_limits, log_chla, threshcoef, doy_vec, plot_title,
+                               tm, beta, tm_limits, ti_limits, t_range, log_chla, threshcoef, doy_vec, plot_title,
                                flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, ti_threshold=0.2, tt_threshold=0.2,
                                rm_bkrnd=FALSE, ti_threshold_type = "percent_thresh", ti_threshold_constant = 0.1) {
   
@@ -180,6 +180,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                           tm = tm, beta = beta,
                           tm_limits = tm_limits,
                           ti_limits = tmp_ti_lim,
+                          t_range = t_range,
                           log_chla = log_chla,
                           interval = interval,
                           flag1_lim1 = flag1_lim1,
@@ -203,32 +204,13 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     # or had insufficient coverage.
     if (is.null(gauss_res$fit)) {
       bf_results$RMSE <- NA
+      nofit_msg <- gauss_res$nofit_msg
     } else {
       bf_results$RMSE <- ifelse(log_chla,
                                 rmse(chlorophyll, predict(gauss_res$fit)),
                                 rmse(log10(chlorophyll), log10(predict(gauss_res$fit))))
-      if (bloomShape=="symmetric") {
-        yfit <- shifted_gaussian(tv = ydays_dayrange,
-                                 B0 = bf_results$B0,
-                                 beta = ifelse(beta, bf_results[,"beta"], 0),
-                                 h = bf_results$h,
-                                 sigma = bf_results$sigma,
-                                 tmax = bf_results[,"t[max]"])
-      } else if (bloomShape=="asymmetric") {
-        fitL <- shifted_gaussian(tv = ydays_dayrange[ydays_dayrange <= bf_results[,"t[max]"]],
-                                 B0 = bf_results[,"B0[left]"],
-                                 beta = ifelse(beta, bf_results[,"beta[left]"], 0),
-                                 h = bf_results[,"h[left]"],
-                                 sigma = bf_results[,"sigma[left]"],
-                                 tmax = bf_results[,"t[max]"])
-        fitR <- shifted_gaussian(tv = ydays_dayrange[ydays_dayrange > bf_results[,"t[max]"]],
-                                 B0 = bf_results[,"B0[right]"],
-                                 beta = ifelse(beta, bf_results[,"beta[right]"], 0),
-                                 h = bf_results[,"h[right]"],
-                                 sigma = bf_results[,"sigma[right]"],
-                                 tmax = bf_results[,"t[max]"])
-        yfit <- c(fitL, fitR)
-      }
+      yfit <- gauss_res$yfit
+      ybkrnd <- gauss_res$ybkrnd
     }
     
     
@@ -329,14 +311,19 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   # add line and statistics based on user-selected fit method
   if (fitmethod == 'gauss') {
     if (is.null(gauss_res$fit)) {
-      p <- p + annotation_custom(grobTree(textGrob("Unable to fit",
-                                                   x=0.018, y=0.8, hjust=0,
-                                                   gp=gpar(fontsize=16, col="red", fontface="bold"))))
+      p <- p +
+        annotation_custom(rectGrob(gp=gpar(fill="white", alpha=0.6))) +
+        annotation_custom(textGrob("Unable to fit:", x=0.018, y=0.8, hjust=0,
+                                   gp=gpar(fontsize=16, col="red", fontface="bold"))) +
+        annotation_custom(textGrob(nofit_msg, x=0.018, y=0.76, hjust=0,
+                                   gp=gpar(fontsize=12, col="black")))
     } else {
       # add data to base plot
       p <- p +
         geom_line(data=data.frame(x=ydays_dayrange, yfit=yfit, stringsAsFactors = FALSE),
                   aes(x=x, y=yfit), color=fit_col) +
+        geom_line(data=data.frame(x=ydays_dayrange, ybkrnd=ybkrnd, stringsAsFactors = FALSE),
+                  aes(x=x, y=ybkrnd), color="red", linetype="dashed") +
         annotation_custom(grobTree(textGrob(ifelse(smoothMethod == 'loess',
                                                    "** Gaussian fitted to LOESS",
                                                    "** Gaussian fitted to points"),

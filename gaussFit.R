@@ -33,6 +33,17 @@ flag_check <- function(mag_real, mag_fit, amp_real, amp_fit, sigma, time_res=1, 
   
 }
 
+get_failure_msg <- function(code) {
+  if (code==0) {return(NULL)}
+  messages <- c("no data in the selected limits",
+                "nls failed",
+                "t[start] threshold too high",
+                "t[start] too early (before day 1)",
+                "t[start] outside t_range",
+                "t[end] outside t_range",
+                "end of bloom [chla] > threshold")
+  return(messages[code])
+}
 
 # This is the main function that organizes the data and the limits and starting
 # guesses for the nonlinear least squares regression to find the best fit.
@@ -40,10 +51,10 @@ flag_check <- function(mag_real, mag_fit, amp_real, amp_fit, sigma, time_res=1, 
 # chose a symmetric bloom shape, or the asymm_gaussian function above if the
 # user chose the asymmetric shape.
 gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE,
-                     tm_limits = c(1,365), ti_limits = c(1,365), log_chla = FALSE,
-                     interval = "daily", flag1_lim1 = 0.75, flag1_lim2 = 1.25,
-                     flag2_lim1 = 0.85, flag2_lim2 = 1.15, ti_threshold = 0.2,
-                     tt_threshold = 0.2, ydays_dayrange, rm_bkrnd=FALSE,
+                     tm_limits = c(2,364), ti_limits = c(1,363), t_range = c(1,365),
+                     log_chla = FALSE, interval = "daily", flag1_lim1 = 0.75,
+                     flag1_lim2 = 1.25, flag2_lim1 = 0.85, flag2_lim2 = 1.15,
+                     ti_threshold = 0.2, tt_threshold = 0.2, ydays_dayrange, rm_bkrnd=FALSE,
                      ti_threshold_type="percent_thresh", ti_threshold_constant=0.1){
   
     # t, y, w              = numeric vectors: day of year, chlorophyll concentration, and weights
@@ -73,18 +84,25 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     
     nls_data = list(B = chlorophyll, t = yday)
     
+    # these are for the curve and background line, they will be filled in and returned to use in the plots
+    yfit <- NULL
+    ybkrnd <- NULL
+    
+    # error code to return if the points can't be fit with the current parameters and restrictions
+    nofit_code <- 0
+    
     # To collect output later
     if (bloomShape=="symmetric") {
-      values <- data.frame(matrix(nrow=1,ncol=15), stringsAsFactors = FALSE)
+      values <- data.frame(matrix(nrow=1,ncol=16), stringsAsFactors = FALSE)
       colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
                             "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
-                            "B0", "h", "sigma", "beta")
+                            "B0", "h", "sigma", "beta", "failure_code")
     } else if (bloomShape=="asymmetric") {
-      values <- data.frame(matrix(nrow=1,ncol=19), stringsAsFactors = FALSE)
+      values <- data.frame(matrix(nrow=1,ncol=20), stringsAsFactors = FALSE)
       colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
                             "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
                             "B0[left]", "h[left]", "sigma[left]", "beta[left]",
-                            "B0[right]", "h[right]", "sigma[right]", "beta[right]")
+                            "B0[right]", "h[right]", "sigma[right]", "beta[right]", "failure_code")
     }
     
     values[1,1:2] <- c(mean(chlorophyll, na.rm=TRUE), median(chlorophyll, na.rm=TRUE))
@@ -148,11 +166,25 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     limited_yday <- yday >= tm_limits[1] & yday <= tm_limits[2]
     # If there is no data available for the possible window of max concentration, return a NULL fit.
     # User can then manually adjust the restrictions on day of max concentration or initiation of bloom.
-    if (sum(limited_yday)==0) {return(list(fit = NULL, values = values))}
+    if (sum(limited_yday)==0) {
+      nofit_code <- 1
+      values[,"failure_code"] <- nofit_code
+      return(list(fit = NULL, values = values,
+                  yfit = yfit, ybkrnd = ybkrnd,
+                  nofit_msg = get_failure_msg(nofit_code),
+                  nofit_code = nofit_code))
+    }
     # Get the day of max concentration within this range
     tm_value <- yday[which(chlorophyll==max(chlorophyll[limited_yday],na.rm=TRUE) & limited_yday)]
     # Check again if no data available
-    if (length(tm_value)==0) {return(list(fit = NULL, values = values))}
+    if (length(tm_value)==0) {
+      nofit_code <- 1
+      values[,"failure_code"] <- nofit_code
+      return(list(fit = NULL, values = values,
+                  yfit = yfit, ybkrnd = ybkrnd,
+                  nofit_msg = get_failure_msg(nofit_code),
+                  nofit_code = nofit_code1))
+    }
     
     # if tm = TRUE, make tm_value a parameter in the nonlinear least squares
     # regression, and set its lower/upper bounds and initial estimates
@@ -202,7 +234,11 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
       }
       
       # FILL IN VALUES FROM THE FIT
-      if (!is.null(fit)) {
+      if (is.null(fit)) {
+        
+        nofit_code <- 2
+        
+      } else {
         
         # B0, h, and sigma are always the 1,2,3rd coef
         B0 <- unname(coef(fit)[1])
@@ -218,87 +254,52 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           tm_value <- unname(coef(fit)[tm_ind])
         }
         
+        # create the fit and background line vectors for every day within t_range
+        # (this is used to calculate ti, tt, and td with the constant_thresh method,
+        # but also returned to be used in the plots)
+        yfit <- shifted_gaussian(ydays_dayrange, B0, beta_value, h, sigma, tm_value)
+        ybkrnd <- B0 + beta_value * ydays_dayrange
+        
+        # calculate ti, tt, and td based on user-selected method
+        # (20% of amplitude or the day where the curve departs from the background
+        # by a selected threshold value)
         if (ti_threshold_type=="percent_thresh") {
           ti <- tm_value - ti_width * sigma
           td <- 2 * ti_width * sigma
           tt <- ti + td
         } else {
-          # make a fitted curve to search for a threshold
-          tmp_yday <- seq(ti_limits[1], ti_limits[2], by=1)
-          tmp_chlorophyll <- shifted_gaussian(tmp_yday, B0, beta_value, h, sigma, tm_value)
-          tmp_bkrnd <- B0 + beta_value * tmp_yday
+          ti_ind <- ydays_dayrange < tm_value & ydays_dayrange >= ti_limits[1] & ydays_dayrange <= ti_limits[2]
           if (log_chla) {
-            tmp_chlorophyll <- 10^tmp_chlorophyll
-            tmp_bkrnd <- 10^tmp_bkrnd
+            ti <- ydays_dayrange[ti_ind][which(abs(10^yfit-10^ybkrnd)[ti_ind] >= ti_threshold_constant)[1]]
+          } else {
+            ti <- ydays_dayrange[ti_ind][which(abs(yfit-ybkrnd)[ti_ind] >= ti_threshold_constant)[1]]
           }
-          ti_ind <- tmp_yday < tm_value & tmp_yday >= ti_limits[1] & tmp_yday <= ti_limits[2]
-          ti <- tmp_yday[ti_ind][which(abs(tmp_chlorophyll-tmp_bkrnd)[ti_ind] >= ti_threshold_constant)[1]]
           td <- (tm_value-ti) * 2
           tt <- ti + td
         }
         
         
-        # Experimental code below to allow user to adjust the threshold use to
-        # calculate ti, down to a lower limit based on h/sigma.
-        # NOTE: The asymmetric code hasn't been adjusted for this yet.
-        
-        # # Calculate approximate start day of the bloom using the log formula
-        # ti <- tm_value - ti_width * sigma
-        # 
-        # # Calculate the minimum accepted start day of the bloom, to make sure
-        # # the one calculated with the log formula is valid.
-        # # With the user-selected range of days allowed in the fit, get the day
-        # # where the fitted values first diverge from the background chla by at least 0.004 * h / sigma
-        # fitted_values <- shifted_gaussian(tv = ydays_dayrange,
-        #                                   B0 = B0,
-        #                                   beta = beta_value,
-        #                                   h = h,
-        #                                   sigma = sigma,
-        #                                   tmax = tm_value)
-        # bg_line <- beta_value * ydays_dayrange + B0
-        # ti_min <- ydays_dayrange[which(abs(fitted_values - bg_line) > 0.004*h/sigma)[1]]
-        # 
-        # # run a few checks to see if the log-calculated ti index is valid
-        # invalid_ti <- FALSE
-        # if (length(ti_min)==0) {
-        #   invalid_ti <- TRUE
-        # } else if (ti <= ti_min) {
-        #   # ti calculated using threshold - is it too early? then reset ti
-        #   ti <- ti_min
-        #   # is the calculated ti too late?
-        #   if (ti_min==ydays_dayrange[1]) {
-        #     # get the curve and background values the day before ti_min
-        #     day_before <- ydays_dayrange[1]-1
-        #     chla_tminus1 <- predict(fit, data.frame(t=day_before))
-        #     bg_tminus1 <- beta_value * day_before + B0
-        #     # if the difference for the day before is also over the threshold,
-        #     # then ti should have been earlier
-        #     if (abs(chla_tminus1 - bg_tminus1) > 0.004*h/sigma) {
-        #       invalid_ti <- TRUE
-        #     }
-        #   }
-        # }
-        # 
-        # # based on ti, calculate the duration and the termination
-        # td <- 2 * (tm_value-ti)
-        # tt <- ti + td
-        # 
-        # # get the indices of valid ydays closest to ti, td, tm
-        # tiidx <- which.min(abs(yday - ti))
-        # tmidx <- which.min(abs(yday - tm_value))
-        # ttidx <- which.min(abs(yday - tt))
-        # 
-        # if (!(tiidx < tmidx & ti < tm_value)) {invalid_ti <- TRUE}
-        # 
-        # if (invalid_ti) {
-        
-        if (!is.finite(ti) | !is.finite(tt)) {
+        # check for problems with the calculated ti, tt, and td, and if they're all
+        # good, continue with calculating amplitude, magnitude, and flags
+        if (!is.finite(ti)) {
           
-          fit <- NULL
+          fit <- yfit <- ybkrnd <- NULL
+          nofit_code <- 3
           
         } else if (ti < 1) {
           
-          fit <- NULL
+          fit <- yfit <- ybkrnd <- NULL
+          nofit_code <- 4
+          
+        } else if (ti < t_range[1]) {
+          
+          fit <- yfit <- ybkrnd <- NULL
+          nofit_code <- 5
+          
+        } else if (tt > t_range[2]) {
+          
+          fit <- yfit <- ybkrnd <- NULL
+          nofit_code <- 6
           
         } else {
           
@@ -425,7 +426,11 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
       
       
       # FILL IN VALUES FROM THE FIT
-      if (!is.null(fit)) {
+      if (is.null(fit)) {
+        
+        nofit_code <- 2
+        
+      } else {
         
         B0L <- unname(coef(fit)[1])
         hL <- unname(coef(fit)[2])
@@ -446,37 +451,67 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           tm_value <- unname(coef(fit)[tm_ind])
         }
         
+        # create the fit and background line vectors for every day within t_range
+        # (this is used to calculate ti, tt, and td with the constant_thresh method,
+        # but also returned to be used in the plots)
+        yfit <- c(shifted_gaussian(ydays_dayrange[ydays_dayrange <= tm_value], B0L, beta_valueL, hL, sigmaL, tm_value),
+                  shifted_gaussian(ydays_dayrange[ydays_dayrange > tm_value], B0R, beta_valueR, hR, sigmaR, tm_value))
+        ybkrnd <- c(B0L + beta_valueL * ydays_dayrange[ydays_dayrange <= tm_value],
+                    B0R + beta_valueR * ydays_dayrange[ydays_dayrange > tm_value])
+        
+        # calculate ti, tt, and td based on user-selected method
+        # (20% of amplitude or the day where the curve departs from the background
+        # by a selected threshold value)
         if (ti_threshold_type=="percent_thresh") {
           ti <- tm_value - ti_width * sigmaL
           td <- ti_width * sigmaL + tt_width * sigmaR
           tt <- ti + td
         } else {
-          # make a fitted curve to search for a threshold
-          tmp_yday <- seq(ti_limits[1], ydays_dayrange[length(ydays_dayrange)], by=1)
-          tmp_chlorophyll <- c(shifted_gaussian(tmp_yday[tmp_yday <= tm_value], B0L, beta_valueL, hL, sigmaL, tm_value),
-                               shifted_gaussian(tmp_yday[tmp_yday > tm_value], B0R, beta_valueR, hR, sigmaR, tm_value))
-          tmp_bkrnd <- get_asymm_bkrnd(B0L, B0R, beta_valueL, beta_valueR, tmp_yday)
+          ti_ind <- ydays_dayrange < tm_value & ydays_dayrange >= ti_limits[1] & ydays_dayrange <= ti_limits[2]
+          tt_ind <- ydays_dayrange > tm_value
           if (log_chla) {
-            tmp_chlorophyll <- 10^tmp_chlorophyll
-            tmp_bkrnd <- 10^tmp_bkrnd
+            ti <- ydays_dayrange[ti_ind][which(abs(10^yfit-10^ybkrnd)[ti_ind] >= ti_threshold_constant)[1]]
+            tt <- ydays_dayrange[tt_ind][which(abs(10^yfit-10^ybkrnd)[tt_ind] < ti_threshold_constant)[1]]
+          } else {
+            ti <- ydays_dayrange[ti_ind][which(abs(yfit-ybkrnd)[ti_ind] >= ti_threshold_constant)[1]]
+            tt <- ydays_dayrange[tt_ind][which(abs(yfit-ybkrnd)[tt_ind] < ti_threshold_constant)[1]]
           }
-          ti_ind <- tmp_yday < tm_value & tmp_yday >= ti_limits[1] & tmp_yday <= ti_limits[2]
-          tt_ind <- tmp_yday > tm_value
-          ti <- tmp_yday[ti_ind][which(abs(tmp_chlorophyll-tmp_bkrnd)[ti_ind] >= ti_threshold_constant)[1]]
-          tt <- tmp_yday[tt_ind][which(abs(tmp_chlorophyll-tmp_bkrnd)[tt_ind] < ti_threshold_constant)[1]]
           td <- tt - ti
         }
         
         
-        if (!is.finite(ti) | !is.finite(tt)) {
+        # check for problems with the calculated ti, tt, and td, and if they're all
+        # good, continue with calculating amplitude, magnitude, and flags
+        if (!is.finite(ti)) {
           
-          fit <- NULL
+          fit <- yfit <- ybkrnd <- NULL
+          nofit_code <- 3
           
         } else if (ti < 1) {
           
-          fit <- NULL
+          fit <- yfit <- ybkrnd <- NULL
+          nofit_code <- 4
           
+        } else if (ti < t_range[1]) {
+          
+          fit <- yfit <- ybkrnd <- NULL
+          nofit_code <- 5
+          
+        } else if (!is.finite(tt)) {
+          
+          fit <- yfit <- ybkrnd <- NULL
+          nofit_code <- 7
+          
+        } else if (tt > t_range[2]) {
+          
+          fit <- yfit <- ybkrnd <- NULL
+          nofit_code <- 6
+        
         } else {
+          
+          # update the background using ti and tt
+          bloom_ind <- ydays_dayrange >= ti & ydays_dayrange <= tt
+          ybkrnd[bloom_ind] <- get_asymm_bkrnd(B0L, B0R, beta_valueL, beta_valueR, ydays_dayrange[bloom_ind])
           
           if (beta) {
             values[1,"beta[left]"] <- beta_valueL
@@ -555,6 +590,8 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
       
     }
     
-    return(list(fit = fit, values = values))
+    values[,"failure_code"] <- nofit_code
+    return(list(fit = fit, values = values, yfit = yfit, ybkrnd = ybkrnd,
+                nofit_msg = get_failure_msg(nofit_code), nofit_code))
     
 }
