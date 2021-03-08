@@ -83,26 +83,15 @@ ti_threshold_types <- c("20% amplitude" = "percent_thresh",
                         "Constant threshold" = "constant_thresh")
 
 # bloom fit table parameter names, depending on fitmethod, bloomShape, beta (code \u03B2 to get the symbol)
-pnlist <- list("gauss"=list("symmetric"=list("beta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                                                      "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]",
-                                                      "B0", "h", "sigma", "beta", "Flags", "RMSE"),
-                                             "nonbeta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                                                         "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]",
-                                                         "B0", "h", "sigma", "Flags", "RMSE")),
-                            "asymmetric"=list("beta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                                                       "Magnitude[real_left]", "Magnitude[fit_left]", "Amplitude[real_left]", "Amplitude[fit_left]",
-                                                       "B0[left]", "h[left]", "sigma[left]", "beta[left]", "Flags[left]",
-                                                       "Magnitude[real_right]", "Magnitude[fit_right]", "Amplitude[real_right]", "Amplitude[fit_right]",
-                                                       "B0[right]", "h[right]", "sigma[right]", "beta[right]", "Flags[right]", "RMSE"),
-                                              "nonbeta"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                                                          "Magnitude[real_left]", "Magnitude[fit_left]", "Amplitude[real_left]", "Amplitude[fit_left]",
-                                                          "B0[left]", "h[left]", "sigma[left]", "Flags[left]",
-                                                          "Magnitude[real_right]", "Magnitude[fit_right]", "Amplitude[real_right]", "Amplitude[fit_right]",
-                                                          "B0[right]", "h[right]", "sigma[right]", "Flags[right]", "RMSE"))),
-               "roc"=c("Mean", "Median", "t[start]", "t[max]", "t[end]",
-                       "t[duration]", "Magnitude", "Amplitude"),
-               "thresh"=c("Mean", "Median", "t[start]", "t[max]", "t[end]",
-                          "t[duration]", "Magnitude", "Amplitude", "Threshold"))
+pnlist <- list("gauss"=list("symmetric"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
+                                          "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
+                                          "B0", "h", "sigma", "beta", "failure_code", "RMSE"),
+                            "asymmetric"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
+                                           "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
+                                           "B0[left]", "h[left]", "sigma[left]", "beta[left]",
+                                           "B0[right]", "h[right]", "sigma[right]", "beta[right]", "failure_code", "RMSE")),
+               "roc"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]", "Magnitude", "Amplitude"),
+               "thresh"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]", "Magnitude", "Amplitude", "Threshold"))
 
 
 # variables for using weekly data rather than daily
@@ -608,53 +597,48 @@ ui <- fluidPage(
                                            value = FALSE,
                                            width = widget_width),
                              helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flags</font></br>",
-                                                  "Fits will be flagged if they meet the criteria below, which indicate potential problems with the fit (NOTE: this does not affect the fit itself). Combinations of flags will be written as a single number (so the possible values are 1, 2, 3, 12, 13, 23, or 123).")),
+                                                  "Fits will be flagged if they meet certain criteria that indicate potential problems with the fit (NOTE: this does not affect the fit itself). Combinations of flags will be written as a single number (for example, 13 for flags 1 and 3). Click below for details. Optionally adjust the parameters of some flags.")),
                                       width = widget_width,
                                       style = help_text_style),
-                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 1: Amplitude ratio</font></br>",
-                                                  "Flag 1 will occur if the ratio of amplitudes (amplitude of the fitted curve at t<sub>max</sub>",
-                                                  " over the amplitude of the real values at t<sub>max</sub>) is outside the range selected below.")),
+                             actionButton(inputId = "flagdescriptions",
+                                          label = "Flag descriptions",
+                                          style = button_style),
+                             br(),
+                             br(),
+                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 1: Amplitude ratio limits</font>")),
                                       width = widget_width,
                                       style = help_text_style),
-                             div(style="display: inline-block; vertical-align:top; width: 50px;",
+                             div(style="display: inline-block; vertical-align:top; width: 50px; margin-top: -10px;",
                                  textInput(inputId = "flag1_lim1",
                                            label = NULL,
                                            value = 0.75)),
-                             div(style="display: inline-block; vertical-align:top; width: 10px;",
+                             div(style="display: inline-block; vertical-align:top; width: 10px; margin-top: -10px;",
                                  helpText(HTML(paste0("<font style=\"font-size: 14px; color: #555555;\">&ndash;</font>")))),
-                             div(style="display: inline-block; vertical-align:top; width: 50px;",
+                             div(style="display: inline-block; vertical-align:top; width: 50px; margin-top: -10px;",
                                  textInput(inputId = "flag1_lim2",
                                            label = NULL,
                                            value = 1.25)),
-                             div(style="display: inline-block;vertical-align:top; width: 60px;",
+                             div(style="display: inline-block;vertical-align:top; width: 60px; margin-top: -10px;",
                                  actionButton(inputId="apply_flag1_lim",
                                               label="Apply",
                                               style=button_style)),
-                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 2: Magnitude ratio</font></br>",
-                                                  "Flag 2 will occur if the ratio of magnitudes (area under the fitted curve over the area under the real values)",
-                                                  " is outside the range selected below.")),
+                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 2: Magnitude ratio limits</font>")),
                                       width = widget_width,
                                       style = help_text_style),
-                             div(style="display: inline-block; vertical-align:top; width: 50px;",
+                             div(style="display: inline-block; vertical-align:top; width: 50px; margin-top: -10px;",
                                  textInput(inputId = "flag2_lim1",
                                            label = NULL,
                                            value = 0.85)),
-                             div(style="display: inline-block; vertical-align:top; width: 10px;",
+                             div(style="display: inline-block; vertical-align:top; width: 10px; margin-top: -10px;",
                                  helpText(HTML(paste0("<font style=\"font-size: 14px; color: #555555;\">&ndash;</font>")))),
-                             div(style="display: inline-block; vertical-align:top; width: 50px;",
+                             div(style="display: inline-block; vertical-align:top; width: 50px; margin-top: -10px;",
                                  textInput(inputId = "flag2_lim2",
                                            label = NULL,
                                            value = 1.15)),
-                             div(style="display: inline-block;vertical-align:top; width: 60px;",
+                             div(style="display: inline-block;vertical-align:top; width: 60px; margin-top: -10px;",
                                  actionButton(inputId="apply_flag2_lim",
                                               label="Apply",
-                                              style=button_style)),
-                             helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 3: Small sigma</font></br>",
-                                                  "Flag 3 will occur if sigma (the parameter controlling the width of the curve)",
-                                                  " is the same size or smaller than the time resolution (1 for daily data,",
-                                                  " 8 for weekly data).")),
-                                      width = widget_width,
-                                      style = help_text_style)),
+                                              style=button_style))),
             conditionalPanel(condition = "input.fitmethod == 'thresh'",
                              helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Threshold coefficient</font></br>",
                                                   "The start of the bloom is considered to be the point before t<sub>max</sub> ",
@@ -809,6 +793,7 @@ server <- function(input, output, session) {
     state$draw_toolbar <- TRUE
     state$newpoly <- NULL
     state$editedpoly <- NULL
+    state$typedpoly <- NULL
     state$fullrunboxes <- "custom"
     state$fullrun_fname <- NULL
     state$ti_threshold <- 0.2
@@ -840,6 +825,7 @@ server <- function(input, output, session) {
                                 "<a href=\"https://github.com/BIO-RSG/PhytoFit\">Github repository</a> (All code and data can be accessed here)<br><br>",
                                 "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md\">User guide</a> (In progress)<br><br>",
                                 "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/fst_tutorial.md\">Using the raw (binned) data</a><br>This is a quick tutorial explaining how the raw satellite chlorophyll data used in PhytoFit can be read into R and manipulated for other purposes.<br><br>",
+                                "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/updates.md\">Code updates affecting the algorithms</a><br>Summary of updates that affect the way the bloom metrics are calculated.<br><br>",
                                 "<b>Sources:</b><br>",
                                 "Bloom fitting models (Shifted Gaussian, Rate of Change, and Threshold methods):<br>",
                                 "<p style=\"margin-left: 30px;\"><i>TECH REPORT IN PROGRESS</i></p>",
@@ -1234,6 +1220,26 @@ server <- function(input, output, session) {
     observeEvent(input$rm_bkrnd,{
         state$rm_bkrnd <- input$rm_bkrnd
     })
+    # popup explaining gaussian fit flags
+    observeEvent(input$flagdescriptions, {
+        showModal(modalDialog(
+            title = "Gaussian fit flag descriptions",
+            HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 1: Amplitude ratio</font></br>",
+                        "Flagged if (amplitude<sub>fit</sub> / amplitude<sub>real</sub>) is outside the selected range (default 0.75-1.25).</br></br>",
+                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 2: Magnitude ratio</font></br>",
+                        "Flagged if (magnitude<sub>fit</sub> / magnitude<sub>real</sub>) is outside the selected range (default 0.85-1.15).</br></br>",
+                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 3: Small sigma</font></br>",
+                        "Flagged if sigma <= time resolution (1 for daily data, 8 for weekly data).</br></br>",
+                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 4: t<sub>start</sub> on boundary</font></br>",
+                        "Flagged if the calculated t<sub>start</sub> is on the boundary of the t<sub>start</sub> slider.</br></br>",
+                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 5: t<sub>max</sub> on boundary</font></br>",
+                        "Flagged if the calculated t<sub>max</sub> is on the boundary of the t<sub>max</sub> slider.</br></br>",
+                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 6: t<sub>end</sub> on boundary</font></br>",
+                        "Flagged if the calculated t<sub>end</sub> is on the boundary of the t<sub>range</sub> slider.")),
+            easyClose = TRUE,
+            footer = modalButton("Close")
+        ))
+    })
     observeEvent(input$apply_flag1_lim, {
         flag1_lim1 <- as.numeric(input$flag1_lim1)
         flag1_lim2 <- as.numeric(input$flag1_lim2)
@@ -1403,7 +1409,7 @@ server <- function(input, output, session) {
         
         ifrb <- input$fullrunboxes
         
-        if (length(ifrb)==1 & ifrb=="custom" & is.null(state$newpoly) & is.null(state$editedpoly)) {
+        if (length(ifrb)==1 & ifrb=="custom" & is.null(state$newpoly) & is.null(state$editedpoly) & is.null(state$typedpoly)) {
             disable("fullrun_process")
         } else {
             enable("fullrun_process")
@@ -1702,6 +1708,7 @@ server <- function(input, output, session) {
     observeEvent(input$fullmap_draw_new_feature, {
         state$newpoly <- input$fullmap_draw_new_feature
         state$editedpoly <- NULL
+        state$typedpoly <- NULL
         enable("fullrun_process")
     })
     observeEvent(input$fullmap_draw_edited_features, {
@@ -1712,9 +1719,7 @@ server <- function(input, output, session) {
         state$newpoly <- NULL
         state$editedpoly <- NULL
         state$custom_name <- ""
-        updateTextInput(session,
-                        inputId="custom_name",
-                        value="")
+        updateTextInput(session, inputId="custom_name", value="")
         if (length(state$fullrunboxes)==1 & state$fullrunboxes=="custom") {
             disable("fullrun_process")
         }
@@ -1781,12 +1786,14 @@ server <- function(input, output, session) {
             
             state$latlon_invalid <- TRUE
             state$latlon_toolarge <- FALSE
+            disable("fullrun_process")
             
             # check if lat/lons are not numeric, or not the same length, or empty
         } else if (!(all(is.numeric(manual_lats)) & all(is.numeric(manual_lons))) | (length(manual_lats) != length(manual_lons)) | length(manual_lats)==0) {
             
             state$latlon_invalid <- TRUE
             state$latlon_toolarge <- FALSE
+            disable("fullrun_process")
             
         } else {
             
@@ -1805,24 +1812,27 @@ server <- function(input, output, session) {
                 
                 state$latlon_invalid <- FALSE
                 state$latlon_toolarge <- TRUE
+                disable("fullrun_process")
                 
             } else {
                 
                 state$latlon_invalid <- FALSE
                 state$latlon_toolarge <- FALSE
                 coords <- c(rbind(manual_lons, manual_lats))
+                # all checks have passed, so enable the "full run" button
+                enable("fullrun_process")
                 
             }
             
         }
         
-        state$typed_coords <- coords
+        state$typedpoly <- coords
         
     })
     
     type_polygon <- reactive({
         
-        return(state$typed_coords)
+        return(state$typedpoly)
         
     })
     
@@ -1987,7 +1997,11 @@ server <- function(input, output, session) {
         # Reset drawn/typed polygon variables to NULL
         state$newpoly <- NULL
         state$editedpoly <- NULL
-        state$typed_coords <- NULL
+        state$typedpoly <- NULL
+        
+        if (length(state$fullrunboxes)==1 & state$fullrunboxes=="custom") {
+            disable("fullrun_process")
+        }
         
     })
     
@@ -2295,8 +2309,7 @@ server <- function(input, output, session) {
         pnames <- pnlist[[state$fitmethod]]
         if (state$fitmethod=="gauss") {
             pnames <- pnames[[state$bloomShape]]
-            if (state$beta) {pnames <- pnames[["beta"]]
-            } else {pnames <- pnames[["nonbeta"]]}
+            if (!state$beta) {pnames <- pnames[!grepl("beta", pnames)]}
         }
         
         state$dfbloomparms <- NULL
@@ -2476,7 +2489,7 @@ server <- function(input, output, session) {
         regs <- isolate(state$fullrunboxes)
         
         # if "custom" box is selected but no polygon is drawn, unselect it
-        if (is.null(isolate(state$newpoly)) & is.null(isolate(state$editedpoly))) {
+        if (is.null(isolate(state$newpoly)) & is.null(isolate(state$editedpoly)) & is.null(isolate(state$typedpoly))) {
             regs <- regs[regs != "custom"]
         }
         
@@ -2523,8 +2536,7 @@ server <- function(input, output, session) {
         pnames <- pnlist[[fitmethod]]
         if (fitmethod=="gauss") {
             pnames <- pnames[[bloomShape]]
-            if (beta) {pnames <- pnames[["beta"]]
-            } else {pnames <- pnames[["nonbeta"]]}
+            if (!beta) {pnames <- pnames[!grepl("beta", pnames)]}
         }
         
         year_bounds <- isolate(input$fullrunyears)

@@ -23,11 +23,16 @@ get_asymm_bkrnd <- function(B0L, B0R, beta_valueL, beta_valueR, yday) {
 }
 
 # Compare the real and fitted time series, and flag it if it meets certain criteria
-flag_check <- function(mag_real, mag_fit, amp_real, amp_fit, sigma, time_res=1, flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2) {
+flag_check <- function(mag_real, mag_fit, amp_real, amp_fit, sigma, time_res=1,
+                       flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2,
+                       ti, ti_limits, tm, tm_limits, tt, t_range) {
   
-  flags <- c(ifelse(amp_fit/amp_real <= flag1_lim1 | amp_fit/amp_real >= flag1_lim2, TRUE, FALSE),
-             ifelse(mag_fit/mag_real <= flag2_lim1 | mag_fit/mag_real >= flag2_lim2, TRUE, FALSE),
-             ifelse(sigma <= time_res, TRUE, FALSE))
+  flags <- c(amp_fit/amp_real <= flag1_lim1 | amp_fit/amp_real >= flag1_lim2,
+             mag_fit/mag_real <= flag2_lim1 | mag_fit/mag_real >= flag2_lim2,
+             sigma <= time_res,
+             ti %in% ti_limits,
+             tm %in% tm_limits,
+             tt == t_range[2])
   
   return(as.numeric(paste0(which(flags), collapse="")))
   
@@ -42,7 +47,7 @@ get_failure_msg <- function(code) {
                 "t[start] outside t_range",
                 "t[end] outside t_range",
                 "end of bloom [chla] > threshold")
-  return(messages[code])
+  return(paste0("Code ", code, ": ", messages[code]))
 }
 
 # This is the main function that organizes the data and the limits and starting
@@ -251,7 +256,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
         if (tm) {
           if (beta) {tm_ind <- 5
           } else {tm_ind <- 4}
-          tm_value <- unname(coef(fit)[tm_ind])
+          tm_value <- round(unname(coef(fit)[tm_ind]))
         }
         
         # create the fit and background line vectors for every day within t_range
@@ -264,8 +269,8 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
         # (20% of amplitude or the day where the curve departs from the background
         # by a selected threshold value)
         if (ti_threshold_type=="percent_thresh") {
-          ti <- tm_value - ti_width * sigma
-          td <- 2 * ti_width * sigma
+          ti <- floor(tm_value - ti_width * sigma)
+          td <- 2 * (tm_value - ti)
           tt <- ti + td
         } else {
           ti_ind <- ydays_dayrange < tm_value & ydays_dayrange >= ti_limits[1] & ydays_dayrange <= ti_limits[2]
@@ -366,7 +371,13 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                               flag1_lim1=flag1_lim1,
                               flag1_lim2=flag1_lim2,
                               flag2_lim1=flag2_lim1,
-                              flag2_lim2=flag2_lim2)
+                              flag2_lim2=flag2_lim2,
+                              ti=ti,
+                              ti_limits=ti_limits,
+                              tm=tm_value,
+                              tm_limits=tm_limits,
+                              tt=tt,
+                              t_range=t_range)
           
           values[1,3:14] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit, flags, B0, h, sigma)
           
@@ -448,7 +459,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
         if (tm) {
           if (beta) {tm_ind <- 9
           } else {tm_ind <- 7}
-          tm_value <- unname(coef(fit)[tm_ind])
+          tm_value <- round(unname(coef(fit)[tm_ind]))
         }
         
         # create the fit and background line vectors for every day within t_range
@@ -463,9 +474,9 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
         # (20% of amplitude or the day where the curve departs from the background
         # by a selected threshold value)
         if (ti_threshold_type=="percent_thresh") {
-          ti <- tm_value - ti_width * sigmaL
-          td <- ti_width * sigmaL + tt_width * sigmaR
-          tt <- ti + td
+          ti <- floor(tm_value - ti_width * sigmaL)
+          tt <- ceiling(tm_value + tt_width * sigmaR)
+          td <- tt - ti
         } else {
           ti_ind <- ydays_dayrange < tm_value & ydays_dayrange >= ti_limits[1] & ydays_dayrange <= ti_limits[2]
           tt_ind <- ydays_dayrange > tm_value
@@ -578,7 +589,13 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                               flag1_lim1=flag1_lim1,
                               flag1_lim2=flag1_lim2,
                               flag2_lim1=flag2_lim1,
-                              flag2_lim2=flag2_lim2)
+                              flag2_lim2=flag2_lim2,
+                              ti=ti,
+                              ti_limits=ti_limits,
+                              tm=tm_value,
+                              tm_limits=tm_limits,
+                              tt=tt,
+                              t_range=t_range)
           
           val_inds <- ifelse(beta, list(c(3:14,16:18)), list(3:17))
           values[1,val_inds[[1]]] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit,

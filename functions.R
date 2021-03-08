@@ -328,7 +328,10 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                                                    "** Gaussian fitted to LOESS",
                                                    "** Gaussian fitted to points"),
                                             x=0.01, y=0.84, hjust=0,
-                                            gp=gpar(fontsize=10, col=fit_col, fontface="bold"))))
+                                            gp=gpar(fontsize=10, col=fit_col, fontface="bold")))) +
+        annotation_custom(grobTree(textGrob("- - Background [chla]",
+                                            x=0.01, y=0.79, hjust=0,
+                                            gp=gpar(fontsize=10, col="red", fontface="bold"))))
     }
   } else if (fitmethod=="thresh") {
     thresh_val <- as.numeric(bf_results[,"Threshold"])

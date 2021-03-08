@@ -34,14 +34,20 @@ str(dat)
 The data has been flattened and formatted as a long dataframe to write to fst, so it needs to be reshaped to a matrix where rows = pixels, columns = days, like so:  
 
 ```{r}
+# if you're using ocx, poly4, or gsm_gs
 dat_mat <- matrix(dat$chl, nrow=183824)
+# # if you're using eof
+# dat_mat <- matrix(dat$chl, nrow=68067)
 str(dat_mat)
 ```
 
-Now load the coordinates file and grab the vector of coordinates associated with the pixels for the Atlantic region:  
+(Note the different options depending on the algorithm you use - ocx, poly4, and gsmgs are on a 4km-resolution "atlantic" grid, which has 183824 pixels, but eof is on a 4km-resolution Gulf of Saint Lawrence grid, which only has 68067)  
+
+Now load the coordinates file and grab the vector of coordinates associated with the pixels for the Atlantic (or GoSL) region:  
 
 ```{r}
 coordinates <- readRDS("coords.rds")$atlantic
+# coordinates <- readRDS("coords.rds")$gosl_4km
 str(coordinates)
 ```
 
@@ -58,6 +64,9 @@ pixel_index <- as.logical(point.in.polygon(point.x = coordinates$lon,
 ```
 
 Note that `point.in.polygon()` returns an integer vector of values the same length as point.x and point.y, where the value is 0 if the point is outside the bounds, 1 if it's inside, 2 if on the edge, and 3 if on a vertex. Converting this to a logical vector makes all 0 points *FALSE* and everything else *TRUE*.  
+
+Also note that if you're using eof data, which is already on a smaller grid defined by gosl_lats and gosl_lons, you can skip this step (but it won't hurt to do it anyway).  
+
 
 Now use this index to subset the data and vectors of coordinates:  
 
