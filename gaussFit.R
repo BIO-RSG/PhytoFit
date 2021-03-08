@@ -188,7 +188,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
       return(list(fit = NULL, values = values,
                   yfit = yfit, ybkrnd = ybkrnd,
                   nofit_msg = get_failure_msg(nofit_code),
-                  nofit_code = nofit_code1))
+                  nofit_code = nofit_code))
     }
     
     # if tm = TRUE, make tm_value a parameter in the nonlinear least squares
@@ -283,7 +283,6 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           tt <- ti + td
         }
         
-        
         # check for problems with the calculated ti, tt, and td, and if they're all
         # good, continue with calculating amplitude, magnitude, and flags
         if (!is.finite(ti)) {
@@ -315,20 +314,22 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           tiidx <- which.min(abs(yday - ti))
           ttidx <- which.min(abs(yday - tt))
           
+          # if tiidx or ttidx do not land on existing indices in yday, add an interpolated value
+          if (yday[tiidx] != ti) {
+            chlorophyll <- c(chlorophyll, approx(x = yday, y = chlorophyll, xout = ti, rule = 2)$y)
+            yday <- c(yday, ti)
+          }
+          if (yday[ttidx] != tt) {
+            chlorophyll <- c(chlorophyll, approx(x = yday, y = chlorophyll, xout = tt, rule = 2)$y)
+            yday <- c(yday, tt)
+          }
           
-          # # NEED TO FINISH THE CODE BELOW AND NOTE THE POSSIBLE CHANGES TO THE MAGNITUDE/AMPLITUDE FROM THIS
-          # # if the calculate ti does not land on a day with valid data, temporarily add
-          # # an extra index at ti and calculate the theoretical chla at that point
-          # # (only need this for the real values, not the fitted curve)
-          # if (yday[tiidx] > ti) {
-          #   # add an extra index to the beginning
-          #   
-          # } else if (yday[tiidx] < ti) {
-          #   # shift the first index forward until it's aligned with ti
-          #   
-          # }
-          # # ALSO CHECK TT
-          
+          # now order yday and chlorophyll and recalculate tiidx and ttidx
+          yday_order <- order(yday)
+          yday <- yday[yday_order]
+          chlorophyll <- chlorophyll[yday_order]
+          tiidx <- which(yday==ti)
+          ttidx <- which(yday==tt)
           
           # reduce real vectors to the bloom to calculate "real" amplitude and magnitude
           yday <- yday[tiidx:ttidx]
@@ -532,20 +533,22 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           tiidx <- which.min(abs(yday - ti))
           ttidx <- which.min(abs(yday - tt))
           
+          # if tiidx or ttidx do not land on existing indices in yday, add an interpolated value
+          if (yday[tiidx] != ti) {
+            chlorophyll <- c(chlorophyll, approx(x = yday, y = chlorophyll, xout = ti, rule = 2)$y)
+            yday <- c(yday, ti)
+          }
+          if (yday[ttidx] != tt) {
+            chlorophyll <- c(chlorophyll, approx(x = yday, y = chlorophyll, xout = tt, rule = 2)$y)
+            yday <- c(yday, tt)
+          }
           
-          # # NEED TO FINISH THE CODE BELOW AND NOTE THE POSSIBLE CHANGES TO THE MAGNITUDE/AMPLITUDE FROM THIS
-          # # if the calculate ti does not land on a day with valid data, temporarily add
-          # # an extra index at ti and calculate the theoretical chla at that point
-          # # (only need this for the real values, not the fitted curve)
-          # if (yday[tiidx] > ti) {
-          #   # add an extra index to the beginning
-          #   
-          # } else if (yday[tiidx] < ti) {
-          #   # shift the first index forward until it's aligned with ti
-          #   
-          # }
-          # # ALSO CHECK TT
-          
+          # now order yday and chlorophyll and recalculate tiidx and ttidx
+          yday_order <- order(yday)
+          yday <- yday[yday_order]
+          chlorophyll <- chlorophyll[yday_order]
+          tiidx <- which(yday==ti)
+          ttidx <- which(yday==tt)
           
           # reduce real vectors to the bloom to calculate "real" amplitude and magnitude
           yday <- yday[tiidx:ttidx]
@@ -578,7 +581,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           amp_real <- max(chlorophyll, na.rm=TRUE)
           # calculate magnitude and amplitude using fitted values
           mag_fit <- sum(diff(fitted_yday) * (head(fitted_chlorophyll, -1) + tail(fitted_chlorophyll, -1))/2)
-          amp_fit <- fitted_chlorophyll[which.min(abs(fitted_yday - tm_value))[1]]
+          amp_fit <- max(fitted_chlorophyll[plus_minus(which.min(abs(fitted_yday - tm_value))[1], 1)], na.rm=TRUE)
           
           flags <- flag_check(mag_real=mag_real,
                               mag_fit=mag_fit,
