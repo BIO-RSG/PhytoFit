@@ -594,7 +594,7 @@ ui <- fluidPage(
                                       style = help_text_style),
                              checkboxInput(inputId = "rm_bkrnd",
                                            label = "Remove background",
-                                           value = FALSE,
+                                           value = TRUE,
                                            width = widget_width),
                              helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flags</font></br>",
                                                   "Fits will be flagged if they meet certain criteria that indicate potential problems with the fit (NOTE: this does not affect the fit itself). Combinations of flags will be written as a single number (for example, 13 for flags 1 and 3). Click below for details. Optionally adjust the parameters of some flags.")),
@@ -2560,10 +2560,12 @@ server <- function(input, output, session) {
         steps <- 100/length(year_list)
         progress_updates <- round(seq(steps[1], 100, by=steps),1)
         
+        # get the full names of the user-selected polygons, in the same order
         poly_names <- sapply(1:length(regs), function(r) ifelse(regs[r]=='custom',
                                                                 ifelse(nchar(custom_name)==0, "Custom polygon", custom_name),
                                                                 paste0(full_names[[region]][which(regs[r]==poly_ID[[region]])])))
         
+        # get the coordinates of the selected polygons
         boxes <- all_regions[[region]]
         names(boxes) <- poly_ID[[region]]
         if ("custom" %in% regs) {
@@ -2571,6 +2573,8 @@ server <- function(input, output, session) {
             boxes[["custom"]]$lat <- polylat
             boxes[["custom"]]$lon <- polylon
         }
+        
+        # subset boxes corresponding to user-selected polygons, in the same order
         boxes <- boxes[regs]
         
         total_params_df <- data.frame(matrix(nrow=(length(year_list)*length(regs)), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
@@ -2678,7 +2682,14 @@ server <- function(input, output, session) {
                              tm = tm,
                              beta = beta,
                              use_weights = use_weights,
-                             threshcoef = threshcoef)
+                             threshcoef = threshcoef,
+                             ti_threshold_type = ti_threshold_type,
+                             ti_threshold_constant = ti_threshold_constant,
+                             rm_bkrnd = rm_bkrnd,
+                             flag1_lim1 = flag1_lim1,
+                             flag1_lim2 = flag1_lim2,
+                             flag2_lim1 = flag2_lim1,
+                             flag2_lim2 = flag2_lim2)
         
         if (year_bounds[1]==year_bounds[2]) {
             year_bounds <- year_bounds[1]
@@ -2932,7 +2943,14 @@ server <- function(input, output, session) {
                                  tm = isolate(state$tm),
                                  beta = isolate(state$beta),
                                  use_weights = isolate(state$use_weights),
-                                 threshcoef = isolate(state$threshcoef))
+                                 threshcoef = isolate(state$threshcoef),
+                                 ti_threshold_type = isolate(state$ti_threshold_type),
+                                 ti_threshold_constant = isolate(state$ti_threshold_constant),
+                                 rm_bkrnd = isolate(state$rm_bkrnd),
+                                 flag1_lim1 = isolate(state$flag1_lim1),
+                                 flag1_lim2 = isolate(state$flag1_lim2),
+                                 flag2_lim1 = isolate(state$flag2_lim1),
+                                 flag2_lim2 = isolate(state$flag2_lim2))
             fileConn <- file(file)
             writeLines(info, fileConn)
             close(fileConn)

@@ -353,7 +353,9 @@ settings_str <- function(satellite, region, algorithm, year_list, date_var, inte
                          percent, outlier, dailystat, pixrange1, pixrange2,
                          fitmethod, bloomShape, smoothMethod, loessSpan=NULL,
                          t_range, ti_limits, tm_limits,
-                         tm=NULL, beta=NULL, use_weights=NULL, threshcoef=NULL) {
+                         tm=NULL, beta=NULL, use_weights=NULL, threshcoef=NULL,
+                         ti_threshold_type, ti_threshold_constant, rm_bkrnd,
+                         flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2) {
   
   if (length(year_list) > 1) {
     if (year_list[1]==year_list[2]) {
@@ -402,10 +404,17 @@ settings_str <- function(satellite, region, algorithm, year_list, date_var, inte
   
   if (fitmethod == "Shifted Gaussian") {
     
+    info <- c(info, "t[start] threshold method:", ifelse(ti_threshold_type=="percent_thresh", "20% amplitude", "Constant threshold"), "")
+    if (ti_threshold_type=="constant_thresh") {
+      info <- c(info, "t[start] constant threshold:", ti_threshold_constant, "")
+    }
     info <- c(info,
               "Use t[max] parameter:", tm, "",
               "Use beta parameter:", beta, "",
-              paste0("Weight fit points by ", interval, " percent coverage:"), use_weights, "")
+              paste0("Weight fit points by ", interval, " percent coverage:"), use_weights, "",
+              "Remove background:", rm_bkrnd, "",
+              "Flag 1 limits:", paste0(flag1_lim1, " - ", flag1_lim2), "",
+              "Flag 2 limits:", paste0(flag2_lim1, " - ", flag2_lim2), "")
     
   } else if (fitmethod == "Threshold") {
     
