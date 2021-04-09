@@ -1,8 +1,8 @@
 # return stats and bloom fit for a selected year
 
 full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
-                     boxes, latlon_method, pnames, yearday, doys_per_week, doy_week_start, doy_week_end,
-                     dailystat, pixrange1, pixrange2, outlier, percent, log_chla, poly_names,
+                     polygon_list, latlon_method, pnames, yearday, doys_per_week, doy_week_start, doy_week_end,
+                     dailystat, pixrange1, pixrange2, outlier, percent, log_chla,
                      fitmethod, bloomShape, smoothMethod, loessSpan=NA, use_weights,
                      threshcoef=NA, tm=FALSE, beta=FALSE, t_range = c(1,365),
                      tm_limits = c(1,365), ti_limits = c(1,365), dir_name,
@@ -22,17 +22,22 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
     time_ind <- all_data$time_ind
     doy_vec <- all_data$doy_vec # days of the year, whether you're using daily or weekly data
     
+    poly_names <- polygon_list$full_names
+    poly_IDs <- polygon_list$poly_ID
+    all_lons <- polygon_list$longitudes
+    all_lats <- polygon_list$latitudes
+    
     # create output dataframe for fitted coefficients
-    full_fit_params <- data.frame(matrix(nrow=length(boxes), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
+    full_fit_params <- data.frame(matrix(nrow=length(poly_names), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
     colnames(full_fit_params) <- c("Region", "Year", pnames)
     
-    for (reg_ind in 1:length(boxes)) {
+    
+    for (reg_ind in 1:length(poly_names)) {
         
         poly_name <- poly_names[reg_ind]
-        box <- boxes[[reg_ind]]
         
-        Latitude <- box$lat
-        Longitude <- box$lon
+        Latitude <- all_lats[[reg_ind]]
+        Longitude <- all_lons[[reg_ind]]
         
         plot_title <- paste0("Time series of ", interval, " ", dailystat, " Chlorophyll concentration for ", year, ", ", poly_name)
         
@@ -98,7 +103,7 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
             first_day <- t_range[1]
             last_day <- t_range[2]
             
-            daily_percov <- lenok / nrow(rchla)
+            daily_percov <- 100 * lenok / nrow(rchla)
             ind_percov <- daily_percov > percent
             ind_dayrange <- doy_vec >= first_day & doy_vec <= min(last_day, available_days)
             ind_dayrange_percov <- ind_percov & ind_dayrange
@@ -111,7 +116,7 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
             if (sum(ydays_dayrange_percov)==0) {
                 
                 em <- paste0("No data available between day ", first_day, " and ",
-                             last_day, " with >= ", (percent*100), "% coverage")
+                             last_day, " with >= ", percent, "% coverage")
                 
             }
             
@@ -192,18 +197,18 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
         # Write stats to csv and ggplot to png, and add fit parameters for the current region to the full dataframe
         
         write.csv(stats_df,
-                  file=file.path(dir_name, paste0(year, "_", names(boxes)[reg_ind], "_stats.csv")),
+                  file=file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind], "_stats.csv")),
                   quote=FALSE,
                   na=" ",
                   row.names=FALSE)
 
-        ggsave(file=file.path(dir_name, paste0(year, "_", names(boxes)[reg_ind], "_bloomfit.png")),
+        ggsave(file=file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind], "_bloomfit.png")),
                plot=p,
                width=12,
                height=5,
                units="in")
         
-        full_fit_params[reg_ind,] <- c(toupper(names(boxes)[reg_ind]), year, as.numeric(fitparams))
+        full_fit_params[reg_ind,] <- c(toupper(poly_IDs[reg_ind]), year, as.numeric(fitparams))
         
         gc()
         

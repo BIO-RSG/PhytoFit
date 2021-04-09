@@ -8,13 +8,18 @@ A collection of helpful troubleshooting notes or links collected as the app was 
 
 ***
 
-### Specific errors  
+### Specific errors, quirks, or warnings 
+
+**Quirk**: When processing the full time series (i.e. "Run time series" button), if you uncheck every single box, it will use the value from the last box you unchecked.  
 
 **Error message**: *Density plot error: could not find function "expansion"*  
 **Solution**: Update ggplot2  
 
 **Error message**: *Error in .getReactiveEnvironment()$currentContext() : Operation not allowed without an active reactive context. (You tried to do something that can only be done from inside a reactive expression or observer.)*  
 **Solution**: This is a *shiny* error that means, for example, that you tried to do something with a reactive variable outside of a reactive expression like reactive, observe, eventReactive, observeEvent, or a render function. Make sure all your reactive variables are within these types of expressions.  
+
+**Warning**: DO NOT make changes to a settings.csv file.  
+some programs (LibreOffice Calc, for example) change the values of the range of days by removing the comma between the first and last day, so the values can't be read properly by PhytoFit.  
 
 ***
 
@@ -121,6 +126,45 @@ https://cran.r-project.org/web/packages/shinybusy/vignettes/shinybusy-usage.html
 Show/hide entire panels based on condition:  
 https://stackoverflow.com/questions/45180395/can-you-use-shinyjs-to-hide-show-whole-panels  
 
+Save inputs to a file and load it later to automatically reapply them:  
+https://stackoverflow.com/questions/32460475/export-all-user-inputs-in-a-shiny-app-to-file-and-load-them-later  
+Use reactiveValuesToList(input) to save every input.  
+Then for example, how to update the value of widget with inputId:  
+
+    session$sendInputMessage(inputId, list(value = value))  
+or the choices and selected option:  
+
+    session$sendInputMessage(inputId, list(choices = new_choices, selected = new_selection))  
+&nbsp;
+
+Example putting checkboxGroupInput in multiple columns:  
+Outside the UI and server:  
+
+    sidebar_tags_style <- tags$style(HTML(
+                ".multicol {
+                           font-size: 14px;
+                           -webkit-column-count: 2; /* Chrome, Safari, Opera */ 
+                           -moz-column-count: 2;    /* Firefox */ 
+                           column-count: 2; 
+                           -moz-column-fill: auto;
+                           -column-fill: auto;
+                         }"
+    ))
+At the top of the UI:  
+
+    tags$head(sidebar_tags_style),
+Creating the widget in the UI:  
+
+    tags$div(class = "multicol", checkboxGroupInput(...)),
+&nbsp;
+
+To force an observer to react to the deselection of all choices in pickerInput (i.e. when it becomes NULL), use *ignoreNULL = FALSE* on the observer:  
+https://stackoverflow.com/questions/53016091/pickerinput-not-clearing-all-choices  
+
+    observeEvent(input$picker_variable, {
+      print(input$picker_variable)
+    }, ignoreNULL = FALSE)
+&nbsp;
 
 ***
 

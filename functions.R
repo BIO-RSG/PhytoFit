@@ -169,7 +169,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   
   if (fitmethod == 'gauss') {
     
-    if (use_weights) {weights <- 100 * daily_percov[ind_dayrange_percov]
+    if (use_weights) {weights <- daily_percov[ind_dayrange_percov]
     } else {weights <- rep(1,length(chlorophyll))}
     
     if (tm) {tmp_ti_lim <- c(1,365)
@@ -259,7 +259,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   allchl <- rep(NA,length(doy_vec))
   allchl[ind_percov] <- chlall
   allpercov <- rep(NA,length(doy_vec))
-  allpercov[ind_percov] <- (lenok * 100 / rchla_nrow)[ind_percov]
+  allpercov[ind_percov] <- (100 * lenok / rchla_nrow)[ind_percov]
   
   # initialize and format base plot (points sized by percent coverage)
   p <- p +
@@ -347,82 +347,65 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   
 }
 
-# Make a string to write to an output text file, containing the current user selections.
-settings_str <- function(satellite, region, algorithm, year_list, date_var, interval, log_chla,
-                         polygon_name_list, polygon_coord_list,
-                         percent, outlier, dailystat, pixrange1, pixrange2,
-                         fitmethod, bloomShape, smoothMethod, loessSpan=NULL,
-                         t_range, ti_limits, tm_limits,
-                         tm=NULL, beta=NULL, use_weights=NULL, threshcoef=NULL,
-                         ti_threshold_type, ti_threshold_constant, rm_bkrnd,
-                         flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2) {
+# Format current input settings to write to csv
+format_settings_to_save <- function(all_inputs, custom_name, polylon, polylat) {
   
-  if (length(year_list) > 1) {
-    if (year_list[1]==year_list[2]) {
-      year_list <- year_list[1]
-    } else {
-      year_list <- paste0(year_list, collapse=" - ")
-    }
+  all_inputs$custom_name <- custom_name
+  
+  if (is.null(polylon)) {
+    all_inputs$polylon <- all_inputs$polylat <- NA
+  } else {
+    all_inputs$polylon <- polylon
+    all_inputs$polylat <- polylat
   }
   
-  info <- c("Satellite:", satellite, "",
-            "Region:", region, "",
-            "Algorithm:", algorithm, "",
-            "Year(s):", year_list, "",
-            "Date(s):", date_var, "",
-            "Interval:", proper(interval), "",
-            "Chlorophyll-a logged:", log_chla, "",
-            "Polygon(s):")
+  # create a vector of expanded descriptions/names of current values
+  # (note this is not yet in the same order as all_inputs - this will be reordered and attached later)
+  val_desc <- c(names(sensors)[sensors==all_inputs$satellite],
+                names(regions)[regions==all_inputs$region],
+                names(algorithms)[algorithms==all_inputs$algorithm],
+                NA, ifelse(all_inputs$interval=="weekly", "8 days", NA), NA, NA, NA,
+                names(outliers)[outliers==all_inputs$outlier],
+                names(dailystats)[dailystats==all_inputs$dailystat],
+                NA, NA,
+                names(fitmethods)[fitmethods==all_inputs$fitmethod],
+                names(bloomShapes)[bloomShapes==all_inputs$bloomShape],
+                names(smoothMethods)[smoothMethods==all_inputs$smoothMethod],
+                NA, NA, NA, NA,
+                names(ti_threshold_types)[ti_threshold_types==all_inputs$ti_threshold_type],
+                NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,
+                "See user guide for full names and boundaries of polygons",
+                "See user guide for full names and boundaries of polygons",
+                NA, "Decimal degrees", "Decimal degrees")
   
-  for (i in 1:length(polygon_name_list)) {
-    info <- c(info,
-              paste0(polygon_name_list[[i]], ":"),
-              paste0("\tLongitudes: ", paste(polygon_coord_list[[i]]$lon, collapse=", "),
-                     "\n\tLatitudes: ", paste(polygon_coord_list[[i]]$lat, collapse=", ")), "")
-  }
+  # subset them based on the ones you need to save
+  all_inputs <- all_inputs[names(all_inputs) %in% input_ids_to_save]
   
-  info <- c(info,
-            paste0("Minimum ", interval, " percent coverage: "), (percent * 100), "",
-            "Outlier detection method:", ifelse(outlier=="none", "None",
-                                                ifelse(outlier=="sd2", "+/- 2 sd",
-                                                       ifelse(outlier=="sd3", "+/- 3 sd", "1.5 IQR"))), "",
-            paste0(proper(interval), " statistic:"), proper(dailystat), "",
-            paste0("Minimum value used in statistics and fit: ", pixrange1,
-                   "\nMaximum value used in statistics and fit: ", pixrange2), "",
-            "Fit method:", fitmethod, "",
-            "Bloom fit shape:", bloomShape, "",
-            "Smoothing method:", smoothMethod, "")
+  # if a list element is a vector, collapse it into one string value separated by comma(s)
+  all_inputs <- lapply(all_inputs, paste0, collapse=",")
   
-  if (smoothMethod=="LOESS") {
-    info <- c(info, "LOESS span:", loessSpan, "")
-  }
+  # convert list to matrix
+  inputs_to_save <- do.call(rbind,all_inputs)
   
-  info <- c(info,
-            "Allowed range of days for bloom fitting:", paste(t_range, collapse="-"), "",
-            "Allowed range of days for bloom initiation:", paste(ti_limits, collapse="-"), "",
-            "Allowed range of days for maximum concentration of bloom:", paste(tm_limits, collapse="-"), "")
+  # fix the order of inputs and their descriptions, and subset them properly
+  rnames <- rownames(inputs_to_save)
+  proper_order <- match(input_ids_to_save[input_ids_to_save %in% rnames], rnames)
+  inputs_to_save <- inputs_to_save[proper_order,]
   
-  if (fitmethod == "Shifted Gaussian") {
-    
-    info <- c(info, "t[start] threshold method:", ifelse(ti_threshold_type=="percent_thresh", "20% amplitude", "Constant threshold"), "")
-    if (ti_threshold_type=="constant_thresh") {
-      info <- c(info, "t[start] constant threshold:", ti_threshold_constant, "")
-    }
-    info <- c(info,
-              "Use t[max] parameter:", tm, "",
-              "Use beta parameter:", beta, "",
-              paste0("Weight fit points by ", interval, " percent coverage:"), use_weights, "",
-              "Remove background:", rm_bkrnd, "",
-              "Flag 1 limits:", paste0(flag1_lim1, " - ", flag1_lim2), "",
-              "Flag 2 limits:", paste0(flag2_lim1, " - ", flag2_lim2), "")
-    
-  } else if (fitmethod == "Threshold") {
-    
-    info <- c(info, "Threshold coefficient:", threshcoef, "")
-    
-  }
+  subset_ind <- input_ids_to_save %in% names(inputs_to_save)
+  input_ids_description <- input_ids_description[subset_ind]
+  val_desc <- val_desc[subset_ind]
+  input_ids_variable_type <- input_ids_variable_type[subset_ind]
+  input_ids_widget_type <- input_ids_widget_type[subset_ind]
   
-  return(info)
+  # combine ids, values, and description in a dataframe, and fix column names
+  inputs_to_save <- as.data.frame(cbind(names(inputs_to_save), inputs_to_save, input_ids_description,
+                                        val_desc, input_ids_variable_type, input_ids_widget_type),
+                                  row.names=FALSE, stringsAsFactors=FALSE)
+  colnames(inputs_to_save) <- c("setting_id", "value", "setting_description", "value_description",
+                                "setting_id_variable_type", "setting_id_widget_type")
+  
+  return(inputs_to_save)
   
 }
 
@@ -448,5 +431,64 @@ output_str <- function(satellite, region, algorithm, year, interval, log_chla, d
   output_name <- gsub("([_])\\1+","\\1", output_name)
   
   return(output_name)
+  
+}
+
+
+# given the selected set of boxes, collect IDs, full names, and lons/lats
+get_polygon_details <- function(regs, custom_name, region, polylat, polylon, newpoly=NULL, editedpoly=NULL, typedpoly=NULL) {
+  
+  polygon_list <- list()
+  
+  # if "custom" box is selected but no polygon is drawn, unselect it
+  if (is.null(newpoly) & is.null(editedpoly) & is.null(typedpoly)) {
+    regs <- regs[regs != "custom"]
+  }
+  
+  # get the full names of the user-selected polygons, in the same order
+  polygon_list$full_names <- sapply(1:length(regs), function(r) ifelse(regs[r]=='custom',
+                                                                       ifelse(nchar(custom_name)==0, "Custom polygon", custom_name),
+                                                                       paste0(full_names[[region]][which(regs[r]==poly_ID[[region]])])))
+  
+  # get the coordinates of the selected polygons
+  boxes <- all_regions[[region]]
+  names(boxes) <- poly_ID[[region]]
+  if ("custom" %in% regs) {
+    boxes[["custom"]] <- list()
+    boxes[["custom"]]$lat <- polylat
+    boxes[["custom"]]$lon <- polylon
+  }
+  
+  # subset boxes corresponding to user-selected polygons, in the same order
+  boxes <- boxes[regs]
+  
+  polygon_list$poly_ID <- regs
+  polygon_list$longitudes <- lapply(boxes, "[[", 2)
+  polygon_list$latitudes <- lapply(boxes, "[[", 1)
+  
+  return(polygon_list)
+  
+}
+
+
+format_settings_to_load <- function(settings) {
+  
+  # get IDs and their values, and trim white space
+  tmp_ids <- trimws(settings$setting_id)
+  tmp_values <- trimws(settings$value)
+  tmp_types <- as.numeric(trimws(settings$setting_id_variable_type))
+  tmp_widgets <- as.numeric(trimws(settings$setting_id_widget_type))
+  
+  # separate ones that were collapsed by commas
+  tmp_values <- sapply(tmp_values, strsplit, split=",")
+  
+  # coerce to numeric or logical
+  tmp_values[tmp_types==1] <- lapply(tmp_values[tmp_types==1], as.numeric)
+  tmp_values[tmp_types==2] <- lapply(tmp_values[tmp_types==2], as.character)
+  tmp_values[tmp_types==3] <- lapply(tmp_values[tmp_types==3], as.logical)
+  
+  names(tmp_ids) <- names(tmp_values) <- names(tmp_types) <- names(tmp_widgets) <- NULL
+  
+  return(list(ids=tmp_ids, values=tmp_values, types=tmp_types, widgets=tmp_widgets))
   
 }
