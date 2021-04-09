@@ -7,7 +7,8 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                      threshcoef=NA, tm=FALSE, beta=FALSE, t_range = c(1,365),
                      tm_limits = c(1,365), ti_limits = c(1,365), dir_name,
                      flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, ti_threshold=0.2, tt_threshold=0.2,
-                     rm_bkrnd=FALSE, ti_threshold_type = "percent_thresh", ti_threshold_constant = 0.1) {
+                     rm_bkrnd=FALSE, ti_threshold_type = "percent_thresh", ti_threshold_constant = 0.1,
+                     fullrunoutput_png = TRUE, fullrunoutput_statcsv = TRUE) {
     
     
     #***************************************************************************
@@ -196,17 +197,21 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
         #***********************************************************************
         # Write stats to csv and ggplot to png, and add fit parameters for the current region to the full dataframe
         
-        write.csv(stats_df,
-                  file=file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind], "_stats.csv")),
-                  quote=FALSE,
-                  na=" ",
-                  row.names=FALSE)
-
-        ggsave(file=file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind], "_bloomfit.png")),
-               plot=p,
-               width=12,
-               height=5,
-               units="in")
+        if (fullrunoutput_statcsv) {
+            write.csv(stats_df,
+                      file=file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind], "_stats.csv")),
+                      quote=FALSE,
+                      na=" ",
+                      row.names=FALSE)
+        }
+        
+        if (fullrunoutput_png) {
+            ggsave(file=file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind], "_bloomfit.png")),
+                   plot=p,
+                   width=12,
+                   height=5,
+                   units="in")
+        }
         
         full_fit_params[reg_ind,] <- c(toupper(poly_IDs[reg_ind]), year, as.numeric(fitparams))
         

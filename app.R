@@ -629,14 +629,29 @@ ui <- fluidPage(
             
             helpText(HTML(paste0("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">Time series</font></br>",
                                  "Select a series of years and the polygons you would like to process, ",
-                                 "then click \"Run time series\" to generate the following:</br>",
-                                 "<ul>",
-                                    "<li>time series plots (.png),</li>",
-                                    "<li>tables of statistics (.csv),</li>",
-                                    "<li>a single .csv file containing the fitted parameters for all selected years and polygons, and</li>",
-                                    "<li>a .csv file containing the settings used for the time series, for reference.</li>",
-                                 "</ul>",
-                                 "The settings used in the time series will be the current selections for satellite, ",
+                                 "then click \"Run time series\" to generate the following:</br>")),
+                     width = widget_width,
+                     style = help_text_style),
+            checkboxInput(inputId = "fullrunoutput_png",
+                          label = HTML("<font style=\"white-space: normal; font-size: 10px;\">time series plots (.png),</font>"),
+                          value = TRUE,
+                          width = widget_width),
+            div(style="margin-top: -15px; line-height: 90%;",
+            checkboxInput(inputId = "fullrunoutput_statcsv",
+                          label = HTML("<font style=\"white-space: normal; font-size: 10px;\">tables of statistics (.csv),</font>"),
+                          value = TRUE,
+                          width = widget_width)),
+            div(style="margin-top: -15px; line-height: 90%;",
+            disabled(checkboxInput(inputId = "fullrunoutput_paramcsv",
+                          label = HTML("<font style=\"white-space: normal; font-size: 10px;\">a single .csv file containing the fitted parameters for all selected years and polygons, and</font>"),
+                          value = TRUE,
+                          width = widget_width))),
+            div(style="margin-top: -15px; line-height: 90%;",
+            disabled(checkboxInput(inputId = "fullrunoutput_settingcsv",
+                          label = HTML("<font style=\"white-space: normal; font-size: 10px;\">a .csv file containing the settings used for the time series, for reference.</font>"),
+                          value = TRUE,
+                          width = widget_width))),
+            helpText(HTML(paste0("The settings used in the time series will be the current selections for satellite, ",
                                  "region, algorithm, interval, log<sub>10</sub><i>chla</i> ON/OFF, statistics, and bloom fit. Files will be zipped",
                                  " to a folder following the naming convention <i>satellite_ region_ algorithm_ years_ interval_ (un)loggedChla_ fitmethod_ timecreated</i>.</br>",
                                  "Make sure at least one polygon is selected.<br>",
@@ -2637,6 +2652,8 @@ server <- function(input, output, session) {
             newpoly = state$newpoly
             editedpoly = state$editedpoly
             typedpoly = state$typedpoly
+            fullrunoutput_png <- input$fullrunoutput_png
+            fullrunoutput_statcsv <- input$fullrunoutput_statcsv
         })
         
         # create column names for parameter table
@@ -2726,7 +2743,9 @@ server <- function(input, output, session) {
                 tt_threshold = tt_threshold,
                 rm_bkrnd = rm_bkrnd,
                 ti_threshold_type = ti_threshold_type,
-                ti_threshold_constant = ti_threshold_constant)
+                ti_threshold_constant = ti_threshold_constant,
+                fullrunoutput_png = fullrunoutput_png,
+                fullrunoutput_statcsv = fullrunoutput_statcsv)
             
             # add to final output dataframe
             total_params_df[((x-1)*length(polygon_list$full_names)+1):(x*length(polygon_list$full_names)),] <- tmp_par

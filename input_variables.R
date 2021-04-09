@@ -82,16 +82,17 @@ input_ids_to_save <- c("satellite", "region", "algorithm", "year", "interval", "
                        "ti_threshold_type", "ti_threshold_constant",
                        "tm", "beta", "use_weights", "rm_bkrnd",
                        "flag1_lim1", "flag1_lim2", "flag2_lim1", "flag2_lim2", "threshcoef",
+                       "fullrunoutput_png", "fullrunoutput_statcsv",
                        "fullrunyears", "fullrunboxes", "box", "custom_name", "polylon", "polylat")
 
 # how should the input be coerced when reloaded? 1 = numeric, 2 = character, 3 = logical
 # note that some number inputs are actually character-type to get the textInput formatting
-input_ids_variable_type <- c(2,2,2,1,2,3,1,1,2,2,2,2,2,2,2,1,1,1,1,2,1,3,3,3,3,2,2,2,2,1,1,2,2,2,1,1)
+input_ids_variable_type <- c(2,2,2,1,2,3,1,1,2,2,2,2,2,2,2,1,1,1,1,2,1,3,3,3,3,2,2,2,2,1,3,3,1,2,2,2,1,1)
 
 # types of widgets used for each input (need this to update them properly)
 # selectInput=1, sliderInput=2, numericInput=3, textInput=4, radioButtons=5,
 # checkboxInput=6, switchInput=7, pickerInput=8
-input_ids_widget_type <- c(1,1,1,1,1,7,2,3,1,1,4,4,1,1,1,3,2,2,2,5,3,7,7,7,6,4,4,4,4,3,2,8,1,0,0,0)
+input_ids_widget_type <- c(1,1,1,1,1,7,2,3,1,1,4,4,1,1,1,3,2,2,2,5,3,7,7,7,6,4,4,4,4,3,6,6,2,8,1,0,0,0)
 
 # longer description of each inputId
 input_ids_description <- c("Sensor", "Region (NW Atlantic or NE Pacific)", "Chlorophyll-a Algorithm", "Year",
@@ -116,6 +117,8 @@ input_ids_description <- c("Sensor", "Region (NW Atlantic or NE Pacific)", "Chlo
                          "Gaussian fit flag 2 lower limit",
                          "Gaussian fit flag 2 upper limit",
                          "Coefficient for threshold method",
+                         "For full run, create png of each fit?",
+                         "For full run, create csv of the daily (or weekly) stats for each year?",
                          "For full run, earliest and latest years in the list of years to process",
                          "For full run, list of boxes to process",
                          "Polygon name", "Custom polygon name", "Custom polygon longitudes", "Custom polygon latitudes")

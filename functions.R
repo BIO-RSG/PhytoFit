@@ -373,7 +373,7 @@ format_settings_to_save <- function(all_inputs, custom_name, polylon, polylat) {
                 names(smoothMethods)[smoothMethods==all_inputs$smoothMethod],
                 NA, NA, NA, NA,
                 names(ti_threshold_types)[ti_threshold_types==all_inputs$ti_threshold_type],
-                NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,
+                NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,
                 "See user guide for full names and boundaries of polygons",
                 "See user guide for full names and boundaries of polygons",
                 NA, "Decimal degrees", "Decimal degrees")
