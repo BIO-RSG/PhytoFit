@@ -1,4 +1,8 @@
-# PhytoFit User Guide
+---
+title: "PhytoFit User Guide"
+output: github_document
+---
+
 2020-09-25  
 Report issues to: Stephanie.Clay@dfo-mpo.gc.ca  
   
@@ -161,6 +165,45 @@ If you choose "Custom polygon":
 
 <br>  
 
+#####  EXISTING BOXES
+
+These are the predefined boxes used in PhytoFit (full names and coordinates in the table below).  
+
+| Atlantic | Pacific |
+|-------------------|------------------|
+| <img src="atlantic_polygon_map.png" style="vertical-align:top" /> | <img src="pacific_polygon_map.png" style="vertical-align:top" /> |
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+source("00_regionBoxes.R")
+library(kableExtra)
+library(dplyr)
+library(forcats)
+
+reg_lons_atl <- sapply(1:length(all_regions[["atlantic"]]), function(i) paste0(all_regions[["atlantic"]][[i]]$lon, collapse=", "))
+reg_lats_atl <- sapply(1:length(all_regions[["atlantic"]]), function(i) paste0(all_regions[["atlantic"]][[i]]$lat, collapse=", "))
+reg_lons_pac <- sapply(1:length(all_regions[["pacific"]]), function(i) paste0(all_regions[["pacific"]][[i]]$lon, collapse=", "))
+reg_lats_pac <- sapply(1:length(all_regions[["pacific"]]), function(i) paste0(all_regions[["pacific"]][[i]]$lat, collapse=", "))
+
+df <- data.frame(Region = c(rep("ATLANTIC", length(reg_lons_atl)), rep("PACIFIC", length(reg_lons_pac))),
+                 Abbreviation = c(poly_ID[["atlantic"]], poly_ID[["pacific"]]),
+                 Name = c(full_names[["atlantic"]], full_names[["pacific"]]),
+                 Longitudes = c(reg_lons_atl, reg_lons_pac),
+                 Latitudes = c(reg_lats_atl, reg_lats_pac),
+                 stringsAsFactors = FALSE)
+df %>%
+  dplyr::select(-Region) %>%
+  knitr::kable() %>%
+  kable_styling(font_size = 10) %>%
+  # column_spec (1:4, border_left = TRUE, border_right = TRUE) %>%
+  pack_rows(tab_kable,
+            colnum = 1,
+            index = table(fct_inorder(factor(df$Region))),
+            label_row_css = "border-bottom: 0px; font-size: 14px;")
+
+```
+
+
+
 #### STATISTICS
 
 Click the grey/green "Statistics" button to expand the menu.  
@@ -196,6 +239,29 @@ Magnitude<sub>fit</sub>: Area under the curve from start to end of the bloom, ex
 
 Amplitude units: mg m<sup>-3</sup>  
 Magnitude units: (mg m<sup>-3</sup>) * days  
+
+
+FOR GAUSSIAN CURVE:
+	B0        	"background" biomass concentration
+	h         	scales height of curve
+	sigma     	parameter related to the width of the curve
+	t[start]    day of the start of the curve
+	t[max]      day of maximum concentration
+	t[end]      day of the end of the curve
+	t[duration] duration of the bloom (curve)
+	Magnitude 	area under curve
+	Amplitude	height of the curve (not including background biomass B0)
+	beta		slope of the straight line on either side of the curve
+FOR RATE OF CHANGE (ROC) OR THRESHOLD:
+	t[start]    day of the start of the curve
+	t[max]      day of maximum concentration
+	t[end]      day of the end of the curve
+	t[duration] duration of the bloom (curve)
+	Magnitude 	area under curve
+	Amplitude	height of the curve (not including background biomass B0)
+
+* For asymmetric curves, the metrics are computed for each side, indicated by [left] or [right]
+
 
 <br><br>
 
