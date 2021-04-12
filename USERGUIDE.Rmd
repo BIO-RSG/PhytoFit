@@ -3,7 +3,7 @@ title: "PhytoFit User Guide"
 output:
   github_document:
     toc: true
-    toc_depth: 4
+    toc_depth: 5
     df_print: kable
     hard_line_breaks: true
 ---
