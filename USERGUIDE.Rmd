@@ -3,7 +3,7 @@ title: "PhytoFit User Guide"
 output:
   github_document:
     toc: true
-    toc_depth: 3
+    toc_depth: 4
     df_print: kable
     hard_line_breaks: true
 ---
@@ -27,7 +27,7 @@ Report issues to: Stephanie.Clay@dfo-mpo.gc.ca
 *(Publicly available, updated more frequently)*  
 *Address: https://github.com/BIO-RSG/PhytoFit*  
 
-### PREREQUISITES:
+### PREREQUISITES
 1. Install the latest versions of R and RStudio.
 2. Install the necessary libraries:
 `install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "leafem", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "geometry", "raster", "proj4"))`
@@ -46,11 +46,11 @@ remotes::install_github("BIO-RSG/oceancolouR")
 **WARNING: individual data files are generally < 50mb, but the entire dataset is several GB. Check if you have enough space on your drive.** 
 
 
-### INSTRUCTIONS:
+### INSTRUCTIONS
 Open app.R within RStudio, and click "Run app".  
 
 
-### WARNINGS FOR R USERS ONLY:
+### WARNINGS FOR R USERS ONLY
 * Memory usage increases as data is loaded/processed in the app. If the app is slowing down the computer, restart R (Session --> Restart R).  
 
 * *Warning in if (sigma_limit1 < 0) { : the condition has length > 1 and only the first element will be used.*  [This warning might appear when running a Gaussian fit if two separate days have the same maximum chl-a concentration (the first instance of the maximum concentration will be used).]  
@@ -107,6 +107,20 @@ Daily level-3 binned files are downloaded from [NASA OBPG](https://oceancolor.gs
 
 ## LEFT SIDEBAR
 
+### Option 1: Load an existing settings file
+
+If you saved a csv settings file from a previous session in PhytoFit, you can load it to automatically reapply the settings.  
+Warning: **DO NOT EDIT THE CSV FILE**, otherwise PhytoFit might not be able to read it properly.
+
+1. Click "Browse"
+2. Select csv file and click "Open"
+3. Click "Apply settings" and wait a moment while the settings are applied and the data is loaded.
+
+
+### Option 2: Adjust settings manually
+
+#### MAIN INPUT
+
 Select:  
 
 1.  Satellite/resolution  
@@ -121,8 +135,8 @@ Select:
     + POLY4 (regional, band ratio)  
     + GSM_GS (regional, semi-analytical)  
 4. Year  
-    + 2003-2020 (MODIS)  
-    + 2012-2020 (VIIRS)  
+    + 2003-2021 (MODIS)  
+    + 2012-2021 (VIIRS)  
     + 1998-2010 (SeaWiFS)  
 5. Temporal binning  
     + Daily  
@@ -134,17 +148,17 @@ Click "Load data".
 
 <br>  
 
-### COLOUR SCALE
+#### COLOUR SCALE
 Adjust range of data used in the map colour scale.  
 
 <br>  
 
-### DAY OF YEAR
+#### DAY OF YEAR
 Enter a day of year from 1-365 and click "Go", or use the slider and play/pause button to advance through the days automatically.  
 
 <br>  
 
-### POLYGON
+#### POLYGON
 
 Click the grey/green "Polygon" button to expand the menu, then use the drop-down menu to choose an existing polygon which will be highlighted on the map, or choose "Custom polygon" to create your own.  
 
@@ -169,7 +183,7 @@ If you choose "Custom polygon":
 
 <br>  
 
-####  EXISTING BOXES
+#####  EXISTING BOXES
 
 These are the predefined boxes used in PhytoFit (full names and coordinates in the table below).  
 
@@ -217,7 +231,7 @@ df
 
 
 
-### STATISTICS
+#### STATISTICS
 
 Click the grey/green "Statistics" button to expand the menu.  
 
@@ -237,7 +251,7 @@ Click the grey/green "Statistics" button to expand the menu.
 
 <br>  
 
-### BLOOM FITTING
+#### BLOOM FITTING
 
 Click the grey/green "Bloom fit" button to expand the menu.  
 
@@ -352,7 +366,7 @@ FOR RATE OF CHANGE (ROC) OR THRESHOLD:
 
 <br>  
 
-#### SHIFTED GAUSSIAN  
+##### SHIFTED GAUSSIAN  
 
 <a target="_blank" href="userguide_bf_eq01.png">
 <img src="userguide_bf_eq01.png" alt="screencap" width="280"/>
@@ -400,7 +414,7 @@ This will create a blue fitted curve through the points.
 
 <br>  
 
-#### RATE OF CHANGE  
+##### RATE OF CHANGE  
 
 This algorithm does not calculate a daily fitted equation, only the maximum, start, and end days of the bloom.  
 The maximum is selected as the day of actual maximum concentration, within the selected range.  
@@ -411,7 +425,7 @@ B<sub>0</sub> is computed using the R function *rq()* from the *quantreg* packag
 
 <br>  
 
-#### THRESHOLD  
+##### THRESHOLD  
 
 This algorithm does not calculate a daily fitted equation, only the maximum, start, and end days of the bloom.  
 The maximum is selected as the day of actual maximum concentration, within the selected range.  
@@ -431,7 +445,7 @@ B<sub>0</sub> is computed using the same method as with the Rate of Change model
 
 <br>  
 
-### SAVE OPTIONS  
+#### SAVE OPTIONS  
 
 1. Settings (.txt)  
 
