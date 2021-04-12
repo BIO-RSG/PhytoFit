@@ -177,8 +177,6 @@ mask, and FILTER*
 
 # INSTRUCTIONS
 
-<br>
-
 ## LEFT SIDEBAR
 
 ### Option 1: Load an existing settings file
@@ -223,20 +221,14 @@ Click “Load data”.
 *NOTE: Changes to any of the 6 options above will not be used until the
 “load” button is clicked.*
 
-<br>
-
 #### COLOUR SCALE
 
 Adjust range of data used in the map colour scale.
-
-<br>
 
 #### DAY OF YEAR
 
 Enter a day of year from 1-365 and click “Go”, or use the slider and
 play/pause button to advance through the days automatically.
-
-<br>
 
 #### POLYGON
 
@@ -247,8 +239,9 @@ on the map, or choose “Custom polygon” to create your own.
 If you choose “Custom polygon”:
 
 1.  *(Optional)* Name your polygon and click “Apply”  
-2.  Choose how to define polygon vertices:  
-    <br>
+
+2.  Choose how to define polygon vertices:
+    
       - **Option 1:** Draw it on the map
         
         Scroll up to the draw toolbar at the top left corner of the
@@ -272,8 +265,6 @@ If you choose “Custom polygon”:
           - decimal degrees  
           - separated by commas  
           - use latitude/longitude \< 0 for south/west
-
-<br>
 
 ##### EXISTING BOXES
 
@@ -1672,8 +1663,6 @@ Click the grey/green “Statistics” button to expand the menu.
     Pixels outside this range will not be used in the computation of the
     statistics or bloom fit.
 
-<br>
-
 #### BLOOM FITTING
 
 Click the grey/green “Bloom fit” button to expand the menu.
@@ -1684,36 +1673,22 @@ outside the desired range, using the binned chlorophyll-a values. Only
 points with sufficient percent coverage inside the polygon on that
 day/week are used, within the range of days selected by the user.
 
-Amplitude<sub>real</sub>: Height of the real data values at
-t<sub>max</sub> (peak value minus background chlorophyll-a)  
+Amplitude<sub>real</sub>: Maximum real data value between
+t<sub>start</sub> and t<sub>end</sub>  
 Magnitude<sub>real</sub>: Area under the real data points from start to
-end of the bloom, excluding background chlorophyll-a
+end of the bloom  
+*Note: If “remove background” has been checked, the background
+chlorophyll-a line will be subtracted before calculating these values.*
 
 Gaussian fit only:  
-Amplitude<sub>fit</sub>: Height of the curve at t<sub>max</sub> (peak
-value minus background chlorophyll-a)  
+Amplitude<sub>fit</sub>: Height of the curve at t<sub>max</sub>  
 Magnitude<sub>fit</sub>: Area under the curve from start to end of the
-bloom, excluding background chlorophyll-a
+bloom  
+*Note: If “remove background” has been checked, the background
+chlorophyll-a line will be subtracted before calculating these values.*
 
 Amplitude units: mg m<sup>-3</sup>  
 Magnitude units: (mg m<sup>-3</sup>) \* days
-
-FOR GAUSSIAN CURVE: B0 “background” biomass concentration h scales
-height of curve sigma parameter related to the width of the curve
-t\[start\] day of the start of the curve t\[max\] day of maximum
-concentration t\[end\] day of the end of the curve t\[duration\]
-duration of the bloom (curve) Magnitude area under curve Amplitude
-height of the curve (not including background biomass B0) beta slope of
-the straight line on either side of the curve FOR RATE OF CHANGE (ROC)
-OR THRESHOLD: t\[start\] day of the start of the curve t\[max\] day of
-maximum concentration t\[end\] day of the end of the curve t\[duration\]
-duration of the bloom (curve) Magnitude area under curve Amplitude
-height of the curve (not including background biomass B0)
-
-  - For asymmetric curves, the metrics are computed for each side,
-    indicated by \[left\] or \[right\]
-
-<br><br>
 
 1.  Choose the fit method
     
@@ -1721,36 +1696,30 @@ height of the curve (not including background biomass B0)
       - Rate of Change  
       - Threshold  
         See \[TECH REPORT 2020 LINK\] for details, or scroll down for a
-        brief description.  
-        <br>
+        brief description.
 
 2.  Choose the shape of the curve
     
       - Symmetric  
-      - Asymmetric  
-        <br>
+      - Asymmetric
 
 3.  Point smoothing
     
       - No smoothing  
       - LOESS (locally estimated scatterplot smoothing)
-          - LOESS span (a parameter to control the degree of
-            smoothing)  
-            <br>
+          - LOESS span (a parameter to control the degree of smoothing)
 
 4.  t<sub>range</sub> slider *(Default: 31-274)*  
     Set the range of days to use in the fit.  
     *NOTE: The t<sub>start</sub> and t<sub>max</sub> sliders will
-    automatically be adjusted to be within t<sub>range</sub>*.  
-    <br>
+    automatically be adjusted to be within t<sub>range</sub>*.
 
 5.  t<sub>max</sub> slider *(Default: 91-181)*  
     Set the range of days to search for the maximum concentration of the
     bloom.  
     *NOTE: This is restricted by t<sub>range</sub>, and
     t<sub>start</sub> will be automatically adjusted based on this
-    value*.  
-    <br>
+    value*.
 
 6.  t<sub>start</sub> slider *(Default: 60-151)*  
     Set the range of days to search for the initiation of the bloom.  
@@ -1759,8 +1728,7 @@ height of the curve (not including background biomass B0)
       - *This is restricted by t<sub>range</sub> and t<sub>max</sub>*  
       - *If the t<sub>max</sub> switch (not the slider) is set to ON,
         this option is unavailable (see t<sub>max</sub> switch below for
-        explanation)*  
-        <br>
+        explanation)*
 
 7.  Extra options
     
@@ -1824,8 +1792,6 @@ height of the curve (not including background biomass B0)
             > the selected day range and \>= the selected percent
             > coverage (i.e. all the data points used in a bloom fit)
 
-<br>
-
 ##### SHIFTED GAUSSIAN
 
 <a target="_blank" href="userguide_bf_eq01.png">
@@ -1840,8 +1806,6 @@ height of the curve (not including background biomass B0)
 | h               | unitless                           | controls the height of the curve                                              |
 | σ (sigma)       | unitless                           | controls the width of the curve                                               |
 | t<sub>max</sub> | day of year                        | day of maximum B                                                              |
-
-<br>
 
 Unknown parameters calculated by nonlinear least squares:  
 B<sub>0</sub>, h, σ (optional: β, t<sub>max</sub>)
@@ -1868,16 +1832,9 @@ Lower/upper limits and starting guesses for *nlsLM*:
     is declared unable to fit*  
   - *If you’re fitting weekly data, the week numbers are converted to
     the day of year at the start of each week, so the units are still
-    day of year*
-
-<br>
-
-B<sub>0</sub> limits if using logged chlorophyll-a:
-log(10<sup>-10</sup>) to log(5); starting guess: log(0.5)
-
-This will create a blue fitted curve through the points.
-
-<br>
+    day of year*  
+  - B<sub>0</sub> limits if using logged chlorophyll-a:
+    log(10<sup>-10</sup>) to log(5); starting guess: log(0.5)
 
 ##### RATE OF CHANGE
 
@@ -1895,8 +1852,6 @@ B<sub>0</sub> is computed using the R function *rq()* from the
 the full dataset (days/weeks with sufficient percent coverage), and used
 to calculate the amplitude of the curve and the magnitude under the
 curve.
-
-<br>
 
 ##### THRESHOLD
 
@@ -1923,92 +1878,71 @@ Threshold coefficient = user-selected
 B<sub>0</sub> is computed using the same method as with the Rate of
 Change model.
 
-<br>
-
 #### SAVE OPTIONS
 
-1.  Settings (.txt)
-
-2.  Map (.html)
-
-3.  Density plot (.png)
-
-4.  Time series plot (.png)
-
-5.  Annual table of daily (or weekly) statistics (.csv)
-
-6.  Table of fitted bloom parameters (.csv)
-
-7.  Download results from a series of years and polygons (.zip)  
-    Instructions:  
+1.  Settings (.csv)  
+2.  Map (.html)  
+3.  Density plot (.png)  
+4.  Time series plot (.png)  
+5.  Annual table of daily (or weekly) statistics (.csv)  
+6.  Table of fitted bloom parameters (.csv)  
+7.  Download results from a series of years and polygons (.zip):
 
 <!-- end list -->
 
-  - Select years using year slider
-      - Select polygons with the radio buttons
-          - Process all polygons, or  
-          - Select polygons to process  
-            Make sure you have at least one polygon selected, also if
-            you have selected “Custom polygon”, make sure the polygon is
-            defined.  
-            Note: if you de-select all polygons, it will still use the
-            polygon that you de-selected last.
-      - Click “Run time series”  
-        This will create:
-          - PNG files for the bloom fit for each of the selected years  
-          - CSV files for each year containing the statistics for each
-            day  
-          - CSV file containing the fit parameters for those years  
-          - TXT file containing the settings for the current run  
-            Files will be zipped to a folder with the following name
-            convention:  
-            **satellite\_ region\_ algorithm\_ years\_ interval\_
-            (un)loggedChla\_ fitmethod\_ timecreated.zip**
-      - “Download results (.zip)”  
-        This will download the zipped file to your browser’s downloads
-        folder.
-
-<br>
+  - Select years using year slider  
+  - Select polygons to process from the dropdown menu (make sure you
+    have at least one polygon selected, also if you have selected
+    “Custom polygon”, make sure the polygon is defined.)  
+  - Click “Run time series” to create:
+      - (Optional) PNG files for the bloom fit for each of the selected
+        years  
+      - (Optional) CSV files for each year containing the statistics for
+        each day  
+      - CSV file containing the fit parameters for those years  
+      - CSV file containing the settings for the current run  
+        Files will be zipped to a folder with the following name
+        convention:  
+        **satellite\_ region\_ algorithm\_ years\_ interval\_
+        (un)loggedChla\_ fitmethod\_ timecreated.zip**  
+  - Click “Download results (.zip)”  
+    This will download the zipped file to your browser’s downloads
+    folder.
 
 ## MAIN VIEW PANEL
 
-<br>
-
 ### MAP
 
-TOP LEFT:  
-Zoom controls  
-Draw sidebar (if “custom polygon” is selected and data exists and is
-loaded for that day)  
-Shapes:  
-a. Irregular polygon (finish the polygon by clicking on the starting
-point)  
-b. Rectangle  
-Edit (click “save” when done, or cancel)  
-Delete (click “save” when done, or cancel)
+**TOP LEFT**:
 
-TOP RIGHT:  
-Gridlines checkbox - uncheck to remove gridlines  
-Stats boxes checkbox - uncheck to remove existing (pre-defined)
-statistics boxes  
-Color bar, after data is loaded
+  - Zoom controls  
+  - Draw sidebar (if “custom polygon” is selected and data exists and is
+    loaded for that day)
+      - Shapes:
+        1.  Irregular polygon (finish the polygon by clicking on the
+            starting point)  
+        2.  Rectangle  
+      - Edit (click “save” when done, or cancel)  
+      - Delete (click “save” when done, or cancel)
 
-BOTTOM:  
+**TOP RIGHT**:
+
+  - Gridlines checkbox - uncheck to remove gridlines  
+  - Stats boxes checkbox - uncheck to remove existing (pre-defined)
+    statistics boxes  
+  - Color bar, after data is loaded
+
+**BOTTOM**:
+
 Download button (map downloads in html format, which allows
 zooming/panning)
 
-<br>
-
 ### DENSITY PLOT
-
-<br>
 
 ### TIME SERIES PLOT
 
 Click on a data point and scroll up to see the data for that day (or
 week).
-
------
 
 # AZMP FITTING PARAMETERS
 
@@ -2016,39 +1950,44 @@ AZMP boxes are typically fitted using a Fortran script, examining and
 adjusting every fit manually.  
 Results found here: <ftp://ftp.dfo-mpo.gc.ca/bometrics/spring-bloom>
 
-Data used in the fit:  
-\* Sensor: VIIRS-SNPP  
-\* Resolution: \~1 km  
-\* L2 flags used: All flags except TURBIDW (turbid water)  
-\* Mapped to (39-82N, 42-95W) using cylindrical projection  
-\* Chlorophyll algorithm: Standard ocean colour algorithm (OCx) from
-NASA, NOT logged  
-\* Temporal binning: Weekly (daily can be too spiky, semi-monthly might
-miss the bloom)
+Data used in the fit:
 
-Statistics used in the fit:  
-\* Minimum weekly percent coverage inside a box: 1%  
-\* Outliers NOT removed  
-\* Weekly statistic used in a box: Mean  
-\* Range of pixel values used: \<= 64 mg/m^3
+  - Sensor: VIIRS-SNPP  
+  - Resolution: \~1 km  
+  - L2 flags used: All flags except TURBIDW (turbid water)  
+  - Mapped to (39-82N, 42-95W) using cylindrical projection  
+  - Chlorophyll algorithm: Standard ocean colour algorithm (OCx) from
+    NASA, NOT logged  
+  - Temporal binning: Weekly (daily can be too spiky, semi-monthly might
+    miss the bloom)
 
-Bloom fitting:  
-\* Model: Symmetric Shifted Gaussian  
-\* Range of days used in fit: Feb-July, and Feb-Aug for more northern
-boxes (\>= 56N) \* No limit on day of max concentration or start of
-bloom, and points NOT weighted by percent coverage inside the box.
+Statistics used in the fit:
 
-Fits flagged if the following occurs:  
-\* Box has \< 10% coverage (if so, the individual images that produced
-the stats are examined, and some might be removed and the bloom
-refitted, or they might be left in with a note of caution because
-removing them could remove the bloom from the image)  
-\* Ratio of peak chla concentrations (i.e. (chla<sub>max\_curve</sub>) /
-(chla<sub>max\_real</sub>) ) is not between 0.75 and 1.25  
-\* Ratio of magnitudes (area under the curve), Magnitude<sub>real</sub>
-/ Magnitude<sub>curve</sub> is \>= 0.15  
-\* Sigma (parameter controlling the width of the curve) is \<= time
-resolution (i.e 1 day, or a week)
+  - Minimum weekly percent coverage inside a box: 1%  
+  - Outliers NOT removed  
+  - Weekly statistic used in a box: Mean  
+  - Range of pixel values used: \<= 64 mg/m^3
+
+Bloom fitting:
+
+  - Model: Symmetric Shifted Gaussian  
+  - Range of days used in fit: Feb-July, and Feb-Aug for more northern
+    boxes (\>= 56N)
+  - No limit on day of max concentration or start of bloom, and points
+    NOT weighted by percent coverage inside the box.
+
+Fits flagged if the following occurs:
+
+  - Box has \< 10% coverage (if so, the individual images that produced
+    the stats are examined, and some might be removed and the bloom
+    refitted, or they might be left in with a note of caution because
+    removing them could remove the bloom from the image)  
+  - Ratio of peak chla concentrations (i.e. (chla<sub>max\_curve</sub>)
+    / (chla<sub>max\_real</sub>) ) is not between 0.75 and 1.25  
+  - Ratio of magnitudes (area under the curve), Magnitude<sub>real</sub>
+    / Magnitude<sub>curve</sub> is \>= 0.15  
+  - Sigma (parameter controlling the width of the curve) is \<= time
+    resolution (i.e 1 day, or a week)
 
 ## Differences between AZMP Fortran/manual fitting and PhytoFit
 
@@ -2056,14 +1995,14 @@ Some differences are unavoidable due to the following:
 
   - PhytoFit uses the 8-day-per-week system (same as NASA) for weekly
     files, but AZMP fits use a 4-week-per-month system, so the weeks are
-    not all the same length.
-      - PhytoFit uses binned data (similar to a sinusoidal projection),
-        but AZMP fits use files that have a cylindrical projection.  
-      - PhytoFit uses the default L3b NASA flags + FILTER
-        ([here](https://oceancolor.gsfc.nasa.gov/atbd/ocl2flags)), but
-        AZMP fits use files with all L2 NASA flags except TURBIDW.  
-      - PhytoFit is automated, but each AZMP fit is inspected manually
-        and adjusted as necessary.
+    not all the same length.  
+  - PhytoFit uses binned data (similar to a sinusoidal projection), but
+    AZMP fits use files that have a cylindrical projection.  
+  - PhytoFit uses the default L3b NASA flags + FILTER
+    ([here](https://oceancolor.gsfc.nasa.gov/atbd/ocl2flags)), but AZMP
+    fits use files with all L2 NASA flags except TURBIDW.  
+  - PhytoFit is automated, but each AZMP fit is inspected manually and
+    adjusted as necessary.
 
 *NOTE: The “fit flags” have slightly different definitions for PhytoFit
 and AZMP fits, but they do not affect the statistics/fit, only warn the
@@ -2073,22 +2012,22 @@ user that the fit might have issues.*
 
 *Note: any settings that are not listed here have no constraints*
 
-Satellite: VIIRS-SNPP 4km  
-Algorithm: OCx (global, band ratio)  
-Interval: Weekly  
-Chlorophyll-a logged: FALSE  
-Minimum weekly percent coverage: 1  
-Outlier detection method: None  
-Weekly statistic: Average  
-Minimum value used in the statistics and fit: 0 (leave the box blank in
-the app)  
-Maximum value used in statistics and fit: 64  
-Fit method: Shifted Gaussian  
-Bloom fit shape: Symmetric  
-Smoothing method: No smoothing  
-Allowed range of days for bloom fitting:  
-\- For boxes \< 56 degrees North: 31-212 (Feb-Jul)  
-\- For boxes \>= 56 degrees North: 31-244 (Feb-Aug)  
-Use t\[max\] parameter: FALSE  
-Use beta parameter: FALSE  
-Weight fit points by weekly percent coverage: FALSE
+  - Satellite: VIIRS-SNPP 4km  
+  - Algorithm: OCx (global, band ratio)  
+  - Interval: Weekly  
+  - Chlorophyll-a logged: FALSE  
+  - Minimum weekly percent coverage: 1  
+  - Outlier detection method: None  
+  - Weekly statistic: Average  
+  - Minimum value used in the statistics and fit: 0 (leave the box blank
+    in the app)  
+  - Maximum value used in statistics and fit: 64  
+  - Fit method: Shifted Gaussian  
+  - Bloom fit shape: Symmetric  
+  - Smoothing method: No smoothing  
+  - Allowed range of days for bloom fitting:
+      - For boxes \< 56 degrees North: 31-212 (Feb-Jul)  
+      - For boxes \>= 56 degrees North: 31-244 (Feb-Aug)  
+  - Use t\[max\] parameter: FALSE  
+  - Use beta parameter: FALSE  
+  - Weight fit points by weekly percent coverage: FALSE
