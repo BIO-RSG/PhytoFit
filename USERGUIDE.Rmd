@@ -262,6 +262,18 @@ Magnitude<sub>fit</sub>: Area under the curve from start to end of the bloom
 Amplitude units: mg m<sup>-3</sup>  
 Magnitude units: (mg m<sup>-3</sup>) * days  
 
+**Calculated metrics:**  
+
+
+| Metric | Description |
+|--------|-------------|
+| t<sub>start</sub> | day of the start of the curve |
+| t<sub>max</sub> | day of maximum concentration |
+| t<sub>end</sub> | day of the end of the curve |
+| t<sub>duration</sub> | duration of the bloom |
+| Magnitude | area under curve |
+| Amplitude | height of the curve (not including background biomass B0) |
+
 
 1.  Choose the fit method  
     + Shifted Gaussian (recommended)  

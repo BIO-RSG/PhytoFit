@@ -211,7 +211,7 @@ Select:
 4.  Year
       - 2003-2021 (MODIS)  
       - 2012-2021 (VIIRS)  
-      - 1998-2010 (SeaWiFS)  
+      - 1997-2010 (SeaWiFS)  
 5.  Temporal binning
       - Daily  
       - Weekly (mean value of 8-day intervals)  
@@ -1689,6 +1689,17 @@ chlorophyll-a line will be subtracted before calculating these values.*
 
 Amplitude units: mg m<sup>-3</sup>  
 Magnitude units: (mg m<sup>-3</sup>) \* days
+
+**Calculated metrics:**
+
+| Metric               | Description                                               |
+| -------------------- | --------------------------------------------------------- |
+| t<sub>start</sub>    | day of the start of the curve                             |
+| t<sub>max</sub>      | day of maximum concentration                              |
+| t<sub>end</sub>      | day of the end of the curve                               |
+| t<sub>duration</sub> | duration of the bloom                                     |
+| Magnitude            | area under curve                                          |
+| Amplitude            | height of the curve (not including background biomass B0) |
 
 1.  Choose the fit method
     
