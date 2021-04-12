@@ -19,10 +19,19 @@ A collection of helpful troubleshooting notes or links collected as the app was 
 **Solution**: This is a *shiny* error that means, for example, that you tried to do something with a reactive variable outside of a reactive expression like reactive, observe, eventReactive, observeEvent, or a render function. Make sure all your reactive variables are within these types of expressions.  
 
 **Warning**: DO NOT make changes to a settings.csv file.  
-some programs (LibreOffice Calc, for example) change the values of the range of days by removing the comma between the first and last day, so the values can't be read properly by PhytoFit.  
+Some programs (LibreOffice Calc, for example) change the values of the range of days by removing the comma between the first and last day, so the values can't be read properly by PhytoFit.  
+
+**Issue**: Clicking on "Download results (.zip)" returns a file called  *fullrun_download* with no extension.  
+*2021-04-12* This happened because the app was running on a newly installed version of R/RStudio that did not have Rtools installed yet. To fix this:  
+
+- Install Rtools (https://cran.r-project.org/bin/windows/Rtools/)  
+- Add Rtools to your PATH  
+- Set the R_ZIPCMD environment variable by adding this line to your ".Rprofile":  
+Sys.setenv("R_ZIPCMD" = "C:/Rtools/bin/zip.exe")  
+(replace with your path to the Rtools zip executable)  
+
 
 ***
-
 
 ## HELPFUL NOTES AND LINKS
 

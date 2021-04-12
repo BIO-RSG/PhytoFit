@@ -387,7 +387,7 @@ Lower/upper limits and starting guesses for *nlsLM*:
 * _If curve is asymmetric, the same limits and guesses are used for each side_  
 * _4 different sets of starting guesses are attempted before a dataset is declared unable to fit_  
 * _If you're fitting weekly data, the week numbers are converted to the day of year at the start of each week, so the units are still day of year_  
-* B<sub>0</sub> limits if using logged chlorophyll-a: log(10<sup>-10</sup>) to log(5); starting guess: log(0.5)  
+* _B<sub>0</sub> limits if using logged chlorophyll-a: log(10<sup>-10</sup>) to log(5); starting guess: log(0.5)_  
 
 
 ##### RATE OF CHANGE  
