@@ -1,59 +1,62 @@
 ---
 title: "PhytoFit User Guide"
-output: github_document
+output:
+  github_document:
+    toc: true
+    toc_depth: 2
+    df_print: kable
+    hard_line_breaks: true
 ---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, comment=NA)
+```
 
 2020-09-25  
 Report issues to: Stephanie.Clay@dfo-mpo.gc.ca  
   
 ***
 
-## ACCESSING THE APP
+# ACCESSING THE APP
 
-
-### Option 1: DM APPS
+## Option 1: DM APPS
 *(DFO VPN access required)*  
 *Address: http://dmapps:3838/PhytoFit/*
 
-<br>  
-
-### Option 2: Github
+## Option 2: Github
 *(Publicly available, updated more frequently)*  
 *Address: https://github.com/BIO-RSG/PhytoFit*  
 
-<br>  
-
-#### PREREQUISITES:
+### PREREQUISITES:
 1. Install the latest versions of R and RStudio.
 2. Install the necessary libraries:
-`install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "geometry", "raster", "proj4"))`
-3. Install a fix for the leaflet.extras package:
+`install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "leafem", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "geometry", "raster", "proj4"))`
+3. Install a fix for the leaflet.extras package, and a custom package (oceancolouR):
 ``` r
 install.packages("remotes")
 remotes::install_github("bhaskarvk/leaflet.extras", ref = remotes::github_pull("184"))
+remotes::install_github("BIO-RSG/oceancolouR")
 ```
 4. Restart R after the packages and fix have been installed.
-5. Download repository from github.  
+5. Download this repository one of two ways:  
 
-<br>  
+  - Code --> Download ZIP  
+  - Using git (this will make it easier to download updates in the future): Open git bash terminal, navigate to the folder where you want to download the repository, and type: `git clone https://github.com/BIO-RSG/PhytoFit.git`  
 
-#### INSTRUCTIONS:
+**WARNING: individual data files are generally < 50mb, but the entire dataset is several GB. Check if you have enough space on your drive.** 
+
+
+### INSTRUCTIONS:
 Open app.R within RStudio, and click "Run app".  
 
-<br>  
 
-#### WARNINGS FOR R USERS ONLY:
+### WARNINGS FOR R USERS ONLY:
 * Memory usage increases as data is loaded/processed in the app. If the app is slowing down the computer, restart R (Session --> Restart R).  
 
 * *Warning in if (sigma_limit1 < 0) { : the condition has length > 1 and only the first element will be used.*  [This warning might appear when running a Gaussian fit if two separate days have the same maximum chl-a concentration (the first instance of the maximum concentration will be used).]  
 
-* Density plot error: *could not find function "expansion"*  
-	Solution: Update ggplot2 package  
 
-***
-
-## WARNINGS  
-
+# WARNINGS  
 
 * Large custom polygons (>500 degrees square) are not allowed due to memory issues.
 
@@ -62,35 +65,36 @@ Open app.R within RStudio, and click "Run app".
 * Do not leave the app running for an extended period of time (hours) or through several large time series processing runs (for example, using all existing boxes for all available years). It's a good idea to restart every now and then to clear memory.  
 
 
-***
-
-## FUTURE OPTIONS
+# FUTURE OPTIONS
 
 
 * Manually adjust fit parameters
-* SeaWiFS and OLCI 4km
+* OLCI 4km
 * Infer starting guesses for *nlsLM()* from the actual values (example: B<sub>0</sub> = median chlorophyll-a), or allow user to select them
 * Exclude specific days from the fit
 * Disjoint polygons
 * Script contains code to create a popup when user clicks a single point on the map, displaying the latitude/longitude/chlorophyll value at that point. The code displays two chla values: "rasterized.chlorophyll.a", which is the value projected on the map, and "chlorophyll.a", which is the actual binned value nearest that point. [This popup feature is currently disabled because the popups interfere with drawing/editing polygons.]
 
-***
 
-## REFERENCES AND DATA SOURCES
+# REFERENCES AND DATA SOURCES
 
 
-Paper detailing the chlorophyll-a algorithms (*OCx*, *POLY4*, and *GSM_GS*):  
+Bloom fitting models (*Shifted Gaussian*, *Rate of Change*, and *Threshold* methods):  
+TECH REPORT IN PROGRESS  
+
+Chlorophyll-a algorithms *OCx*, *POLY4*, and *GSM_GS*:  
 [Clay, S.; Peña, A.; DeTracey, B.; Devred, E. Evaluation of Satellite-Based Algorithms to Retrieve Chlorophyll-a Concentration in the Canadian Atlantic and Pacific Oceans. Remote Sens. 2019, 11, 2609.](https://www.mdpi.com/2072-4292/11/22/2609)  
 
-Tech Report with descriptions of the bloom fitting models (*Shifted Gaussian*, *Rate of Change*, and *Threshold* methods):  
-IN PROGRESS  
+Chlorophyll-a algorithm EOF:  
+[Laliberté, J.; Larouche, P.; Devred, E.; Craig, S. Chlorophyll-a Concentration Retrieval in the Optically Complex Waters of the St. Lawrence Estuary and Gulf Using Principal Component Analysis. Remote Sens. 2018, 10, 265.](https://www.mdpi.com/2072-4292/10/2/265)
 
-**Data used**:  
-Daily level-3 binned files are downloaded from [NASA OBPG](https://oceancolor.gsfc.nasa.gov), and weekly composites are generated by taking the average of each pixel over an 8-day period (46 weeks/year), following the same system as NASA OBPG. The binned data is used for statistics and bloom fitting, and rasterized and projected onto the map using [EPSG:3857](https://spatialreference.org/ref/sr-org/7483/) (the Web Mercator projection) for faster image loading.  
+**Raw data**:  
+Daily level-3 binned files are downloaded from [NASA OBPG](https://oceancolor.gsfc.nasa.gov), and weekly composites are generated by taking the average of each pixel over an 8-day period (46 weeks/year). The binned data is used for statistics and bloom fitting, and rasterized and projected onto the map using [EPSG:3857](https://spatialreference.org/ref/sr-org/7483/) (the Web Mercator projection) for faster image loading.  
 [NASA OCx chlorophyll-a algorithm](https://oceancolor.gsfc.nasa.gov/atbd/chlor_a)  
 [Level-3 binned files](https://oceancolor.gsfc.nasa.gov/products)  
 [Binning scheme](https://oceancolor.gsfc.nasa.gov/docs/format/l3bins)  
 [Level-3 binned default flags](https://oceancolor.gsfc.nasa.gov/atbd/ocl2flags)  
+*Note: PhytoFit uses the 2018 OC (ocean colour) reprocessed data. More info on reprocessing versions here.*
 *NOTE: Flags used = L3 default mask, and FILTER*  
 
 
@@ -190,16 +194,25 @@ df <- data.frame(Region = c(rep("ATLANTIC", length(reg_lons_atl)), rep("PACIFIC"
                  Longitudes = c(reg_lons_atl, reg_lons_pac),
                  Latitudes = c(reg_lats_atl, reg_lats_pac),
                  stringsAsFactors = FALSE)
-df %>%
-  dplyr::select(-Region) %>%
-  knitr::kable() %>%
-  kable_styling(font_size = 10) %>%
-  # column_spec (1:4, border_left = TRUE, border_right = TRUE) %>%
-  pack_rows(tab_kable,
-            colnum = 1,
-            index = table(fct_inorder(factor(df$Region))),
-            label_row_css = "border-bottom: 0px; font-size: 14px;")
 
+# # this does not work with github_document
+# df <- df %>%
+#   dplyr::select(-Region)# %>%
+#   # knitr::kable() %>%
+#   # kable_styling(font_size = 10) %>%
+#   # # column_spec (1:4, border_left = TRUE, border_right = TRUE) %>%
+#   # pack_rows(tab_kable,
+#   #           colnum = 1,
+#   #           index = table(fct_inorder(factor(df$Region))),
+#   #           label_row_css = "border-bottom: 0px; font-size: 14px;")
+# df
+
+# formatting for github_document
+df1 <- df %>% dplyr::filter(Region=="ATLANTIC") %>% dplyr::select(-Region)
+df2 <- df %>% dplyr::filter(Region=="PACIFIC") %>% dplyr::select(-Region)
+df <- rbind(c("**ATLANTIC**","","",""), df1,
+            c("**PACIFIC**","","",""), df2)
+df
 ```
 
 
@@ -561,5 +574,4 @@ Some differences are unavoidable due to the following:
       - For boxes >= 56 degrees North: 31-244 (Feb-Aug)  
     Use t[max] parameter: FALSE  
     Use beta parameter: FALSE  
-    Weight fit points by weekly percent coverage: FALSE  
-
+    Weight fit points by weekly percent coverage: FALSE
