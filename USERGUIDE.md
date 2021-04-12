@@ -4,11 +4,27 @@ PhytoFit User Guide
   - [ACCESSING THE APP](#accessing-the-app)
       - [Option 1: DM APPS](#option-1-dm-apps)
       - [Option 2: Github](#option-2-github)
+          - [PREREQUISITES:](#prerequisites)
+          - [INSTRUCTIONS:](#instructions)
+          - [WARNINGS FOR R USERS ONLY:](#warnings-for-r-users-only)
   - [WARNINGS](#warnings)
   - [FUTURE OPTIONS](#future-options)
   - [REFERENCES AND DATA SOURCES](#references-and-data-sources)
-      - [INSTRUCTIONS](#instructions-1)
-      - [AZMP FITTING PARAMETERS](#azmp-fitting-parameters)
+  - [INSTRUCTIONS](#instructions-1)
+      - [LEFT SIDEBAR](#left-sidebar)
+          - [COLOUR SCALE](#colour-scale)
+          - [DAY OF YEAR](#day-of-year)
+          - [POLYGON](#polygon)
+          - [STATISTICS](#statistics)
+          - [BLOOM FITTING](#bloom-fitting)
+          - [SAVE OPTIONS](#save-options)
+      - [MAIN VIEW PANEL](#main-view-panel)
+          - [MAP](#map)
+          - [DENSITY PLOT](#density-plot)
+          - [TIME SERIES PLOT](#time-series-plot)
+  - [AZMP FITTING PARAMETERS](#azmp-fitting-parameters)
+      - [Differences between AZMP Fortran/manual fitting and
+        PhytoFit](#differences-between-azmp-fortranmanual-fitting-and-phytofit)
 
 2020-09-25  
 Report issues to: <Stephanie.Clay@dfo-mpo.gc.ca>
@@ -150,11 +166,11 @@ mask, and FILTER*
 
 -----
 
-## INSTRUCTIONS
+# INSTRUCTIONS
 
 <br>
 
-### LEFT SIDEBAR
+## LEFT SIDEBAR
 
 Select:
 
@@ -184,20 +200,20 @@ Click “Load data”.
 
 <br>
 
-#### COLOUR SCALE
+### COLOUR SCALE
 
 Adjust range of data used in the map colour scale.
 
 <br>
 
-#### DAY OF YEAR
+### DAY OF YEAR
 
 Enter a day of year from 1-365 and click “Go”, or use the slider and
 play/pause button to advance through the days automatically.
 
 <br>
 
-#### POLYGON
+### POLYGON
 
 Click the grey/green “Polygon” button to expand the menu, then use the
 drop-down menu to choose an existing polygon which will be highlighted
@@ -234,7 +250,7 @@ If you choose “Custom polygon”:
 
 <br>
 
-##### EXISTING BOXES
+#### EXISTING BOXES
 
 These are the predefined boxes used in PhytoFit (full names and
 coordinates in the table below).
@@ -1607,7 +1623,7 @@ South Glass Sponge Reefs MPA (SRS)
 
 </div>
 
-#### STATISTICS
+### STATISTICS
 
 Click the grey/green “Statistics” button to expand the menu.
 
@@ -1633,7 +1649,7 @@ Click the grey/green “Statistics” button to expand the menu.
 
 <br>
 
-#### BLOOM FITTING
+### BLOOM FITTING
 
 Click the grey/green “Bloom fit” button to expand the menu.
 
@@ -1785,7 +1801,7 @@ height of the curve (not including background biomass B0)
 
 <br>
 
-##### SHIFTED GAUSSIAN
+#### SHIFTED GAUSSIAN
 
 <a target="_blank" href="userguide_bf_eq01.png">
 <img src="userguide_bf_eq01.png" alt="screencap" width="280"/> </a>
@@ -1838,7 +1854,7 @@ This will create a blue fitted curve through the points.
 
 <br>
 
-##### RATE OF CHANGE
+#### RATE OF CHANGE
 
 This algorithm does not calculate a daily fitted equation, only the
 maximum, start, and end days of the bloom.  
@@ -1857,7 +1873,7 @@ curve.
 
 <br>
 
-##### THRESHOLD
+#### THRESHOLD
 
 This algorithm does not calculate a daily fitted equation, only the
 maximum, start, and end days of the bloom.  
@@ -1884,7 +1900,7 @@ Change model.
 
 <br>
 
-#### EXPORT OPTIONS
+### SAVE OPTIONS
 
 1.  Settings (.txt)
 
@@ -1929,11 +1945,11 @@ Change model.
 
 <br>
 
-### MAIN VIEW PANEL
+## MAIN VIEW PANEL
 
 <br>
 
-#### MAP
+### MAP
 
 TOP LEFT:  
 Zoom controls  
@@ -1958,18 +1974,18 @@ zooming/panning)
 
 <br>
 
-#### DENSITY PLOT
+### DENSITY PLOT
 
 <br>
 
-#### TIME SERIES PLOT
+### TIME SERIES PLOT
 
 Click on a data point and scroll up to see the data for that day (or
 week).
 
 -----
 
-## AZMP FITTING PARAMETERS
+# AZMP FITTING PARAMETERS
 
 AZMP boxes are typically fitted using a Fortran script, examining and
 adjusting every fit manually.  
@@ -2009,7 +2025,7 @@ removing them could remove the bloom from the image)
 \* Sigma (parameter controlling the width of the curve) is \<= time
 resolution (i.e 1 day, or a week)
 
-### Differences between AZMP Fortran/manual fitting and PhytoFit
+## Differences between AZMP Fortran/manual fitting and PhytoFit
 
 Some differences are unavoidable due to the following:
 
@@ -2028,7 +2044,7 @@ Some differences are unavoidable due to the following:
 and AZMP fits, but they do not affect the statistics/fit, only warn the
 user that the fit might have issues.*
 
-##### **PhytoFit settings to get most similar results to AZMP fits:**
+**PhytoFit settings to get most similar results to AZMP fits:**
 
 *Note: any settings that are not listed here have no constraints*
 

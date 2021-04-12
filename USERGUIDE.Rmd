@@ -3,7 +3,7 @@ title: "PhytoFit User Guide"
 output:
   github_document:
     toc: true
-    toc_depth: 2
+    toc_depth: 3
     df_print: kable
     hard_line_breaks: true
 ---
@@ -100,12 +100,12 @@ Daily level-3 binned files are downloaded from [NASA OBPG](https://oceancolor.gs
 
 ***
 
-## INSTRUCTIONS
+# INSTRUCTIONS
 
 
 <br>  
 
-### LEFT SIDEBAR
+## LEFT SIDEBAR
 
 Select:  
 
@@ -134,17 +134,17 @@ Click "Load data".
 
 <br>  
 
-#### COLOUR SCALE
+### COLOUR SCALE
 Adjust range of data used in the map colour scale.  
 
 <br>  
 
-#### DAY OF YEAR
+### DAY OF YEAR
 Enter a day of year from 1-365 and click "Go", or use the slider and play/pause button to advance through the days automatically.  
 
 <br>  
 
-#### POLYGON
+### POLYGON
 
 Click the grey/green "Polygon" button to expand the menu, then use the drop-down menu to choose an existing polygon which will be highlighted on the map, or choose "Custom polygon" to create your own.  
 
@@ -169,7 +169,7 @@ If you choose "Custom polygon":
 
 <br>  
 
-#####  EXISTING BOXES
+####  EXISTING BOXES
 
 These are the predefined boxes used in PhytoFit (full names and coordinates in the table below).  
 
@@ -217,7 +217,7 @@ df
 
 
 
-#### STATISTICS
+### STATISTICS
 
 Click the grey/green "Statistics" button to expand the menu.  
 
@@ -237,7 +237,7 @@ Click the grey/green "Statistics" button to expand the menu.
 
 <br>  
 
-#### BLOOM FITTING
+### BLOOM FITTING
 
 Click the grey/green "Bloom fit" button to expand the menu.  
 
@@ -352,7 +352,7 @@ FOR RATE OF CHANGE (ROC) OR THRESHOLD:
 
 <br>  
 
-##### SHIFTED GAUSSIAN  
+#### SHIFTED GAUSSIAN  
 
 <a target="_blank" href="userguide_bf_eq01.png">
 <img src="userguide_bf_eq01.png" alt="screencap" width="280"/>
@@ -400,7 +400,7 @@ This will create a blue fitted curve through the points.
 
 <br>  
 
-##### RATE OF CHANGE  
+#### RATE OF CHANGE  
 
 This algorithm does not calculate a daily fitted equation, only the maximum, start, and end days of the bloom.  
 The maximum is selected as the day of actual maximum concentration, within the selected range.  
@@ -411,7 +411,7 @@ B<sub>0</sub> is computed using the R function *rq()* from the *quantreg* packag
 
 <br>  
 
-##### THRESHOLD  
+#### THRESHOLD  
 
 This algorithm does not calculate a daily fitted equation, only the maximum, start, and end days of the bloom.  
 The maximum is selected as the day of actual maximum concentration, within the selected range.  
@@ -431,7 +431,7 @@ B<sub>0</sub> is computed using the same method as with the Rate of Change model
 
 <br>  
 
-#### EXPORT OPTIONS  
+### SAVE OPTIONS  
 
 1. Settings (.txt)  
 
@@ -470,11 +470,11 @@ B<sub>0</sub> is computed using the same method as with the Rate of Change model
 
 <br>  
 
-### MAIN VIEW PANEL  
+## MAIN VIEW PANEL  
 
 <br>  
 
-#### MAP  
+### MAP  
 
 TOP LEFT:  
 	Zoom controls  
@@ -496,19 +496,19 @@ BOTTOM:
 
 <br>  
 
-#### DENSITY PLOT  
+### DENSITY PLOT  
 
 
 <br>  
 
-#### TIME SERIES PLOT  
+### TIME SERIES PLOT  
 
 Click on a data point and scroll up to see the data for that day (or week).  
 
 
 
 ***
-## AZMP FITTING PARAMETERS  
+# AZMP FITTING PARAMETERS  
 
 AZMP boxes are typically fitted using a Fortran script, examining and adjusting every fit manually.  
 Results found here: ftp://ftp.dfo-mpo.gc.ca/bometrics/spring-bloom  
@@ -541,7 +541,7 @@ Fits flagged if the following occurs:
 
 
 
-### Differences between AZMP Fortran/manual fitting and PhytoFit  
+## Differences between AZMP Fortran/manual fitting and PhytoFit  
 
 Some differences are unavoidable due to the following:  
 
@@ -553,7 +553,7 @@ Some differences are unavoidable due to the following:
 *NOTE: The "fit flags" have slightly different definitions for PhytoFit and AZMP fits, but they do not affect the statistics/fit, only warn the user that the fit might have issues.*  
 
 
-##### **PhytoFit settings to get most similar results to AZMP fits:**  
+**PhytoFit settings to get most similar results to AZMP fits:**  
 
 *Note: any settings that are not listed here have no constraints*  
 
