@@ -1673,33 +1673,34 @@ outside the desired range, using the binned chlorophyll-a values. Only
 points with sufficient percent coverage inside the polygon on that
 day/week are used, within the range of days selected by the user.
 
-Amplitude<sub>real</sub>: Maximum real data value between
-t<sub>start</sub> and t<sub>end</sub>  
-Magnitude<sub>real</sub>: Area under the real data points from start to
-end of the bloom  
-*Note: If “remove background” has been checked, the background
-chlorophyll-a line will be subtracted before calculating these values.*
-
-Gaussian fit only:  
-Amplitude<sub>fit</sub>: Height of the curve at t<sub>max</sub>  
-Magnitude<sub>fit</sub>: Area under the curve from start to end of the
-bloom  
-*Note: If “remove background” has been checked, the background
-chlorophyll-a line will be subtracted before calculating these values.*
-
-Amplitude units: mg m<sup>-3</sup>  
-Magnitude units: (mg m<sup>-3</sup>) \* days
-
 **Calculated metrics:**
 
-| Metric               | Description                                               |
-| -------------------- | --------------------------------------------------------- |
-| t<sub>start</sub>    | day of the start of the curve                             |
-| t<sub>max</sub>      | day of maximum concentration                              |
-| t<sub>end</sub>      | day of the end of the curve                               |
-| t<sub>duration</sub> | duration of the bloom                                     |
-| Magnitude            | area under curve                                          |
-| Amplitude            | height of the curve (not including background biomass B0) |
+| Metric               | Units                       | Description                        |
+| -------------------- | --------------------------- | ---------------------------------- |
+| t<sub>start</sub>    | Day                         | day of the start of the bloom      |
+| t<sub>max</sub>      | Day                         | day of maximum concentration       |
+| t<sub>end</sub>      | Day                         | day of the end of the bloom        |
+| t<sub>duration</sub> | Day                         | duration of the bloom              |
+| Amplitude            | mg m<sup>-3</sup>           | maximum concentration of the bloom |
+| Magnitude            | (mg m<sup>-3</sup>) \* days | area under bloom data points       |
+
+Each bloom fit model (Shifted Gaussian, Rate of Change, or Threshold)
+calculates amplitude and magnitude using the real values:
+
+  - Amplitude<sub>real</sub>: Maximum real data value between
+    t<sub>start</sub> and t<sub>end</sub>  
+  - Magnitude<sub>real</sub>: Area under the real data points from start
+    to end of the bloom
+
+The Shifted Gaussian also calculates amplitude and magnitude using the
+fitted curve:
+
+  - Amplitude<sub>fit</sub>: Height of the curve at t<sub>max</sub>  
+  - Magnitude<sub>fit</sub>: Area under the curve from start to end of
+    the bloom
+
+*Note: If “remove background” has been checked, the background
+chlorophyll-a line will be subtracted before calculating these values.*
 
 1.  Choose the fit method
     
