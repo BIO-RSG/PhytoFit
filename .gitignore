@@ -23,14 +23,13 @@
 .Renviron
 
 # Files and folders specific to PhytoFit
-CAN_4km.nc
 01_formatData.R
-check_for_new_data.R
 NOTES_PhytoFit.txt
-PhytoFit.pdf
 old_files/
-extract_bloom_parameters.R
+tests/
 output/
-dmapps_thumbnail01.jpg
 USERGUIDE.html
-presentation_title_slide.pdf
+fst_tutorial.html
+README.html
+troubleshooting_and_help.html
+updates.html
