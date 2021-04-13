@@ -2792,7 +2792,7 @@ server <- function(input, output, session) {
         
         # zip files up to be downloaded
         # j flag prevents files from being sorted into subdirectories inside the zip file (the other flags are defaults)
-        zip(file.path(output_dir, fname), list.files(output_dir, full.names=TRUE), flags = "-r9Xj")
+        zip(zipfile=file.path(output_dir, fname), files=list.files(output_dir, full.names=TRUE), flags="-r9Xj")
         
         # remove progress bar and return to normal screen
         remove_modal_progress()
