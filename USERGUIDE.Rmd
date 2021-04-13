@@ -336,6 +336,9 @@ The Shifted Gaussian also calculates amplitude and magnitude using the fitted cu
           Flag 2: (Magnitude under curve) / (Magnitude under real values) is outside the range specified by the user (default: 0.85-1.15)  
           Flag 3: Sigma (parameter controlling the width of the curve) is <= time resolution (i.e 1 for daily data, or 8 for weekly data)  
         
+        + Remove background  
+          If this is checked, the background chlorophyll-a line will be subtracted from the data points / curve before calculating the amplitude and magnitude.  
+        
         
     + For Threshold:  
     

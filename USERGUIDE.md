@@ -1117,6 +1117,11 @@ chlorophyll-a line will be subtracted before calculating these values.*
             is &lt;= time resolution (i.e 1 for daily data, or 8 for
             weekly data)
 
+        -   Remove background  
+            If this is checked, the background chlorophyll-a line will
+            be subtracted from the data points / curve before
+            calculating the amplitude and magnitude.
+
     -   For Threshold:
 
         -   threshold coefficient
