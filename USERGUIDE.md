@@ -128,7 +128,8 @@ Open app.R within RStudio, and click “Run app”.
     “rasterized.chlorophyll.a”, which is the value projected on the map,
     and “chlorophyll.a”, which is the actual binned value nearest that
     point. \[This popup feature is currently disabled because the popups
-    interfere with drawing/editing polygons.\]
+    interfere with drawing/editing polygons.\]  
+-   Climatology datasets
 
 # REFERENCES AND DATA SOURCES
 
@@ -1026,8 +1027,16 @@ fitted curve:
 -   Magnitude<sub>fit</sub>: Area under the curve from start to end of
     the bloom
 
-*Note: If “remove background” has been checked, the background
-chlorophyll-a line will be subtracted before calculating these values.*
+*Notes:*
+
+-   If “remove background” has been checked, the background
+    chlorophyll-a line will be subtracted before calculating these
+    values.  
+-   If points between t\[start\] and t\[end\] are below the background
+    line and “remove background” has been selected, the magnitude (area)
+    below the line will be negative so it will be subtracted from the
+    final value (note this only affects Magnitude<sub>real</sub> when
+    “remove background” has been checked)
 
 1.  Choose the fit method
 
