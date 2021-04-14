@@ -270,9 +270,9 @@ If you choose “Custom polygon”:
 These are the predefined boxes used in PhytoFit (full names and
 coordinates in the table below).
 
-|           Atlantic            |           Pacific            |
-|:-----------------------------:|:----------------------------:|
-| ![](atlantic_polygon_map.png) | ![](pacific_polygon_map.png) |
+|               Atlantic               |               Pacific               |
+|:------------------------------------:|:-----------------------------------:|
+| ![](images/atlantic_polygon_map.png) | ![](images/pacific_polygon_map.png) |
 
 <div class="kable-table">
 
@@ -1147,8 +1147,7 @@ fitted curve:
 
 ##### SHIFTED GAUSSIAN
 
-<a target="_blank" href="userguide_bf_eq01.png">
-<img src="userguide_bf_eq01.png" alt="screencap" width="280"/> </a>
+![](images/userguide_bf_eq01.png)
 
 | Parameter       | Units                              | Description                                                                   |
 |-----------------|------------------------------------|-------------------------------------------------------------------------------|

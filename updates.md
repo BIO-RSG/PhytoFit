@@ -29,13 +29,13 @@ This is a summary of updates to the algorithms (or updates to the code that affe
 - Fixed amplitude and magnitude calculations so they use a higher temporal resolution fitted curve, not just the fitted curve on days with valid data (which could be inaccurate if data is missing) (**see Fig.2**)  
 - Adjusted code so if points are fitted in log space, then the real data, fitted curve, and background line would be transformed back to linear space before calculating amplitude and magnitude (**see Fig.3**). Before, the area between the background and the curve (or data points) was calculated while the values were still in log space.  
 
-![Fig.1](phytofit_updates_fig01.png)
+![Fig.1](images/phytofit_updates_fig01.png)
 _**Fig.1**_: **Before (left):** Amplitude[real] was calculated using the real value closest to the peak of the curve, but this could result in an anomalous low value being selected, especially if there are large gaps in the data. **After (right):** The new method selects the largest value between ti and tt. Vertical lines mark ti, tmax, and tt.  
 
-![Fig.2](phytofit_updates_fig02.png)
+![Fig.2](images/phytofit_updates_fig02.png)
 _**Fig.2**_: **Before (left)**: Any points that did not have valid data were not used in the calculation, resulting in gaps in the magnitude. **After (right)**: A temporary higher-resolution curve was created to calculate a more accurate area under the curve. Note that the start and end points were still set to the closest point with valid data. Vertical lines mark ti, tmax, and tt.  
 
-![Fig.3](phytofit_updates_fig03.png)
+![Fig.3](images/phytofit_updates_fig03.png)
 _**Fig.3**_: **a)**: Points are fitted in log space. **b)**: Points, curve, and background line are converted back to linear space. **c)**: Magnitude is calculated (as well as amplitude). Vertical lines mark ti, tmax, and tt.  
 
 
@@ -45,7 +45,7 @@ _**Fig.3**_: **a)**: Points are fitted in log space. **b)**: Points, curve, and 
 
 - Changed asymmetric background chlorophyll-a calculation so it is a diagonal line between ti and tt (**see Fig.4**).  
 
-![Fig.4](phytofit_updates_fig04.png)
+![Fig.4](images/phytofit_updates_fig04.png)
 _**Fig.4**_: **Before (left)**: The left and right background lines were divided at tmax. **After (right)**: Between ti and tt, a diagonal line was calculated. Vertical lines mark ti, tmax, and tt.  
 
 
@@ -56,7 +56,7 @@ _**Fig.4**_: **Before (left)**: The left and right background lines were divided
 - Fixed asymmetric amplitude_fit glitch where it chose highest point of one side or the other but not necessarily the highest overall.  
 - Fixed magnitude calculations so if there is no valid data point at the calculated ti or tt of the Shifted Gaussian, it uses a linearly interpolated point (**see Fig.5**).  
 
-![Fig.5](phytofit_updates_fig05.png)
+![Fig.5](images/phytofit_updates_fig05.png)
 _**Fig.5**_: **Before (left)**: If the calculated ti or tt did not have valid data on that day, the closest day with valid data was selected as the boundary for the magnitude calculation. **After (right)**: The calculated ti and tt are used to compute magnitude, inserting interpolated values if data is missing. Vertical lines mark ti, tmax, and tt.  
 
 ***
