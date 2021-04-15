@@ -33,7 +33,7 @@ This is a summary of updates to the algorithms (or updates to the code that affe
 _**Fig.1**_: **Before (left):** Amplitude[real] was calculated using the real value closest to the peak of the curve, but this could result in an anomalous low value being selected, especially if there are large gaps in the data. **After (right):** The new method selects the largest value between ti and tt. Vertical lines mark ti, tmax, and tt.  
 
 ![Fig.2](images/phytofit_updates_fig02.png)
-_**Fig.2**_: **Before (left)**: Any points that did not have valid data were not used in the calculation, resulting in gaps in the magnitude. **After (right)**: A temporary higher-resolution curve was created to calculate a more accurate area under the curve. Note that the start and end points were still set to the closest point with valid data. Vertical lines mark ti, tmax, and tt.  
+_**Fig.2**_: **Before (left)**: Magnitude[fit] is calculated using the fitted curve, but previously, any points on the curve that did not corresponding to days with valid data were not used in the calculation, resulting in gaps in the magnitude. **After (right)**: A temporary higher-resolution curve was created to calculate a more accurate area under the curve. Note that the start and end points were still set to the closest point with valid data. Vertical lines mark ti, tmax, and tt.  
 
 ![Fig.3](images/phytofit_updates_fig03.png)
 _**Fig.3**_: **a)**: Points are fitted in log space. **b)**: Points, curve, and background line are converted back to linear space. **c)**: Magnitude is calculated (as well as amplitude). Vertical lines mark ti, tmax, and tt.  
