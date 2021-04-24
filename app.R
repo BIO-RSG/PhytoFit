@@ -26,6 +26,7 @@ library(geometry)       # to check if user-entered lat/lons make a polygon with 
 library(raster)         # to use rasters on the map instead of binned points (faster, less accurate)
 library(proj4)          # to use custom projection with the map
 library(oceancolouR)
+library(compiler)
 # library(htmlTable)      # for making tables in popups
 # library(geosphere)      # for calculating accurate distances between single point click and data point plotted on the map
 # library(RSQLite)        # for reading satellite data from databases instead of .rda files
@@ -38,6 +39,24 @@ source("00_regionBoxes.R")  # contains coordinates of boxes/polygons
 source("full_run.R")        # contains function to run full time series with current settings
 source("functions.R")       # extra functions
 source("input_variables.R") # variable options in the sidebar
+
+# Compile functions - in some cases, this might help speed it up
+get_time_vars <- cmpfun(get_time_vars)
+get_data <- cmpfun(get_data)
+get_stats <- cmpfun(get_stats)
+get_bloom_fit_data <- cmpfun(get_bloom_fit_data)
+format_settings_to_save <- cmpfun(format_settings_to_save)
+output_str <- cmpfun(output_str)
+get_polygon_details <- cmpfun(get_polygon_details)
+format_settings_to_load <- cmpfun(format_settings_to_load)
+asymm_gaussian <- cmpfun(asymm_gaussian)
+get_asymm_bkrnd <- cmpfun(get_asymm_bkrnd)
+flag_check <- cmpfun(flag_check)
+get_failure_msg <- cmpfun(get_failure_msg)
+gaussFit <- cmpfun(gaussFit)
+rateOfChange <- cmpfun(rateOfChange)
+threshold <- cmpfun(threshold)
+full_run <- cmpfun(full_run)
 
 
 #*******************************************************************************
@@ -775,6 +794,7 @@ server <- function(input, output, session) {
     state$applyname_programmatically <- FALSE
     state$current_years <- default_years
     state$num_sfile_no_main_change <- 0 # number of settings files loaded that changed the main inputs
+    state$map_resolution <- c(0.065,0.04333333)
     
     
     # START SCREEN POPUP ####
@@ -1515,12 +1535,15 @@ server <- function(input, output, session) {
         if (grepl("1km", state$satellite)) {
             sslat <- coord_list[["gosl_1km"]]$lat
             sslon <- coord_list[["gosl_1km"]]$lon
+            state$map_resolution <- c(0.03,0.02)
         } else if (state$algorithm=="eof") {
             sslat <- coord_list[["gosl_4km"]]$lat
             sslon <- coord_list[["gosl_4km"]]$lon
+            state$map_resolution <- c(0.065,0.04333333)
         } else {
             sslat <- coord_list[[state$region]]$lat
             sslon <- coord_list[[state$region]]$lon
+            state$map_resolution <- c(0.065,0.04333333)
         }
         all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
                              state$yearday, state$interval, state$log_chla, length(sslat),
@@ -1739,7 +1762,7 @@ server <- function(input, output, session) {
                 coordinates(pts) = ~lon+lat
                 
                 # create an empty raster object to the extent of the points
-                tr <- raster(ext=extent(pts), resolution = c(0.065,0.04333333))
+                tr <- raster(ext=extent(pts), resolution = state$map_resolution)
                 
                 # rasterize your irregular points
                 tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = T) # we use a mean function here to regularly grid the irregular input points
