@@ -1,0 +1,667 @@
+---
+title: "PhytoFit data file speed tests"
+date: "`r Sys.Date()`"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: scroll
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+library(flexdashboard)
+library(fst)            # input data format
+library(oceancolouR)    # for bin/lat/lon data
+library(dplyr)          # for reorganizing data
+library(profvis)        # for speed tests
+library(DT)             # for interactive datatables
+library(microbenchmark) # for speed tests
+
+# more libraries for file formats:
+library(vroom)          # speedier csv reading
+library(ncdf4)
+library(arrow)
+library(raster)
+library(stringr)        # for padding day numbers
+
+# load some bin/lat/lon vectors for later use
+data("nwa_bins_4km")
+data("nwa_lats_4km")
+data("nwa_lons_4km")
+
+lon1 <- lon_bounds$atlantic[1]
+lon2 <- lon_bounds$atlantic[2]
+lat1 <- lat_bounds$atlantic[1]
+lat2 <- lat_bounds$atlantic[2]
+
+atlantic_ind <- nwa_lats_4km >= lat1 & nwa_lats_4km <= lat2 & nwa_lons_4km >= lon1 & nwa_lons_4km <= lon2
+atlantic_bins <- nwa_bins_4km[atlantic_ind]
+atlantic_lats <- nwa_lats_4km[atlantic_ind]
+atlantic_lons <- nwa_lons_4km[atlantic_ind]
+
+filename = file.path(getwd(), "atlantic_modis_ocx_2015.fst")
+
+test = read_fst(filename)
+```
+
+# Description
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+Using a random file from the PhytoFit app dataset, we can check the file size and read speed with different modifications to find the method that gives the smallest file sizes and fastest read speed. Read speed was calculated using the `microbenchmark()` function from the microbenchmark package and rerunning the block of code 10 times to get the median.  
+
+Previous iterations of the dataset were in the following format:  
+
+1. `rda`, containing objects chla (pixel x day of year matrix), lat (vector), lon (vector), time (vector)  
+2. `rds with compression`, containing chla (pixel x day of year matrix)  
+3. `fst`, containing chla (dataframe with one column)  
+
+With each iteration, the filesize was smaller and the read time faster. Integers are used wherever possible. As of 21 Apr 2021, the files are in `fst` format. They data is in a matrix where rows = pixels and columns = days of the year, giving a 183824 x 365 chl-a matrix for the Atlantic, for example. The data is then flattened into a dataframe to shrink the filesize, and reshaped when it's read into PhytoFit.  
+
+Note that NA cells are currently included so the dataframe can be easily reshaped into a matrix without requiring row/column data in the fst file. In the tests below, we'll try removing them and adding row_ind and day columns.  
+
+
+Filename: `atlantic_modis_ocx_2015.fst`  
+Year: 2015  
+Sensor: MODIS-Aqua  
+Variable: OCx chlorophyll-a  
+Region: Atlantic  
+(183824 pixels * 365 days = 67095760 cells in total)  
+
+
+#### OTHER SPEED TESTS  
+
+https://waterdata.usgs.gov/blog/formats/
+
+
+# Results
+
+Column {data-width=450}
+-----------------------------------------------------------------------
+
+#### Test 1: .fst
+
+a) original (one column, with NA) **Currently in use**  
+b) reshaped into pixel*day matrix
+c) NA removed, row_ind and day columns added  
+d) NA removed, lat/lon and day columns added  
+e) NA removed, lat/lon and day columns added, lon positive  
+f) Combining multiple variables in one file  
+g) NA removed, row_ind and day columns added and combined into one column (i.e. a single large integer where the last 3 digits are the day of year)  
+h) NA removed, row_ind and day columns added and combined into one column (i.e. a single large integer where the first 4 digits are 1 and the day of year)  
+
+https://www.fstpackage.org/  
+
+```{r}
+# tmp_filename <- file.path(getwd(), "test1b.fst")
+# tmp_test <- as.data.frame(matrix(test$chl, ncol=365))
+# write_fst(tmp_test, path=tmp_filename, compress=100)
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test1c.fst")
+# tmp_test <- test %>%
+#   dplyr::mutate(row_ind=rep(1:length(atlantic_bins), 365),
+#                 day=rep(1:365,each=num_pix[["atlantic"]][["4km"]])) %>%
+#   tidyr::drop_na(chl)
+# write_fst(tmp_test, path=tmp_filename, compress=100)
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test1d.fst")
+# tmp_test <- test %>%
+#   dplyr::mutate(lat=rep(atlantic_lats, 365),
+#                 lon=rep(atlantic_lons, 365),
+#                 day=rep(1:365,each=num_pix[["atlantic"]][["4km"]])) %>%
+#   tidyr::drop_na(chl)
+# write_fst(tmp_test, path=tmp_filename, compress=100)
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test1e.fst")
+# tmp_test <- test %>%
+#   dplyr::mutate(lat=rep(atlantic_lats, 365),
+#                 lon=(-1)*rep(atlantic_lons, 365),
+#                 day=rep(1:365,each=num_pix[["atlantic"]][["4km"]])) %>%
+#   tidyr::drop_na(chl)
+# write_fst(tmp_test, path=tmp_filename, compress=100)
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test1f.fst")
+# f1 <- filename
+# f2 <- file.path(getwd(), "atlantic_modis_poly4_2015.fst")
+# f3 <- file.path(getwd(), "atlantic_modis_gsmgs_2015.fst")
+# tmp_test = dplyr::bind_cols(test, read_fst(f2), read_fst(f3)) %>%
+#   dplyr::mutate(day = rep(1:365, each = num_pix[["atlantic"]][["4km"]]),
+#                 row_ind = rep(1:length(atlantic_bins), 365)) %>%
+#   dplyr::rename(ocx=chl...1,
+#                 poly4=chl...2,
+#                 gsmgs=chl...3) %>%
+#   dplyr::filter_at(vars(ocx, poly4, gsmgs), all_vars(is.finite(.)))
+# write_fst(tmp_test, path=tmp_filename, compress=100)
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test1g.fst")
+# tmp_test <- test %>%
+#   dplyr::mutate(row_ind=rep(1:length(atlantic_bins), 365),
+#                 day=rep(1:365,each=num_pix[["atlantic"]][["4km"]])) %>%
+#   tidyr::drop_na(chl) %>%
+#   dplyr::mutate(day=str_pad(day, width=3, side="left", pad="0")) %>%
+#   tidyr::unite(row_ind_day, row_ind, day, sep="") %>%
+#   dplyr::mutate(row_ind_day=as.integer(row_ind_day))
+# row.names(tmp_test) <- NULL
+# write_fst(tmp_test, path=tmp_filename, compress=100)
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test1h.fst")
+# tmp_test <- test %>%
+#   dplyr::mutate(row_ind=rep(1:length(atlantic_bins), 365),
+#                 day=rep(1:365,each=num_pix[["atlantic"]][["4km"]])) %>%
+#   tidyr::drop_na(chl) %>%
+#   dplyr::mutate(day=str_pad(day, width=3, side="left", pad="0"),
+#                 ones=1) %>%
+#   tidyr::unite(day_row_ind, ones, day, row_ind, sep="") %>%
+#   dplyr::mutate(day_row_ind=as.integer(day_row_ind))
+# row.names(tmp_test) <- NULL
+# write_fst(tmp_test, path=tmp_filename, compress=100)
+```
+
+
+
+#### Test 2: .csv
+
+a) csv, write/read with vroom  
+b) csv, zipped  
+c) csv, NA removed, row_ind and day columns added  
+d) csv, NA removed, row_ind and day columns added, zipped  
+
+```{r}
+# tmp_filename <- file.path(getwd(), "test2a.csv")
+# tmp_test <- test
+# vroom_write(tmp_test, tmp_filename)
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test2b.csv.gz")
+# tmp_test <- test
+# vroom_write(tmp_test, tmp_filename)
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test2c.csv")
+# tmp_test <- test %>%
+#   dplyr::mutate(row_ind=rep(1:length(atlantic_bins), 365),
+#                 day=rep(1:365,each=num_pix[["atlantic"]][["4km"]])) %>%
+#   tidyr::drop_na(chl)
+# vroom_write(tmp_test, tmp_filename)
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test2d.csv.gz")
+# tmp_test <- test %>%
+#   dplyr::mutate(row_ind=rep(1:length(atlantic_bins), 365),
+#                 day=rep(1:365,each=num_pix[["atlantic"]][["4km"]])) %>%
+#   tidyr::drop_na(chl)
+# vroom_write(tmp_test, tmp_filename)
+```
+
+#### Test 3: .nc (netCDF)
+
+a) nc, write/read with ncdf4 package  
+b) nc, NA removed, row_ind and day added  
+
+```{r}
+# tmp_filename <- file.path(getwd(), "test3a.nc")
+# tmp_test <- test
+# # create netCDF dimension
+# dim_pixel <- ncdim_def(name="Binned pixels", units="", vals=1:nrow(tmp_test))
+# # create netCDF variable
+# tmp_var <- ncvar_def(name="chlor_a", units="mg m^-3", dim=dim_pixel, missval=-32767)
+# # create netCDF
+# nc <- nc_create(tmp_filename, tmp_var)
+# # write data to the variable
+# ncvar_put(nc, tmp_var, vals=tmp_test$chl)
+# nc_close(nc)
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test3b.nc")
+# tmp_test <- test %>%
+#   dplyr::mutate(row_ind=rep(1:length(atlantic_bins), 365),
+#                 day=rep(1:365,each=num_pix[["atlantic"]][["4km"]])) %>%
+#   tidyr::drop_na(chl)
+# # create netCDF dimension
+# dim_pixel <- ncdim_def(name="Binned pixels", units="", vals=1:nrow(tmp_test))
+# # create netCDF variable
+# tmp_var_chl <- ncvar_def(name="chlor_a", units="mg m^-3", dim=dim_pixel, missval=-32767)
+# tmp_var_row <- ncvar_def(name="row_ind", units="mg m^-3", dim=dim_pixel, missval=-32767)
+# tmp_var_day <- ncvar_def(name="day", units="mg m^-3", dim=dim_pixel, missval=-32767)
+# # create netCDF
+# nc <- nc_create(tmp_filename, list(tmp_var_chl, tmp_var_row, tmp_var_day))
+# # write data to the variable
+# ncvar_put(nc, tmp_var_chl, vals=tmp_test$chl)
+# ncvar_put(nc, tmp_var_row, vals=tmp_test$row_ind)
+# ncvar_put(nc, tmp_var_day, vals=tmp_test$day)
+# nc_close(nc)
+```
+
+#### Test 4: .tif (raster)
+
+a) tif, write/read with raster package  
+b) tif, NA removed, row_ind and day added  
+
+```{r}
+# tmp_filename <- file.path(getwd(), "test4a.tif")
+# tmp_test <- raster(as.matrix(test))
+# writeRaster(tmp_test, tmp_filename, format="GTiff")
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test4b.tif")
+# tmp_test <- test %>%
+#   dplyr::mutate(row_ind=rep(1:length(atlantic_bins), 365),
+#                 day=rep(1:365,each=num_pix[["atlantic"]][["4km"]])) %>%
+#   tidyr::drop_na(chl)
+# tmp_test <- raster(as.matrix(tmp_test))
+# writeRaster(tmp_test, tmp_filename, format="GTiff")
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test4c.tif")
+# f1 <- filename
+# f2 <- file.path(getwd(), "atlantic_modis_poly4_2015.fst")
+# f3 <- file.path(getwd(), "atlantic_modis_gsmgs_2015.fst")
+# tmp_test = dplyr::bind_cols(test, read_fst(f2), read_fst(f3)) %>%
+#   dplyr::rename(ocx=chl...1,
+#                 poly4=chl...2,
+#                 gsmgs=chl...3)
+# tmp_test <- raster(as.matrix(tmp_test))
+# writeRaster(tmp_test, tmp_filename, format="GTiff")
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test4d.tif")
+# f1 <- filename
+# f2 <- file.path(getwd(), "atlantic_modis_poly4_2015.fst")
+# f3 <- file.path(getwd(), "atlantic_modis_gsmgs_2015.fst")
+# tmp_test = dplyr::bind_cols(test, read_fst(f2), read_fst(f3)) %>%
+#   dplyr::mutate(day = rep(1:365, each = num_pix[["atlantic"]][["4km"]]),
+#                 row_ind = rep(1:length(atlantic_bins), 365)) %>%
+#   dplyr::rename(ocx=chl...1,
+#                 poly4=chl...2,
+#                 gsmgs=chl...3) %>%
+#   dplyr::filter_at(vars(ocx, poly4, gsmgs), all_vars(is.finite(.)))
+# tmp_test <- raster(as.matrix(tmp_test))
+# writeRaster(tmp_test, tmp_filename, format="GTiff")
+```
+
+#### Test 5: .parquet (Apache Parquet)
+
+a) parquet, write/read with arrow package  
+b) parquet, NA removed, row_ind and day added  
+
+https://arrow.apache.org/docs/r/articles/arrow.html  
+
+```{r}
+# tmp_filename <- file.path(getwd(), "test5a.parquet")
+# tmp_test <- test
+# write_parquet(tmp_test, tmp_filename)
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test5b.parquet")
+# tmp_test <- test %>%
+#   dplyr::mutate(row_ind=rep(1:length(atlantic_bins), 365),
+#                 day=rep(1:365,each=num_pix[["atlantic"]][["4km"]])) %>%
+#   tidyr::drop_na(chl)
+# write_parquet(tmp_test, tmp_filename)
+```
+
+#### Test 6: .feather
+
+a) feather, write/read with arrow package  
+b) feather, NA removed, row_ind and day added  
+
+```{r}
+# tmp_filename <- file.path(getwd(), "test6a.feather")
+# on.exit(unlink(tmp_filename))
+# tmp_test <- test
+# write_feather(tmp_test, tmp_filename)
+# #*******************************************************************************
+# tmp_filename <- file.path(getwd(), "test6b.feather")
+# on.exit(unlink(tmp_filename))
+# tmp_test <- test %>%
+#   dplyr::mutate(row_ind=rep(1:length(atlantic_bins), 365),
+#                 day=rep(1:365,each=num_pix[["atlantic"]][["4km"]])) %>%
+#   tidyr::drop_na(chl)
+# write_feather(tmp_test, tmp_filename)
+```
+
+
+
+
+Column {data-width=250}
+-----------------------------------------------------------------------
+
+### Summary
+
+**Note that read time includes the time it takes to reformat the data into the matrix required in PhytoFit.**  
+
+
+```{r}
+
+test_nums <- c(paste0(1, letters[1:8]), paste0(2, letters[1:4]), paste0(3, letters[1:2]),
+               paste0(4, letters[1:2]), paste0(5, letters[1:2]), paste0(6, letters[1:2]))
+
+f1a <- filename
+f1b <- file.path(getwd(), "test1b.fst")
+f1c <- file.path(getwd(), "test1c.fst")
+f1d <- file.path(getwd(), "test1d.fst")
+f1e <- file.path(getwd(), "test1e.fst")
+f1f <- file.path(getwd(), "test1f.fst")
+f1g <- file.path(getwd(), "test1g.fst")
+f1h <- file.path(getwd(), "test1h.fst")
+
+f2a <- file.path(getwd(), "test2a.csv")
+f2b <- file.path(getwd(), "test2b.csv.gz")
+f2c <- file.path(getwd(), "test2c.csv")
+f2d <- file.path(getwd(), "test2d.csv.gz")
+
+f3a <- file.path(getwd(), "test3a.nc")
+f3b <- file.path(getwd(), "test3b.nc")
+
+f4a <- file.path(getwd(), "test4a.tif")
+f4b <- file.path(getwd(), "test4b.tif")
+
+f5a <- file.path(getwd(), "test5a.parquet")
+f5b <- file.path(getwd(), "test5b.parquet")
+
+f6a <- file.path(getwd(), "test6a.feather")
+f6b <- file.path(getwd(), "test6b.feather")
+
+
+f_list <- c(f1a, f1b, f1c, f1d, f1e, f1f, f1g, f1h, f2a, f2b, f2c, f2d, f3a, f3b, f4a, f4b, f5a, f5b, f6a, f6b)
+
+file_sizes <- file.size(f_list)/1024/1024
+
+# read files and record speed and object size
+med_read_times <- c()
+object_sizes <- c()
+
+num_iterations <- 10
+
+
+# TEST 1 (fst)
+
+rt <- microbenchmark({
+  tmp <- matrix(read_fst(f1a)$chl, ncol=365)
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp <- as.matrix(read_fst(f1b))
+  colnames(tmp) <- rownames(tmp) <- NULL
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp_df <- read_fst(f1c)
+  tmp <- matrix(nrow=183824, ncol=365)
+  tmp[as.matrix(tmp_df[,2:3])] <- tmp_df$chl
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp_df <- read_fst(f1d)
+  latlons <- apply(cbind(atlantic_lats, atlantic_lons), MARGIN=1, FUN=paste0, collapse="_")
+  tmp_df_latlons <- apply(as.matrix(tmp_df[,2:3]), MARGIN=1, FUN=paste0, collapse="_")
+  tmp <- matrix(nrow=183824, ncol=365)
+  row.names(tmp) <- latlons
+  colnames(tmp) <- 1:365
+  tmp[cbind(tmp_df_latlons, tmp_df$day)] <- tmp_df$chl
+  row.names(tmp) <- colnames(tmp) <- NULL
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp_df <- read_fst(f1e)
+  tmp_df$lon <- (-1)*tmp_df$lon
+  latlons <- apply(cbind(atlantic_lats, atlantic_lons), MARGIN=1, FUN=paste0, collapse="_")
+  tmp_df_latlons <- apply(as.matrix(tmp_df[,2:3]), MARGIN=1, FUN=paste0, collapse="_")
+  tmp <- matrix(nrow=183824, ncol=365)
+  row.names(tmp) <- latlons
+  colnames(tmp) <- 1:365
+  tmp[cbind(tmp_df_latlons, tmp_df$day)] <- tmp_df$chl
+  row.names(tmp) <- colnames(tmp) <- NULL
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp_df <- read_fst(f1f)
+  tmp <- matrix(nrow=183824, ncol=365)
+  tmp[as.matrix(tmp_df[,c("row_ind", "day")])] <- tmp_df$ocx
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp_df <- read_fst(f1g)
+  tmp_rows <- as.numeric(substr(tmp_df$row_ind_day, 1, nchar(tmp_df$row_ind_day)-3))
+  tmp_days <- as.numeric(substr(tmp_df$row_ind_day, nchar(tmp_df$row_ind_day)-2, nchar(tmp_df$row_ind_day)))
+  tmp <- matrix(nrow=183824, ncol=365)
+  tmp[cbind(tmp_rows, tmp_days)] <- tmp_df$chl
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp_df <- read_fst(f1h)
+  tmp_rows <- as.numeric(substr(tmp_df$row_ind_day, 5, nchar(tmp_df$row_ind_day)))
+  tmp_days <- as.numeric(substr(tmp_df$row_ind_day, 2, 4))
+  tmp <- matrix(nrow=183824, ncol=365)
+  tmp[cbind(tmp_rows, tmp_days)] <- tmp_df$chl
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+
+
+# TEST 2 (csv)
+
+rt <- microbenchmark({
+  tmp <- vroom(f2a, delim=",") %>% pull(chl) %>% as.numeric() %>% matrix(ncol=365)
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp <- vroom(f2b, delim=",") %>% pull(chl) %>% as.numeric() %>% matrix(ncol=365)
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp_df <- vroom(f2c, delim="\t")
+  tmp <- matrix(nrow=183824, ncol=365)
+  tmp[as.matrix(tmp_df[,2:3])] <- tmp_df$chl
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp_df <- vroom(f2d, delim="\t")
+  tmp <- matrix(nrow=183824, ncol=365)
+  tmp[as.matrix(tmp_df[,2:3])] <- tmp_df$chl
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+
+
+# TEST 3 (nc)
+
+rt <- microbenchmark({
+  nc <- nc_open(f3a)
+  tmp <- ncvar_get(nc, "chlor_a")
+  nc_close(nc)
+  tmp <- matrix(tmp, ncol=365)
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  nc <- nc_open(f3b)
+  tmp_chl <- as.numeric(ncvar_get(nc, "chlor_a"))
+  tmp_row <- as.numeric(ncvar_get(nc, "row_ind"))
+  tmp_day <- as.numeric(ncvar_get(nc, "day"))
+  nc_close(nc)
+  tmp <- matrix(nrow=183824, ncol=365)
+  tmp[cbind(tmp_row, tmp_day)] <- tmp_chl
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+
+
+# TEST 4 (raster)
+
+rt <- microbenchmark({
+  tmp <- matrix(getValues(raster(f4a)), ncol=365)
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp_mat <- as.matrix(raster(f4b))
+  tmp <- matrix(nrow=183824, ncol=365)
+  tmp[tmp_mat[,2:3]] <- tmp_mat[,1]
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+# rt <- microbenchmark({
+#   tmp_mat <- as.matrix(raster(file.path(getwd(), "test4c.tif")))
+#   tmp <- matrix(tmp_mat[,1], ncol=365)
+# }, times=num_iterations)
+# med_read_times <- c(med_read_times, summary(rt)$median)
+# object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+# 
+# rt <- microbenchmark({
+#   tmp_mat <- as.matrix(raster(file.path(getwd(), "test4d.tif")))
+#   tmp <- matrix(nrow=183824, ncol=365)
+#   tmp[tmp_mat[,5:4]] <- tmp_mat[,1]
+# }, times=num_iterations)
+# med_read_times <- c(med_read_times, summary(rt)$median)
+# object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+
+
+# TEST 5 (parquet)
+
+rt <- microbenchmark({
+  tmp <- matrix(read_parquet(f5a)$chl, ncol=365)
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp_df <- read_parquet(f5b)
+  tmp <- matrix(nrow=183824, ncol=365)
+  tmp[as.matrix(tmp_df[,2:3])] <- tmp_df$chl
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+
+
+# TEST 6 (feather)
+
+rt <- microbenchmark({
+  tmp <- matrix(read_feather(f6a)$chl, ncol=365)
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+rt <- microbenchmark({
+  tmp_df <- read_feather(f6b)
+  tmp <- matrix(nrow=183824, ncol=365)
+  tmp[as.matrix(tmp_df[,2:3])] <- tmp_df$chl
+}, times=num_iterations)
+med_read_times <- c(med_read_times, summary(rt)$median)
+object_sizes <- c(object_sizes, as.numeric(object.size(tmp))/1024/1024)
+
+
+df_to_print <- data.frame(test = test_nums,
+                          file_size = file_sizes,
+                          #object_size = object_sizes,
+                          median_read_time = med_read_times,
+                          stringsAsFactors = FALSE)
+colnames(df_to_print) <- c("Test", "File size (Mb)", "Median read time (ms)")
+
+DT::datatable(df_to_print,
+              rownames = FALSE,
+              extensions = c("FixedHeader"),
+              options = list(columnDefs=list(list(width="100px", targets="_all")),
+                             paging=FALSE,
+                             fixedHeader=TRUE,
+                             dom="Bfrtip")) %>%
+  DT::formatRound(columns=c("File size (Mb)",
+                            #"Object size (Mb)",
+                            "Median read time (ms)"),
+                  digits=3)
+
+```
+
+
+
+
+
+# Other tests and comments
+
+#### Database
+
+Adding a dataframe to a database with row_ind/sensor/year/day/variable/value columns results in a dataset that is ~10x larger than the `fst` dataset. Splitting it into individual databases for sensor and variable (so, removing those columns from each database) is still ~6x larger than the `fst` dataset.  
+
+
+#### Temporarily convert numeric values to integers
+
+Can we store data as an integer and then convert it back?  
+The millions of chl-a values here can have up to 15 significant digits past the decimal place, so no...  
+
+```{r}
+# # length(unique(test$chl[!is.na(test$chl)]))
+# good_chl_ind <- !is.na(test$chl)
+# good_chl <- test$chl[good_chl_ind][1:10000]
+# decs <- nchar(sapply(strsplit(as.character(good_chl), ".", fixed=TRUE), "[[", 2))
+# max(decs)
+```
+
+#### Wider instead of longer
+
+Wider dataframes take up a lot more space and are slower to read.  
+
+#### Characters or integers?
+
+Character vectors are larger than integers.  
+
+#### Collapse into one long string and write to ascii?
+
+Still much bigger than fst.  
+
+```{r}
+# tmp_filename <- file.path(getwd(), "test7a.ascii")
+# tmp_test <- test %>%
+#   dplyr::mutate(row_ind=rep(1:length(atlantic_bins), 365),
+#                 day=rep(1:365,each=num_pix[["atlantic"]][["4km"]])) %>%
+#   tidyr::drop_na(chl)
+# tmp_test <- tmp_test[1:1000000,] # test with a subset of 1million
+# tmp_test <- tmp_test %>% tidyr::unite("total", chl, row_ind, day, sep="")
+# final <- paste0(tmp_test$total, collapse="_")
+# data.table::fwrite(list(final), tmp_filename)
+```
+
+
+#### Use dataframes and dplyr in PhytoFit instead of matrices?
+
+Dplyr is much slower than basic matrix subsetting with datasets this large.  
+
+
+```{r}
+# # Test subsetting - compare dplyr dataframe with no NAs, and matrix with NA cells
+# 
+# f1d <- file.path(getwd(), "test1d.fst")
+# tmp_df <- read_fst(f1d)
+# 
+# ptm <- Sys.time()
+# tmp1 = tmp_df %>% dplyr::filter(between(lat,41,42), between(lon,-66,-62), day==138)
+# print(Sys.time()-ptm)
+# 
+# ptm <- Sys.time()
+# x_inds <- as.logical(sp::point.in.polygon(atlantic_lons, atlantic_lats, c(41,42,42,41,41), c(-66,-66,-62,-62,-66)))
+# y_inds <- 138
+# tmp2 = tmp[x_inds, y_inds]
+# print(Sys.time()-ptm)
+```
+
