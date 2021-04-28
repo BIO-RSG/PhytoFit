@@ -492,3 +492,64 @@ format_settings_to_load <- function(settings) {
   return(list(ids=tmp_ids, values=tmp_values, types=tmp_types, widgets=tmp_widgets))
   
 }
+
+
+# check user-entered latitudes and longitudes
+check_latlons <- function(lats, lons, num_invalid_polygons_drawn) {
+  
+  # Reset these
+  coords <- NULL
+  latlon_invalid <- FALSE
+  latlon_toolarge <- FALSE
+  help_latlon_txt <- ""
+  
+  # split by commas, trim white space from each, and convert to numeric
+  lats <- as.numeric(sapply(strsplit(lats, ",")[[1]], trimws))
+  lons <- as.numeric(sapply(strsplit(lons, ",")[[1]], trimws))
+  
+  # check if any lat/lons are NA or NULL or INF
+  if (any(!is.finite(lats)) | any(!is.finite(lons)) | any(is.null(lats)) | any(is.null(lons))) {
+    
+    latlon_invalid <- TRUE
+    num_invalid_polygons_drawn <- num_invalid_polygons_drawn + 1
+    help_latlon_txt <- "Invalid latitude/longitude."
+    
+  # check if lat/lons are not numeric, or not the same length, or empty
+  } else if (!(all(is.numeric(lats)) & all(is.numeric(lons))) | (length(lats) != length(lons)) | length(lats)==0) {
+    
+    latlon_invalid <- TRUE
+    num_invalid_polygons_drawn <- num_invalid_polygons_drawn + 1
+    help_latlon_txt <- "Invalid latitude/longitude."
+    
+  } else {
+    
+    # if user forgets to enter first point to close the polygon, fix that here
+    if (!(lats[1]==lats[length(lats)] & lons[1]==lons[length(lons)])) {
+      lats <- c(lats, lats[1])
+      lons <- c(lons, lons[1])
+    }
+    
+    # check area of polygon in case it's too large
+    polygon_area <- polyarea(x=lons, y=lats)
+    
+    if (polygon_area > 500) {
+      
+      latlon_toolarge <- TRUE
+      num_invalid_polygons_drawn <- num_invalid_polygons_drawn + 1
+      help_latlon_txt <- "Polygon is too large (max allowed area = 500 degrees^2)."
+      
+    } else {
+      
+      coords <- c(rbind(lons, lats))
+      
+    }
+    
+  }
+  
+  return(list(coords=coords,
+              latlon_invalid=latlon_invalid,
+              latlon_toolarge=latlon_toolarge,
+              num_invalid_polygons_drawn=num_invalid_polygons_drawn,
+              help_latlon_txt=help_latlon_txt))
+  
+}

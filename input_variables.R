@@ -30,7 +30,8 @@ names(polygonChoices[["atlantic"]]) <- c("Custom polygon", full_names[["atlantic
 names(polygonChoices[["pacific"]]) <- c("Custom polygon", full_names[["pacific"]])
 
 latlon_methods <- c("Draw polygon on map" = "drawPoly",
-                    "Type coordinates" = "typeCoords")
+                    "Type coordinates" = "typeCoords",
+                    "Load shapefile" = "loadShapefile")
 
 outliers <- c('None' = 'none',
               '+/- 2 SD' = 'sd2',

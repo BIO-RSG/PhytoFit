@@ -340,39 +340,50 @@ ui <- fluidPage(
                                           label = NULL,
                                           choices = latlon_methods,
                                           selected = "drawPoly",
-                                          width = widget_width)),
-            
-            # Give instructions if user opts to draw polygon.
-            conditionalPanel(condition = "input.box =='custom' && input.latlon_method =='drawPoly'",
-                             helpText("Draw polygon using the toolbar at the top left corner of the map.",
-                                      width = widget_width,
-                                      style = help_text_style)),
-            # If user selected the option to type lat/lon manually, two
-            # numericInput boxes will appear, one for lats and one for lons
-            conditionalPanel(condition = "input.box =='custom' && input.latlon_method =='typeCoords'",
-                             helpText(HTML(paste0("Enter decimal latitudes and longitudes for vertices of polygon, separated by commas, then click \"Create polygon\". ",
-                                                  "Use lon/lat < 0 for west/south. Lists must be the same length, with >2 values each, in the same order so that each latitude is paired with longitude. Example:</br>",
-                                                  "List of latitudes: 42.6, 43, 42, 40.4, 40, 42.6</br>",
-                                                  "List of longitudes: -61, -59, -55, -57, -60.4, -61")),
-                                      width = widget_width,
-                                      style = help_text_style),
-                             textInput(inputId = "manual_lats",
-                                       label = HTML("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">List of latitudes:</font>"),
-                                       value = "",
-                                       width = widget_width),
-                             textInput(inputId = "manual_lons",
-                                       label = HTML("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">List of longitudes:</font>"),
-                                       value = "",
-                                       width = widget_width),
-                             actionButton(inputId = 'draw',
-                                          label = 'Create polygon',
-                                          width = widget_width,
-                                          style = button_style),
-                             uiOutput("help_latlon",
-                                      width = widget_width,
-                                      style = "white-space: normal;"),
-                             br()),
-            
+                                          width = widget_width),
+                            conditionalPanel(condition = "input.latlon_method =='drawPoly'",
+                                             helpText("Draw polygon using the toolbar at the top left corner of the map.",
+                                                      width = widget_width,
+                                                      style = help_text_style)),
+                            conditionalPanel(condition = "input.latlon_method =='typeCoords'",
+                                             helpText(HTML(paste0("Enter decimal latitudes and longitudes for vertices of polygon, separated by commas, then click \"Create polygon\". ",
+                                                                  "Use lon/lat < 0 for west/south. Lists must be the same length, with >2 values each, in the same order so that each latitude is paired with longitude.</br>")),
+                                                      width = widget_width,
+                                                      style = help_text_style)),
+                            conditionalPanel(condition = "input.latlon_method =='loadShapefile'",
+                                             helpText(HTML("Click \"Browse\" to find a shapefile. Select the \"shp\" file and all files with the same name but different extensions (e.g. dbf, prj, sbx...), then \"Open\". If the polygon does not load automatically, click \"Create polygon\" <b>(NOTE: polygons with a large number of vertices may take several seconds to load). Warning: This will only use the first polygon in the shapefile, and disjoint polygons are NOT allowed.</b>"),
+                                                      width = widget_width,
+                                                      style = help_text_style),
+                                             fileInput(inputId = "shapefile",
+                                                       label = NULL,
+                                                       multiple = TRUE,
+                                                       accept = c('.shp','.dbf','.sbn','.sbx','.shx','.prj', '.qix'),
+                                                       width = widget_width)),
+                            conditionalPanel(condition = "input.latlon_method =='typeCoords' || input.latlon_method =='loadShapefile'",
+                                             helpText(HTML("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">List of latitudes:</font>"),
+                                                      width = widget_width,
+                                                      style = paste(help_text_style, "margin-bottom: -2px; margin-top: -5px;")),
+                                             textInput(inputId = "manual_lats",
+                                                       label = NULL,
+                                                       value = "",
+                                                       width = widget_width,
+                                                       placeholder = "42.6, 43, 42, 40.4, 40, 42.6"),
+                                             helpText(HTML("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">List of longitudes:</font>"),
+                                                      width = widget_width,
+                                                      style = paste(help_text_style, "margin-bottom: -2px; margin-top: -5px;")),
+                                             textInput(inputId = "manual_lons",
+                                                       label = NULL,
+                                                       value = "",
+                                                       width = widget_width,
+                                                       placeholder = "-61, -59, -55, -57, -60.4, -61"),
+                                             actionButton(inputId = 'draw',
+                                                          label = 'Create polygon',
+                                                          width = widget_width,
+                                                          style = button_style)),
+                            uiOutput("help_latlon",
+                                     width = widget_width,
+                                     style = "white-space: normal;"),
+                            br()),
             br()
             ),
             
@@ -789,6 +800,7 @@ server <- function(input, output, session) {
     state$custom_name <- ""
     state$fullrunboxes <- "custom"
     state$help_load_txt <- ""
+    state$help_latlon_txt <- ""
     state$secondary_settings <- NULL
     state$draw_programmatically <- FALSE
     state$applyname_programmatically <- FALSE
@@ -1114,17 +1126,23 @@ server <- function(input, output, session) {
             state$draw_toolbar <- TRUE
         } else {
             state$draw_toolbar <- FALSE
-            if (state$draw_programmatically) {
-                # use shinyjs to click the "create polygon" button programmatically
-                # to automatically draw a custom polygon from a settings file
-                shinyjs::click("draw")
-                # reset
-                state$draw_programmatically <- FALSE
-                if (state$applyname_programmatically) {
-                    shinyjs::click("applyname")
-                    state$applyname_programmatically <- FALSE
-                }
-            }
+        }
+    })
+    
+    observeEvent({
+        input$manual_lats
+        input$manual_lons
+    }, {
+        if (state$latlon_method != "drawPoly" & state$draw_programmatically) {
+            shinyjs::click("draw")
+            state$draw_programmatically <- FALSE
+        }
+    })
+    
+    observeEvent(input$custom_name, {
+        if (state$applyname_programmatically) {
+            shinyjs::click("applyname")
+            state$applyname_programmatically <- FALSE
         }
     })
     
@@ -1919,84 +1937,81 @@ server <- function(input, output, session) {
     # get coordinates entered in a box by the user.
     observeEvent(input$draw, {
         
-        coords <- NULL
+        good_latlons <- check_latlons(input$manual_lats, input$manual_lons,
+                                      state$num_invalid_polygons_drawn)
         
-        # Reset these
-        state$latlon_invalid <- FALSE
-        state$latlon_toolarge <- FALSE
-        
-        manual_lats <- input$manual_lats
-        manual_lons <- input$manual_lons
-        
-        # split by commas, trim white space from each, and convert to numeric
-        manual_lats <- as.numeric(sapply(strsplit(manual_lats, ",")[[1]], trimws))
-        manual_lons <- as.numeric(sapply(strsplit(manual_lons, ",")[[1]], trimws))
-        
-        # check if any lat/lons are NA or NULL or INF
-        if (any(!is.finite(manual_lats)) | any(!is.finite(manual_lons)) | any(is.null(manual_lats)) | any(is.null(manual_lons))) {
-            
-            state$latlon_invalid <- TRUE
-            state$latlon_toolarge <- FALSE
-            state$num_invalid_polygons_drawn <- state$num_invalid_polygons_drawn + 1
-            
-            # check if lat/lons are not numeric, or not the same length, or empty
-        } else if (!(all(is.numeric(manual_lats)) & all(is.numeric(manual_lons))) | (length(manual_lats) != length(manual_lons)) | length(manual_lats)==0) {
-            
-            state$latlon_invalid <- TRUE
-            state$latlon_toolarge <- FALSE
-            state$num_invalid_polygons_drawn <- state$num_invalid_polygons_drawn + 1
-            
-        } else {
-            
-            # if user forgets to enter first point to close the polygon, fix that here
-            if (!(manual_lats[1]==manual_lats[length(manual_lats)] & manual_lons[1]==manual_lons[length(manual_lons)])) {
-                
-                manual_lats <- c(manual_lats, manual_lats[1])
-                manual_lons <- c(manual_lons, manual_lons[1])
-                
-            }
-            
-            # check area of polygon in case it's too large
-            polygon_area <- polyarea(x=manual_lons, y=manual_lats)
-            
-            if (polygon_area > 500) {
-                
-                state$latlon_invalid <- FALSE
-                state$latlon_toolarge <- TRUE
-                state$num_invalid_polygons_drawn <- state$num_invalid_polygons_drawn + 1
-                
-            } else {
-                
-                state$latlon_invalid <- FALSE
-                state$latlon_toolarge <- FALSE
-                coords <- c(rbind(manual_lons, manual_lats))
-                
-            }
-            
-        }
-        
-        state$typedpoly <- coords
+        state$typedpoly <- good_latlons$coords
+        state$num_invalid_polygons_drawn <- good_latlons$num_invalid_polygons_drawn
+        state$latlon_invalid <- good_latlons$latlon_invalid
+        state$latlon_toolarge <- good_latlons$latlon_toolarge
+        state$help_latlon_txt <- good_latlons$help_latlon_txt
         
     })
     
     type_polygon <- reactive({
-        
         return(state$typedpoly)
-        
     })
     
-    output$help_latlon <- renderUI({
-        
-        help_msg <- ""
-        if (state$latlon_invalid) {
-            help_msg <- "Invalid latitude/longitude."
-        } else if (state$latlon_toolarge) {
-            help_msg <- "Polygon is too large (max allowed area = 500 degrees^2)."
+    
+    observeEvent(input$shapefile, {
+        ext <- tools::file_ext(input$shapefile$name)
+        show_modal_spinner(spin = "atom",
+                           color = "#112446",
+                           text = paste0("Loading ", input$shapefile$name[ext=="shp"], "..."))
+        mydir <- tempdir()
+        on.exit(unlink(mydir))
+        file <- file.path(mydir, input$shapefile$name)
+        file.copy(input$shapefile$datapath, file)
+        # check the extensions, try to load the file, and check file contents
+        if ("shp" %in% ext) {
+            # try to load the file
+            file <- file[ext=="shp"]
+            file_contents <- try(readOGR(dsn=file, verbose=FALSE), silent=TRUE)
+            if (class(file_contents)[1]=="try-error") {
+                help_latlon_txt <- "Invalid input files. Make sure all files with the same name (and different extensions, e.g. shp, dbf, prj, sbx...) are selected."
+            } else {
+                # check the file contents
+                if (class(file_contents)[1] == "SpatialPolygonsDataFrame") {
+                    file_coords <- try(file_contents@polygons[[1]]@Polygons[[1]]@coords, silent=TRUE)
+                    if (class(file_coords)[1]=="try-error") {
+                        help_latlon_txt <- "Invalid file contents."
+                    } else {
+                        help_latlon_txt <- ""
+                        # format coordinates and update manual_lats and manual_lons
+                        shapefile_custom_lons <- as.numeric(file_coords[,1])
+                        shapefile_custom_lats <- as.numeric(file_coords[,2])
+                        updateTextInput(session, inputId="manual_lats", value=paste0(shapefile_custom_lats, collapse=","))
+                        updateTextInput(session, inputId="manual_lons", value=paste0(shapefile_custom_lons, collapse=","))
+                        updateTextInput(session, inputId="custom_name", value=input$shapefile$name[ext=="shp"])
+                        state$draw_programmatically <- TRUE
+                        state$applyname_programmatically <- TRUE
+                    }
+                } else {
+                    help_latlon_txt <- "Invalid file contents. Shapefile must contain a SpatialPolygonsDataFrame."
+                }
+            }
+        } else {
+            help_latlon_txt <- "Please select a shapefile (.shp) and all corresponding files with the same name but different extensions (e.g. dbf, prj, sbx...)"
         }
-        helpText(help_msg,
+        remove_modal_spinner()
+        state$help_latlon_txt <- help_latlon_txt
+    })
+    
+    
+    output$help_latlon <- renderUI({
+        if (state$help_latlon_txt != "") {
+            showModal(modalDialog(
+                paste("ERROR:", state$help_latlon_txt),
+                title = NULL,
+                footer = modalButton("Dismiss"),
+                size = c("m", "s", "l"),
+                easyClose = TRUE,
+                fade = FALSE
+            ))
+        }
+        helpText(state$help_latlon_txt,
                  width = widget_width,
-                 style = help_text_style)
-        
+                 style = error_text_style)
     })
     
     
@@ -2093,17 +2108,23 @@ server <- function(input, output, session) {
     output$poly_title <- renderUI({
         
         if (state$data_loaded) {
-            
             str1 <- paste0(state$year, " ", ifelse(state$region=="atlantic", "Atlantic", "Pacific"), ", ", state$poly_name)
-            str2a <- "Latitudes:"
-            str2b <- paste0(state$polylat, collapse=", ")
-            str3a <- "Longitudes:"
-            str3b <- paste0(state$polylon, collapse=", ")
-
+            if (is.null(state$polylat)) {
+                str2 <- ""
+                str3 <- ""
+            } else {
+                if (length(state$polylat) > 20) {
+                    num_hidden_coords <- length(state$polylat) - 20
+                    str2 <- paste0(paste0(round(state$polylat,6)[1:20], collapse=", "), "... <i>[truncated, ", num_hidden_coords, " remaining]</i>")
+                    str3 <- paste0(paste0(round(state$polylon,6)[1:20], collapse=", "), "... <i>[truncated, ", num_hidden_coords, " remaining]</i>")
+                } else {
+                    str2 <- paste0(round(state$polylat,6), collapse=", ")
+                    str3 <- paste0(round(state$polylon,6), collapse=", ")
+                }
+            }
             HTML(paste0("<font style=\"font-size: 18px; color: #555555; font-weight: bold;\">", str1, "</font><br/>",
-                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">", str2a, "</font> ", str2b, "<br/>",
-                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">", str3a, "</font> ", str3b))
-            
+                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Latitudes:</font> ", str2, "<br/>",
+                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Longitudes:</font> ", str3))
         }
         
     })
@@ -2167,7 +2188,7 @@ server <- function(input, output, session) {
             
             coords <- draw_polygon()
             
-        } else if (state$box=="custom" & state$latlon_method=="typeCoords") {
+        } else if (state$box=="custom" & (state$latlon_method=="typeCoords" | state$latlon_method=="loadShapefile")) {
             
             coords <- type_polygon()
             
