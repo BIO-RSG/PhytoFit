@@ -134,9 +134,11 @@ remove_custom_poly <- tags$script(HTML(
 #       - styles the horizontal bar in the sidebar,
 #       - reduces padding inside widget boxes
 #       - reduces padding between widget boxes
+#       - adjusts padding between inline radioButton options
 sidebar_tags_style <- tags$style(HTML(
             "hr {border-top: 1px solid #bbbbbb;}
-            .form-control { padding:3px 3px;}"
+            .form-control { padding:3px 3px;}
+            .radio-inline {margin-right: -5px;}"
 ))
 
 
@@ -218,6 +220,27 @@ ui <- fluidPage(
             helpText("**EOF data only exists in a box encompassing the Gulf of Saint Lawrence (41-53 N, 49-75 W)",
                      width = widget_width,
                      style = paste(help_text_style, "margin-bottom: 20px; margin-top: -15px;")),
+            helpText("View full satellite [chla], or use one of two models to separate satellite [chla] into concentrations of different phytoplankton cell sizes, and choose the cell size to view:",
+                     width = widget_width,
+                     style = paste(label_text_style_main_options, "margin-bottom: 20px;")),
+            radioButtons(inputId = "concentration_type",
+                         label = NULL,
+                         choices = concentration_types,
+                         selected = "full",
+                         width = widget_width),
+            conditionalPanel(condition = "input.concentration_type == 'model1'",
+                             radioGroupButtons(inputId = "cell_size_model1",
+                                               label = NULL,
+                                               choices = cell_sizes_model1,
+                                               selected = "small",
+                                               width = widget_width)),
+            conditionalPanel(condition = "input.concentration_type == 'model2'",
+                             radioGroupButtons(inputId = "cell_size_model2",
+                                               label = NULL,
+                                               choices = cell_sizes_model2,
+                                               selected = "small",
+                                               width = widget_width)),
+            br(),
             helpText("Year",
                      width = widget_width,
                      style = label_text_style_main_options),
@@ -682,7 +705,7 @@ ui <- fluidPage(
                           value = TRUE,
                           width = widget_width))),
             helpText(HTML(paste0("Files will be zipped to a folder following the naming convention ",
-                                 "<i>satellite_ region_ algorithm_ years_ interval_ (un)loggedChla_ fitmethod_ timecreated</i>.</br>",
+                                 "<i>satellite_ region_ compositeLength_ years_ cellSizes_ chlaAlgorithm_ fitmethod_ timecreated</i>.</br>",
                                  "Make sure at least one polygon is selected.<br>",
                                  "<b>When processing is complete and the new filename appears over the download button, click \"Download results (.zip)\".</b>")),
                      width = widget_width,
@@ -879,7 +902,8 @@ server <- function(input, output, session) {
                                                    "value_description", "setting_id_variable_type",
                                                    "setting_id_widget_type"))) {
                     help_settings_file_txt <- ""
-                    main_ids <- c("satellite", "region", "algorithm", "year", "interval", "log_chla")
+                    main_ids <- c("satellite", "region", "algorithm", "concentration_type",
+                                  "cell_size_model1", "cell_size_model2", "year", "interval", "log_chla")
                     main_inds <- file_contents$setting_id %in% main_ids
                     primary_settings <- file_contents[main_inds,]
                     state$secondary_settings <- file_contents[!main_inds,]
@@ -902,9 +926,12 @@ server <- function(input, output, session) {
                         updateSelectInput(session, inputId = tmp_ids[1], selected = tmp_values[[1]])
                         updateSelectInput(session, inputId = tmp_ids[2], selected = tmp_values[[2]])
                         updateSelectInput(session, inputId = tmp_ids[3], selected = tmp_values[[3]])
-                        updateSelectInput(session, inputId = tmp_ids[4], selected = tmp_values[[4]], choices = rev(years[[tmp_values[[1]]]]))
-                        updateSelectInput(session, inputId = tmp_ids[5], selected = tmp_values[[5]])
-                        updateSwitchInput(session, inputId = tmp_ids[6], value = tmp_values[[6]])
+                        updateRadioButtons(session, inputId = tmp_ids[4], selected = tmp_values[[4]])
+                        updateRadioGroupButtons(session, inputId = tmp_ids[5], selected = tmp_values[[5]])
+                        updateRadioGroupButtons(session, inputId = tmp_ids[6], selected = tmp_values[[6]])
+                        updateSelectInput(session, inputId = tmp_ids[7], selected = tmp_values[[7]], choices = rev(years[[tmp_values[[1]]]]))
+                        updateSelectInput(session, inputId = tmp_ids[8], selected = tmp_values[[8]])
+                        updateSwitchInput(session, inputId = tmp_ids[9], value = tmp_values[[9]])
                     }
                 } else {
                     help_settings_file_txt <- "Invalid file contents."
@@ -966,6 +993,9 @@ server <- function(input, output, session) {
         input$satellite
         input$region
         input$algorithm
+        input$concentration_type
+        input$cell_size_model1
+        input$cell_size_model2
         input$year
         input$interval
         input$log_chla
@@ -1543,6 +1573,9 @@ server <- function(input, output, session) {
         # map, and other output
         state$satellite <- input$satellite
         state$algorithm <- input$algorithm
+        state$concentration_type <- input$concentration_type
+        state$cell_size_model1 <- input$cell_size_model1
+        state$cell_size_model2 <- input$cell_size_model2
         state$year <- input$year
         state$interval <- input$interval
         state$log_chla <- input$log_chla
@@ -1565,7 +1598,8 @@ server <- function(input, output, session) {
         }
         all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
                              state$yearday, state$interval, state$log_chla, length(sslat),
-                             doys_per_week, doy_week_start, doy_week_end)
+                             doys_per_week, doy_week_start, doy_week_end,
+                             state$concentration_type, state$cell_size_model1, state$cell_size_model2)
         sschla <- all_data$sschla
         state$available_days <- all_data$available_days
         state$doy_vec <- all_data$doy_vec # days of the year, whether you're using daily or weekly data
@@ -2183,6 +2217,8 @@ server <- function(input, output, session) {
         coords <- NULL
         add_poly <- FALSE # add new polygons using leafletProxy?
         
+        region <- isolate(state$region)
+        
         # Get coordinates from a custom polygon
         if (state$box=="custom" & state$latlon_method=="drawPoly") {
             
@@ -2214,8 +2250,8 @@ server <- function(input, output, session) {
                 
                 # Use point.in.polygon to extract AZMP stat boxes based on their
                 # lat/lon boundaries.
-                Longitude <- as.numeric(all_regions[[isolate(state$region)]][[which(state$box==poly_ID[[isolate(state$region)]])]]$lon)
-                Latitude <- as.numeric(all_regions[[isolate(state$region)]][[which(state$box==poly_ID[[isolate(state$region)]])]]$lat)
+                Longitude <- as.numeric(all_regions[[region]][[which(state$box==poly_ID[[region]])]]$lon)
+                Latitude <- as.numeric(all_regions[[region]][[which(state$box==poly_ID[[region]])]]$lat)
                 
                 # for highlighted box in leaflet map
                 highlight_ID <- "highlighted_box"
@@ -2309,7 +2345,15 @@ server <- function(input, output, session) {
         day_label <- state$day_label
         time_ind <- state$time_ind
         
-        plot_title <- paste0('Density plot of chlorophyll concentration for ', day_label)
+        isolate({
+            concentration_type <- state$concentration_type
+            cell_size_model1 <- state$cell_size_model1
+            cell_size_model2 <- state$cell_size_model2
+        })
+        
+        plot_title <- paste0(ifelse(concentration_type=="model1", paste0(proper(cell_size_model1), " cell size: "),
+                                    ifelse(concentration_type=="model2", paste0(proper(cell_size_model2), " cell size: "), "")),
+                             'Density plot of chlorophyll concentration for ', day_label)
         
         # create base plot
         p <- ggplot() + theme_bw()
@@ -2469,8 +2513,19 @@ server <- function(input, output, session) {
         # get the most recent annual data
         rchla <- annual_stats()
         
-        plot_title <- paste0("Time series of ", isolate(state$interval), " ", isolate(state$dailystat),
-                             " chlorophyll concentration for ", isolate(state$year))
+        isolate({
+            concentration_type <- state$concentration_type
+            cell_size_model1 <- state$cell_size_model1
+            cell_size_model2 <- state$cell_size_model2
+            interval <- state$interval
+            dailystat <- state$dailystat
+            year <- state$year
+            log_chla <- state$log_chla
+        })
+        
+        plot_title <- paste0(ifelse(concentration_type=="model1", paste0(proper(cell_size_model1), " cell size: "),
+                                    ifelse(concentration_type=="model2", paste0(proper(cell_size_model2), " cell size: "), "")),
+                             "Time series of ", interval, " ", dailystat, " chlorophyll concentration for ", year)
         
         # Get the vector of dataframe names
         pnames <- pnlist[[state$fitmethod]]
@@ -2547,7 +2602,7 @@ server <- function(input, output, session) {
         
         if (is.null(em)) {
             
-            bf_data <- get_bloom_fit_data(interval=isolate(state$interval),
+            bf_data <- get_bloom_fit_data(interval=interval,
                                           p=p,
                                           pnames = pnames,
                                           dailystat = state$dailystat,
@@ -2571,7 +2626,7 @@ server <- function(input, output, session) {
                                           tm_limits = state$tm_limits,
                                           ti_limits = state$ti_limits,
                                           t_range = c(first_day, last_day),
-                                          log_chla = isolate(state$log_chla),
+                                          log_chla = log_chla,
                                           threshcoef = state$threshcoef,
                                           doy_vec = doy_vec,
                                           plot_title = plot_title,
@@ -2697,6 +2752,9 @@ server <- function(input, output, session) {
             typedpoly = state$typedpoly
             fullrunoutput_png <- input$fullrunoutput_png
             fullrunoutput_statcsv <- input$fullrunoutput_statcsv
+            concentration_type = state$concentration_type
+            cell_size_model1 = state$cell_size_model1
+            cell_size_model2 = state$cell_size_model2
         })
         
         # create column names for parameter table
@@ -2721,7 +2779,10 @@ server <- function(input, output, session) {
                                            interval=interval,
                                            log_chla=log_chla,
                                            fitmethod=fitmethod,
-                                           custom_end="fulltimeseries"))
+                                           custom_end="fulltimeseries",
+                                           concentration_type=concentration_type,
+                                           cell_size_model1=cell_size_model1,
+                                           cell_size_model2=cell_size_model2))
         dir.create(output_dir)
         
         steps <- 100/length(year_list)
@@ -2788,7 +2849,10 @@ server <- function(input, output, session) {
                 ti_threshold_type = ti_threshold_type,
                 ti_threshold_constant = ti_threshold_constant,
                 fullrunoutput_png = fullrunoutput_png,
-                fullrunoutput_statcsv = fullrunoutput_statcsv)
+                fullrunoutput_statcsv = fullrunoutput_statcsv,
+                concentration_type = concentration_type,
+                cell_size_model1 = cell_size_model1,
+                cell_size_model2 = cell_size_model2)
             
             # add to final output dataframe
             total_params_df[((x-1)*length(polygon_list$full_names)+1):(x*length(polygon_list$full_names)),] <- tmp_par
@@ -3034,9 +3098,12 @@ server <- function(input, output, session) {
                        interval=isolate(state$interval),
                        log_chla=isolate(state$log_chla),
                        day_label=gsub(" ", "", strsplit(isolate(state$day_label), "[()]+")[[1]][2]),
-                       polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
+                       polygon=isolate(state$box),
                        fitmethod=isolate(state$fitmethod),
-                       custom_end="settings.csv")
+                       custom_end="settings.csv",
+                       concentration_type=isolate(state$concentration_type),
+                       cell_size_model1=isolate(state$cell_size_model1),
+                       cell_size_model2=isolate(state$cell_size_model2))
             },
         content <- function(file) {
             if (isolate(state$box)=="custom") {

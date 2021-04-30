@@ -23,7 +23,8 @@ get_time_vars <- function(interval, year, yearday, doys_per_week=NULL) {
 
 # Load and format a new dataset
 get_data <- function(region, satellite, algorithm, year, yearday, interval, log_chla,
-                     num_pix, doys_per_week, doy_week_start, doy_week_end) {
+                     num_pix, doys_per_week, doy_week_start, doy_week_end,
+                     concentration_type="full", cell_size_model1="small", cell_size_model2="small") {
   
   sschla <- read_fst(paste0("./data/", region, "/", region, "_", satellite, "_", algorithm, "_", year, ".fst"))
   
@@ -31,6 +32,13 @@ get_data <- function(region, satellite, algorithm, year, yearday, interval, log_
   
   # Reshape
   sschla <- matrix(sschla$chl, ncol=available_days)
+  
+  # If separating chla into phytoplankton cells of different sizes
+  if (concentration_type=="model1") {
+    sschla <- phyto_cellsize_model1(sschla, cell_size_model1)
+  } else if (concentration_type=="model2") {
+    sschla <- phyto_cellsize_model2(sschla, cell_size_model2)
+  }
   
   # Convert to weekly data, if selected.
   if (interval=="daily") {
@@ -364,6 +372,9 @@ format_settings_to_save <- function(all_inputs, custom_name, polylon, polylat) {
   val_desc <- c(names(sensors)[sensors==all_inputs$satellite],
                 names(regions)[regions==all_inputs$region],
                 names(algorithms)[algorithms==all_inputs$algorithm],
+                names(concentration_types)[concentration_types==all_inputs$concentration_type],
+                names(cell_sizes_model1)[cell_sizes_model1==all_inputs$cell_size_model1],
+                names(cell_sizes_model2)[cell_sizes_model2==all_inputs$cell_size_model2],
                 NA, ifelse(all_inputs$interval=="weekly", "8 days", NA), NA, NA, NA,
                 names(outliers)[outliers==all_inputs$outlier],
                 names(dailystats)[dailystats==all_inputs$dailystat],
@@ -410,7 +421,9 @@ format_settings_to_save <- function(all_inputs, custom_name, polylon, polylat) {
 }
 
 # Create an output filename based on user-selected settings
-output_str <- function(satellite, region, algorithm, year, interval, log_chla, day_label=NULL, polygon=NULL, fitmethod, custom_end) {
+output_str <- function(satellite, region, algorithm, year, interval, log_chla,
+                       day_label=NULL, polygon=NULL, fitmethod, custom_end,
+                       concentration_type="full", cell_size_model1="small", cell_size_model2="small") {
   
   if (length(year) > 1) {
     if (year[1]==year[2]) {
@@ -420,10 +433,14 @@ output_str <- function(satellite, region, algorithm, year, interval, log_chla, d
     }
   }
   
-  output_name <- paste(c(satellite, region, algorithm, year, interval,
-                         ifelse(log_chla, "loggedChla", "unloggedChla"), day_label, polygon,
-                         ifelse(fitmethod=="gauss", "Gaussian", ifelse(fitmethod=="roc", "RateOfChange", "Threshold")),
-                         "created", format(Sys.time(),"%Y-%m-%d-%H%M%S"), custom_end),
+  cellSize <- paste0("cellSize", ifelse(concentration_type=="full", "All",
+                                        ifelse(concentration_type=="model1", proper(cell_size_model1),
+                                               proper(cell_size_model2))))
+  
+  output_name <- paste(c(ifelse(satellite=="modis1km", "M1", paste0(toupper(substr(satellite,1,1)),"4")),
+                         region, polygon, interval, year, day_label, cellSize,
+                         ifelse(log_chla, paste0("log", proper(algorithm), "Chla"), paste0(proper(algorithm), "Chla")),
+                         fitmethod, paste0("created", format(Sys.time(),"%Y-%m-%d-%H%M%S")), custom_end),
                        collapse="_")
   
   # If some variables set to NULL, their space is blank but there are _ on either side.
@@ -552,4 +569,40 @@ check_latlons <- function(lats, lons, num_invalid_polygons_drawn) {
               num_invalid_polygons_drawn=num_invalid_polygons_drawn,
               help_latlon_txt=help_latlon_txt))
   
+}
+
+
+# Two populations - large and small/medium
+phyto_cellsize_model1 <- function(chla, which_size="small") {
+  new_chla <- matrix(nrow=nrow(chla), ncol=ncol(chla))
+  good_chla <- !is.na(chla)
+  chla_sub <- chla[good_chla]
+  Ssm = 1.613
+  CsmMax = 0.62
+  if (which_size=="small") {
+    new_chla[good_chla] <- CsmMax * (1 - exp(-Ssm * chla_sub))
+  } else if (which_size=="large") {
+    new_chla[good_chla] <- chla_sub - CsmMax * (1 - exp(-Ssm * chla_sub))
+  }
+  return(new_chla)
+}
+
+
+# Three population
+phyto_cellsize_model2 <- function(chla, which_size="small") {
+  new_chla <- matrix(nrow=nrow(chla), ncol=ncol(chla))
+  good_chla <- !is.na(chla)
+  chla_sub <- chla[good_chla]
+  CsMax = 0.166
+  Ss = 6.01
+  CsmMax = 0.999
+  Ssm = 1.00
+  if (which_size=="small") {
+    new_chla[good_chla] <- CsMax * (1 -exp(-Ss * chla_sub))
+  } else if (which_size=="medium") {
+    new_chla[good_chla] <- CsmMax * (1 - exp(-Ssm * chla_sub)) - CsMax * (1 -exp(-Ss * chla_sub))
+  } else if (which_size=="large") {
+    new_chla[good_chla] <- chla_sub - CsmMax * (1 - exp(-Ssm * chla_sub))
+  }
+  return(new_chla)
 }
