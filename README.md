@@ -46,3 +46,10 @@ Open app.R within RStudio, and click "Run app"
 
 * **Andrea Hilborn** for many valuable suggestions
 
+## Links
+
+[User guide](https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md) (In progress)  
+[References and data sources](https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md#references-and-data-sources)  
+[Using the raw (binned) data](https://github.com/BIO-RSG/PhytoFit/blob/master/fst_tutorial.md) (This is a quick tutorial explaining how the raw satellite chlorophyll data used in PhytoFit can be read into R and manipulated for other purposes)  
+[Code updates affecting the algorithms](https://github.com/BIO-RSG/PhytoFit/blob/master/updates.md) (Summary of updates that affect the way the bloom metrics are calculated)  
+

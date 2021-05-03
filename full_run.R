@@ -8,14 +8,16 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                      tm_limits = c(1,365), ti_limits = c(1,365), dir_name,
                      flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, ti_threshold=0.2, tt_threshold=0.2,
                      rm_bkrnd=FALSE, ti_threshold_type = "percent_thresh", ti_threshold_constant = 0.1,
-                     fullrunoutput_png = TRUE, fullrunoutput_statcsv = TRUE) {
+                     fullrunoutput_png = TRUE, fullrunoutput_statcsv = TRUE,
+                     concentration_type="full", cell_size_model1="small", cell_size_model2="small") {
     
     
     #***************************************************************************
     # load data and create base plot and plot title
     
     all_data <- get_data(region, satellite, algorithm, year, yearday, interval,
-                         log_chla, length(sslat), doys_per_week, doy_week_start, doy_week_end)
+                         log_chla, length(sslat), doys_per_week, doy_week_start, doy_week_end,
+                         concentration_type, cell_size_model1, cell_size_model2)
     
     sschla <- all_data$sschla
     available_days <- all_data$available_days

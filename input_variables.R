@@ -13,6 +13,15 @@ algorithms <- c("OCx (global, band ratio)"="ocx",
                 "GSM_GS (regional, semi-analytical)"="gsmgs",
                 "EOF (regional, empirical)"="eof")
 
+concentration_types <- list("Full chlorophyll-a concentration"="full",
+                            "Small/Large cell concentrations"="model1",
+                            "Small/Medium/Large cell concentrations"="model2")
+cell_sizes_model1 <- list("Small"="small",
+                          "Large"="large")
+cell_sizes_model2 <- list("Small"="small",
+                          "Medium"="medium",
+                          "Large"="large")
+
 # years with available data for each sensor
 years <- list("modis"=2003:2021,
               "viirs"=2012:2021,
@@ -30,7 +39,8 @@ names(polygonChoices[["atlantic"]]) <- c("Custom polygon", full_names[["atlantic
 names(polygonChoices[["pacific"]]) <- c("Custom polygon", full_names[["pacific"]])
 
 latlon_methods <- c("Draw polygon on map" = "drawPoly",
-                    "Type coordinates" = "typeCoords")
+                    "Type coordinates" = "typeCoords",
+                    "Load shapefile" = "loadShapefile")
 
 outliers <- c('None' = 'none',
               '+/- 2 SD' = 'sd2',
@@ -75,7 +85,7 @@ pnlist <- list("gauss"=list("symmetric"=c("Mean", "Median", "t[start]", "t[max]"
 
 # inputId for each widget to save in the settings
 # (note that polylon and polylat will be manually added at the end because they are actually part of the "state" reactive list, not "input")
-input_ids_to_save <- c("satellite", "region", "algorithm", "year", "interval", "log_chla",
+input_ids_to_save <- c("satellite", "region", "algorithm", "concentration_type", "cell_size_model1", "cell_size_model2", "year", "interval", "log_chla",
                        "yearday_slide", "percent", "outlier", "dailystat", "pixrange1", "pixrange2",
                        "fitmethod", "bloomShape", "smoothMethod", "loessSpan",
                        "t_range", "ti_limits", "tm_limits",
@@ -87,16 +97,18 @@ input_ids_to_save <- c("satellite", "region", "algorithm", "year", "interval", "
 
 # how should the input be coerced when reloaded? 1 = numeric, 2 = character, 3 = logical
 # note that some number inputs are actually character-type to get the textInput formatting
-input_ids_variable_type <- c(2,2,2,1,2,3,1,1,2,2,2,2,2,2,2,1,1,1,1,2,1,3,3,3,3,2,2,2,2,1,3,3,1,2,2,2,1,1)
+input_ids_variable_type <- c(2,2,2,2,2,2,1,2,3,1,1,2,2,2,2,2,2,2,1,1,1,1,2,1,3,3,3,3,2,2,2,2,1,3,3,1,2,2,2,1,1)
 
 # types of widgets used for each input (need this to update them properly)
 # selectInput=1, sliderInput=2, numericInput=3, textInput=4, radioButtons=5,
-# checkboxInput=6, switchInput=7, pickerInput=8
-input_ids_widget_type <- c(1,1,1,1,1,7,2,3,1,1,4,4,1,1,1,3,2,2,2,5,3,7,7,7,6,4,4,4,4,3,6,6,2,8,1,0,0,0)
+# checkboxInput=6, switchInput=7, pickerInput=8, radioGroupButtons=9
+input_ids_widget_type <- c(1,1,1,5,9,9,1,1,7,2,3,1,1,4,4,1,1,1,3,2,2,2,5,3,7,7,7,6,4,4,4,4,3,6,6,2,8,1,0,0,0)
 
 # longer description of each inputId
-input_ids_description <- c("Sensor", "Region (NW Atlantic or NE Pacific)", "Chlorophyll-a Algorithm", "Year",
-                         "Temporal binning", "Chlorophyll-a logged",
+input_ids_description <- c("Sensor", "Region (NW Atlantic or NE Pacific)", "Chlorophyll-a Algorithm",
+                           "Full chl-a concentration or subset based on cell size using one of two models",
+                           "Cell size using model 1", "Cell size using model 2",
+                           "Year", "Temporal binning", "Chlorophyll-a logged",
                          "Day of year (or first day of 8day period if weekly data selected)",
                          "Minimum daily (or weekly) percent coverage",
                          "Outlier detection method", "Daily (or weekly) statistic",

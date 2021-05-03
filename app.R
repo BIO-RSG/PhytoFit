@@ -134,9 +134,11 @@ remove_custom_poly <- tags$script(HTML(
 #       - styles the horizontal bar in the sidebar,
 #       - reduces padding inside widget boxes
 #       - reduces padding between widget boxes
+#       - adjusts padding between inline radioButton options
 sidebar_tags_style <- tags$style(HTML(
             "hr {border-top: 1px solid #bbbbbb;}
-            .form-control { padding:3px 3px;}"
+            .form-control { padding:3px 3px;}
+            .radio-inline {margin-right: -5px;}"
 ))
 
 
@@ -218,6 +220,27 @@ ui <- fluidPage(
             helpText("**EOF data only exists in a box encompassing the Gulf of Saint Lawrence (41-53 N, 49-75 W)",
                      width = widget_width,
                      style = paste(help_text_style, "margin-bottom: 20px; margin-top: -15px;")),
+            helpText("View full satellite [chla], or use one of two models to separate satellite [chla] into concentrations of different phytoplankton cell sizes, and choose the cell size to view:",
+                     width = widget_width,
+                     style = paste(label_text_style_main_options, "margin-bottom: 20px;")),
+            radioButtons(inputId = "concentration_type",
+                         label = NULL,
+                         choices = concentration_types,
+                         selected = "full",
+                         width = widget_width),
+            conditionalPanel(condition = "input.concentration_type == 'model1'",
+                             radioGroupButtons(inputId = "cell_size_model1",
+                                               label = NULL,
+                                               choices = cell_sizes_model1,
+                                               selected = "small",
+                                               width = widget_width)),
+            conditionalPanel(condition = "input.concentration_type == 'model2'",
+                             radioGroupButtons(inputId = "cell_size_model2",
+                                               label = NULL,
+                                               choices = cell_sizes_model2,
+                                               selected = "small",
+                                               width = widget_width)),
+            br(),
             helpText("Year",
                      width = widget_width,
                      style = label_text_style_main_options),
@@ -340,39 +363,50 @@ ui <- fluidPage(
                                           label = NULL,
                                           choices = latlon_methods,
                                           selected = "drawPoly",
-                                          width = widget_width)),
-            
-            # Give instructions if user opts to draw polygon.
-            conditionalPanel(condition = "input.box =='custom' && input.latlon_method =='drawPoly'",
-                             helpText("Draw polygon using the toolbar at the top left corner of the map.",
-                                      width = widget_width,
-                                      style = help_text_style)),
-            # If user selected the option to type lat/lon manually, two
-            # numericInput boxes will appear, one for lats and one for lons
-            conditionalPanel(condition = "input.box =='custom' && input.latlon_method =='typeCoords'",
-                             helpText(HTML(paste0("Enter decimal latitudes and longitudes for vertices of polygon, separated by commas, then click \"Create polygon\". ",
-                                                  "Use lon/lat < 0 for west/south. Lists must be the same length, with >2 values each, in the same order so that each latitude is paired with longitude. Example:</br>",
-                                                  "List of latitudes: 42.6, 43, 42, 40.4, 40, 42.6</br>",
-                                                  "List of longitudes: -61, -59, -55, -57, -60.4, -61")),
-                                      width = widget_width,
-                                      style = help_text_style),
-                             textInput(inputId = "manual_lats",
-                                       label = HTML("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">List of latitudes:</font>"),
-                                       value = "",
-                                       width = widget_width),
-                             textInput(inputId = "manual_lons",
-                                       label = HTML("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">List of longitudes:</font>"),
-                                       value = "",
-                                       width = widget_width),
-                             actionButton(inputId = 'draw',
-                                          label = 'Create polygon',
-                                          width = widget_width,
-                                          style = button_style),
-                             uiOutput("help_latlon",
-                                      width = widget_width,
-                                      style = "white-space: normal;"),
-                             br()),
-            
+                                          width = widget_width),
+                            conditionalPanel(condition = "input.latlon_method =='drawPoly'",
+                                             helpText("Draw polygon using the toolbar at the top left corner of the map.",
+                                                      width = widget_width,
+                                                      style = help_text_style)),
+                            conditionalPanel(condition = "input.latlon_method =='typeCoords'",
+                                             helpText(HTML(paste0("Enter decimal latitudes and longitudes for vertices of polygon, separated by commas, then click \"Create polygon\". ",
+                                                                  "Use lon/lat < 0 for west/south. Lists must be the same length, with >2 values each, in the same order so that each latitude is paired with longitude.</br>")),
+                                                      width = widget_width,
+                                                      style = help_text_style)),
+                            conditionalPanel(condition = "input.latlon_method =='loadShapefile'",
+                                             helpText(HTML("Click \"Browse\" to find a shapefile. Select the \"shp\" file and all files with the same name but different extensions (e.g. dbf, prj, sbx...), then \"Open\". If the polygon does not load automatically, click \"Create polygon\" <b>(NOTE: polygons with a large number of vertices may take several seconds to load). Warning: This will only use the first polygon in the shapefile, and disjoint polygons are NOT allowed.</b>"),
+                                                      width = widget_width,
+                                                      style = help_text_style),
+                                             fileInput(inputId = "shapefile",
+                                                       label = NULL,
+                                                       multiple = TRUE,
+                                                       accept = c('.shp','.dbf','.sbn','.sbx','.shx','.prj', '.qix'),
+                                                       width = widget_width)),
+                            conditionalPanel(condition = "input.latlon_method =='typeCoords' || input.latlon_method =='loadShapefile'",
+                                             helpText(HTML("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">List of latitudes:</font>"),
+                                                      width = widget_width,
+                                                      style = paste(help_text_style, "margin-bottom: -2px; margin-top: -5px;")),
+                                             textInput(inputId = "manual_lats",
+                                                       label = NULL,
+                                                       value = "",
+                                                       width = widget_width,
+                                                       placeholder = "42.6, 43, 42, 40.4, 40, 42.6"),
+                                             helpText(HTML("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">List of longitudes:</font>"),
+                                                      width = widget_width,
+                                                      style = paste(help_text_style, "margin-bottom: -2px; margin-top: -5px;")),
+                                             textInput(inputId = "manual_lons",
+                                                       label = NULL,
+                                                       value = "",
+                                                       width = widget_width,
+                                                       placeholder = "-61, -59, -55, -57, -60.4, -61"),
+                                             actionButton(inputId = 'draw',
+                                                          label = 'Create polygon',
+                                                          width = widget_width,
+                                                          style = button_style)),
+                            uiOutput("help_latlon",
+                                     width = widget_width,
+                                     style = "white-space: normal;"),
+                            br()),
             br()
             ),
             
@@ -671,7 +705,7 @@ ui <- fluidPage(
                           value = TRUE,
                           width = widget_width))),
             helpText(HTML(paste0("Files will be zipped to a folder following the naming convention ",
-                                 "<i>satellite_ region_ algorithm_ years_ interval_ (un)loggedChla_ fitmethod_ timecreated</i>.</br>",
+                                 "<i>satellite_ region_ compositeLength_ years_ cellSizes_ chlaAlgorithm_ fitmethod_ timecreated</i>.</br>",
                                  "Make sure at least one polygon is selected.<br>",
                                  "<b>When processing is complete and the new filename appears over the download button, click \"Download results (.zip)\".</b>")),
                      width = widget_width,
@@ -789,6 +823,7 @@ server <- function(input, output, session) {
     state$custom_name <- ""
     state$fullrunboxes <- "custom"
     state$help_load_txt <- ""
+    state$help_latlon_txt <- ""
     state$secondary_settings <- NULL
     state$draw_programmatically <- FALSE
     state$applyname_programmatically <- FALSE
@@ -807,20 +842,7 @@ server <- function(input, output, session) {
                         "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md\">User guide</a> (In progress)<br><br>",
                         "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/fst_tutorial.md\">Using the raw (binned) data</a><br>This is a quick tutorial explaining how the raw satellite chlorophyll data used in PhytoFit can be read into R and manipulated for other purposes.<br><br>",
                         "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/updates.md\">Code updates affecting the algorithms</a><br>Summary of updates that affect the way the bloom metrics are calculated.<br><br>",
-                        "<b>Sources:</b><br>",
-                        "Bloom fitting models (Shifted Gaussian, Rate of Change, and Threshold methods):<br>",
-                        "<p style=\"margin-left: 30px;\"><i>TECH REPORT IN PROGRESS</i></p>",
-                        "Chlorophyll-a algorithms OCx, POLY4, and GSM_GS:<br>",
-                        "<p style=\"margin-left: 30px;\"><a href=\"https://www.mdpi.com/2072-4292/11/22/2609\"><i>Clay, S.; Peña, A.; DeTracey, B.; Devred, E. Evaluation of Satellite-Based Algorithms to Retrieve Chlorophyll-a Concentration in the Canadian Atlantic and Pacific Oceans. Remote Sens. 2019, 11, 2609.</i></a></p>",
-                        "Chlorophyll-a algorithm EOF:<br>",
-                        "<p style=\"margin-left: 30px;\"><a href=\"https://www.mdpi.com/2072-4292/10/2/265\"><i>Laliberté, J.; Larouche, P.; Devred, E.; Craig, S. Chlorophyll-a Concentration Retrieval in the Optically Complex Waters of the St. Lawrence Estuary and Gulf Using Principal Component Analysis. Remote Sens. 2018, 10, 265.</i></a></p>",
-                        "Raw data:<br>",
-                        "<p style=\"margin-left: 30px;\">Daily level-3 binned files are downloaded from <a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a>, and weekly composites are generated by taking a simple arithmetic average of each pixel over an 8-day period (46 weeks/year). The binned data is used for statistics and bloom fitting, and rasterized and projected onto the map using <a href=\"https://spatialreference.org/ref/sr-org/7483/\">EPSG:3857</a> (the Web Mercator projection) for faster image loading.<br>",
-                        "<a href=\"https://oceancolor.gsfc.nasa.gov/atbd/chlor_a/\">NASA OCx chlorophyll-a algorithm</a><br>",
-                        "<a href=\"https://oceancolor.gsfc.nasa.gov/products/\">Level-3 binned files</a><br>",
-                        "<a href=\"https://oceancolor.gsfc.nasa.gov/docs/format/l3bins/\">Binning scheme</a><br>",
-                        "<a href=\"https://oceancolor.gsfc.nasa.gov/atbd/ocl2flags/\">Level-3 binned default flags</a><br>",
-                        "<i>Note: PhytoFit uses the 2018 OC (ocean colour) reprocessed data. More info on reprocessing versions <a href=\"https://oceancolor.gsfc.nasa.gov/reprocessing/\">here</a></i>.</p><br>",
+                        "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md#references-and-data-sources\">References and data sources</a><br><br>",
                         "<b>Contact:</b><br>",
                         "Stephanie.Clay@dfo-mpo.gc.ca<br><br>",
                         "<b>Dataset last updated:</b><br>", data_last_updated)),
@@ -867,7 +889,8 @@ server <- function(input, output, session) {
                                                    "value_description", "setting_id_variable_type",
                                                    "setting_id_widget_type"))) {
                     help_settings_file_txt <- ""
-                    main_ids <- c("satellite", "region", "algorithm", "year", "interval", "log_chla")
+                    main_ids <- c("satellite", "region", "algorithm", "concentration_type",
+                                  "cell_size_model1", "cell_size_model2", "year", "interval", "log_chla")
                     main_inds <- file_contents$setting_id %in% main_ids
                     primary_settings <- file_contents[main_inds,]
                     state$secondary_settings <- file_contents[!main_inds,]
@@ -890,9 +913,12 @@ server <- function(input, output, session) {
                         updateSelectInput(session, inputId = tmp_ids[1], selected = tmp_values[[1]])
                         updateSelectInput(session, inputId = tmp_ids[2], selected = tmp_values[[2]])
                         updateSelectInput(session, inputId = tmp_ids[3], selected = tmp_values[[3]])
-                        updateSelectInput(session, inputId = tmp_ids[4], selected = tmp_values[[4]], choices = rev(years[[tmp_values[[1]]]]))
-                        updateSelectInput(session, inputId = tmp_ids[5], selected = tmp_values[[5]])
-                        updateSwitchInput(session, inputId = tmp_ids[6], value = tmp_values[[6]])
+                        updateRadioButtons(session, inputId = tmp_ids[4], selected = tmp_values[[4]])
+                        updateRadioGroupButtons(session, inputId = tmp_ids[5], selected = tmp_values[[5]])
+                        updateRadioGroupButtons(session, inputId = tmp_ids[6], selected = tmp_values[[6]])
+                        updateSelectInput(session, inputId = tmp_ids[7], selected = tmp_values[[7]], choices = rev(years[[tmp_values[[1]]]]))
+                        updateSelectInput(session, inputId = tmp_ids[8], selected = tmp_values[[8]])
+                        updateSwitchInput(session, inputId = tmp_ids[9], value = tmp_values[[9]])
                     }
                 } else {
                     help_settings_file_txt <- "Invalid file contents."
@@ -954,6 +980,9 @@ server <- function(input, output, session) {
         input$satellite
         input$region
         input$algorithm
+        input$concentration_type
+        input$cell_size_model1
+        input$cell_size_model2
         input$year
         input$interval
         input$log_chla
@@ -1114,17 +1143,23 @@ server <- function(input, output, session) {
             state$draw_toolbar <- TRUE
         } else {
             state$draw_toolbar <- FALSE
-            if (state$draw_programmatically) {
-                # use shinyjs to click the "create polygon" button programmatically
-                # to automatically draw a custom polygon from a settings file
-                shinyjs::click("draw")
-                # reset
-                state$draw_programmatically <- FALSE
-                if (state$applyname_programmatically) {
-                    shinyjs::click("applyname")
-                    state$applyname_programmatically <- FALSE
-                }
-            }
+        }
+    })
+    
+    observeEvent({
+        input$manual_lats
+        input$manual_lons
+    }, {
+        if (state$latlon_method != "drawPoly" & state$draw_programmatically) {
+            shinyjs::click("draw")
+            state$draw_programmatically <- FALSE
+        }
+    })
+    
+    observeEvent(input$custom_name, {
+        if (state$applyname_programmatically) {
+            shinyjs::click("applyname")
+            state$applyname_programmatically <- FALSE
         }
     })
     
@@ -1525,6 +1560,9 @@ server <- function(input, output, session) {
         # map, and other output
         state$satellite <- input$satellite
         state$algorithm <- input$algorithm
+        state$concentration_type <- input$concentration_type
+        state$cell_size_model1 <- input$cell_size_model1
+        state$cell_size_model2 <- input$cell_size_model2
         state$year <- input$year
         state$interval <- input$interval
         state$log_chla <- input$log_chla
@@ -1547,7 +1585,8 @@ server <- function(input, output, session) {
         }
         all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
                              state$yearday, state$interval, state$log_chla, length(sslat),
-                             doys_per_week, doy_week_start, doy_week_end)
+                             doys_per_week, doy_week_start, doy_week_end,
+                             state$concentration_type, state$cell_size_model1, state$cell_size_model2)
         sschla <- all_data$sschla
         state$available_days <- all_data$available_days
         state$doy_vec <- all_data$doy_vec # days of the year, whether you're using daily or weekly data
@@ -1919,84 +1958,81 @@ server <- function(input, output, session) {
     # get coordinates entered in a box by the user.
     observeEvent(input$draw, {
         
-        coords <- NULL
+        good_latlons <- check_latlons(input$manual_lats, input$manual_lons,
+                                      state$num_invalid_polygons_drawn)
         
-        # Reset these
-        state$latlon_invalid <- FALSE
-        state$latlon_toolarge <- FALSE
-        
-        manual_lats <- input$manual_lats
-        manual_lons <- input$manual_lons
-        
-        # split by commas, trim white space from each, and convert to numeric
-        manual_lats <- as.numeric(sapply(strsplit(manual_lats, ",")[[1]], trimws))
-        manual_lons <- as.numeric(sapply(strsplit(manual_lons, ",")[[1]], trimws))
-        
-        # check if any lat/lons are NA or NULL or INF
-        if (any(!is.finite(manual_lats)) | any(!is.finite(manual_lons)) | any(is.null(manual_lats)) | any(is.null(manual_lons))) {
-            
-            state$latlon_invalid <- TRUE
-            state$latlon_toolarge <- FALSE
-            state$num_invalid_polygons_drawn <- state$num_invalid_polygons_drawn + 1
-            
-            # check if lat/lons are not numeric, or not the same length, or empty
-        } else if (!(all(is.numeric(manual_lats)) & all(is.numeric(manual_lons))) | (length(manual_lats) != length(manual_lons)) | length(manual_lats)==0) {
-            
-            state$latlon_invalid <- TRUE
-            state$latlon_toolarge <- FALSE
-            state$num_invalid_polygons_drawn <- state$num_invalid_polygons_drawn + 1
-            
-        } else {
-            
-            # if user forgets to enter first point to close the polygon, fix that here
-            if (!(manual_lats[1]==manual_lats[length(manual_lats)] & manual_lons[1]==manual_lons[length(manual_lons)])) {
-                
-                manual_lats <- c(manual_lats, manual_lats[1])
-                manual_lons <- c(manual_lons, manual_lons[1])
-                
-            }
-            
-            # check area of polygon in case it's too large
-            polygon_area <- polyarea(x=manual_lons, y=manual_lats)
-            
-            if (polygon_area > 500) {
-                
-                state$latlon_invalid <- FALSE
-                state$latlon_toolarge <- TRUE
-                state$num_invalid_polygons_drawn <- state$num_invalid_polygons_drawn + 1
-                
-            } else {
-                
-                state$latlon_invalid <- FALSE
-                state$latlon_toolarge <- FALSE
-                coords <- c(rbind(manual_lons, manual_lats))
-                
-            }
-            
-        }
-        
-        state$typedpoly <- coords
+        state$typedpoly <- good_latlons$coords
+        state$num_invalid_polygons_drawn <- good_latlons$num_invalid_polygons_drawn
+        state$latlon_invalid <- good_latlons$latlon_invalid
+        state$latlon_toolarge <- good_latlons$latlon_toolarge
+        state$help_latlon_txt <- good_latlons$help_latlon_txt
         
     })
     
     type_polygon <- reactive({
-        
         return(state$typedpoly)
-        
     })
     
-    output$help_latlon <- renderUI({
-        
-        help_msg <- ""
-        if (state$latlon_invalid) {
-            help_msg <- "Invalid latitude/longitude."
-        } else if (state$latlon_toolarge) {
-            help_msg <- "Polygon is too large (max allowed area = 500 degrees^2)."
+    
+    observeEvent(input$shapefile, {
+        ext <- tools::file_ext(input$shapefile$name)
+        show_modal_spinner(spin = "atom",
+                           color = "#112446",
+                           text = paste0("Loading ", input$shapefile$name[ext=="shp"], "..."))
+        mydir <- tempdir()
+        on.exit(unlink(mydir))
+        file <- file.path(mydir, input$shapefile$name)
+        file.copy(input$shapefile$datapath, file)
+        # check the extensions, try to load the file, and check file contents
+        if ("shp" %in% ext) {
+            # try to load the file
+            file <- file[ext=="shp"]
+            file_contents <- try(readOGR(dsn=file, verbose=FALSE), silent=TRUE)
+            if (class(file_contents)[1]=="try-error") {
+                help_latlon_txt <- "Invalid input files. Make sure all files with the same name (and different extensions, e.g. shp, dbf, prj, sbx...) are selected."
+            } else {
+                # check the file contents
+                if (class(file_contents)[1] == "SpatialPolygonsDataFrame") {
+                    file_coords <- try(file_contents@polygons[[1]]@Polygons[[1]]@coords, silent=TRUE)
+                    if (class(file_coords)[1]=="try-error") {
+                        help_latlon_txt <- "Invalid file contents."
+                    } else {
+                        help_latlon_txt <- ""
+                        # format coordinates and update manual_lats and manual_lons
+                        shapefile_custom_lons <- as.numeric(file_coords[,1])
+                        shapefile_custom_lats <- as.numeric(file_coords[,2])
+                        updateTextInput(session, inputId="manual_lats", value=paste0(shapefile_custom_lats, collapse=","))
+                        updateTextInput(session, inputId="manual_lons", value=paste0(shapefile_custom_lons, collapse=","))
+                        updateTextInput(session, inputId="custom_name", value=input$shapefile$name[ext=="shp"])
+                        state$draw_programmatically <- TRUE
+                        state$applyname_programmatically <- TRUE
+                    }
+                } else {
+                    help_latlon_txt <- "Invalid file contents. Shapefile must contain a SpatialPolygonsDataFrame."
+                }
+            }
+        } else {
+            help_latlon_txt <- "Please select a shapefile (.shp) and all corresponding files with the same name but different extensions (e.g. dbf, prj, sbx...)"
         }
-        helpText(help_msg,
+        remove_modal_spinner()
+        state$help_latlon_txt <- help_latlon_txt
+    })
+    
+    
+    output$help_latlon <- renderUI({
+        if (state$help_latlon_txt != "") {
+            showModal(modalDialog(
+                paste("ERROR:", state$help_latlon_txt),
+                title = NULL,
+                footer = modalButton("Dismiss"),
+                size = c("m", "s", "l"),
+                easyClose = TRUE,
+                fade = FALSE
+            ))
+        }
+        helpText(state$help_latlon_txt,
                  width = widget_width,
-                 style = help_text_style)
-        
+                 style = error_text_style)
     })
     
     
@@ -2093,17 +2129,23 @@ server <- function(input, output, session) {
     output$poly_title <- renderUI({
         
         if (state$data_loaded) {
-            
             str1 <- paste0(state$year, " ", ifelse(state$region=="atlantic", "Atlantic", "Pacific"), ", ", state$poly_name)
-            str2a <- "Latitudes:"
-            str2b <- paste0(state$polylat, collapse=", ")
-            str3a <- "Longitudes:"
-            str3b <- paste0(state$polylon, collapse=", ")
-
+            if (is.null(state$polylat)) {
+                str2 <- ""
+                str3 <- ""
+            } else {
+                if (length(state$polylat) > 20) {
+                    num_hidden_coords <- length(state$polylat) - 20
+                    str2 <- paste0(paste0(round(state$polylat,6)[1:20], collapse=", "), "... <i>[truncated, ", num_hidden_coords, " remaining]</i>")
+                    str3 <- paste0(paste0(round(state$polylon,6)[1:20], collapse=", "), "... <i>[truncated, ", num_hidden_coords, " remaining]</i>")
+                } else {
+                    str2 <- paste0(round(state$polylat,6), collapse=", ")
+                    str3 <- paste0(round(state$polylon,6), collapse=", ")
+                }
+            }
             HTML(paste0("<font style=\"font-size: 18px; color: #555555; font-weight: bold;\">", str1, "</font><br/>",
-                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">", str2a, "</font> ", str2b, "<br/>",
-                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">", str3a, "</font> ", str3b))
-            
+                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Latitudes:</font> ", str2, "<br/>",
+                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Longitudes:</font> ", str3))
         }
         
     })
@@ -2162,12 +2204,14 @@ server <- function(input, output, session) {
         coords <- NULL
         add_poly <- FALSE # add new polygons using leafletProxy?
         
+        region <- isolate(state$region)
+        
         # Get coordinates from a custom polygon
         if (state$box=="custom" & state$latlon_method=="drawPoly") {
             
             coords <- draw_polygon()
             
-        } else if (state$box=="custom" & state$latlon_method=="typeCoords") {
+        } else if (state$box=="custom" & (state$latlon_method=="typeCoords" | state$latlon_method=="loadShapefile")) {
             
             coords <- type_polygon()
             
@@ -2193,8 +2237,8 @@ server <- function(input, output, session) {
                 
                 # Use point.in.polygon to extract AZMP stat boxes based on their
                 # lat/lon boundaries.
-                Longitude <- as.numeric(all_regions[[isolate(state$region)]][[which(state$box==poly_ID[[isolate(state$region)]])]]$lon)
-                Latitude <- as.numeric(all_regions[[isolate(state$region)]][[which(state$box==poly_ID[[isolate(state$region)]])]]$lat)
+                Longitude <- as.numeric(all_regions[[region]][[which(state$box==poly_ID[[region]])]]$lon)
+                Latitude <- as.numeric(all_regions[[region]][[which(state$box==poly_ID[[region]])]]$lat)
                 
                 # for highlighted box in leaflet map
                 highlight_ID <- "highlighted_box"
@@ -2288,7 +2332,15 @@ server <- function(input, output, session) {
         day_label <- state$day_label
         time_ind <- state$time_ind
         
-        plot_title <- paste0('Density plot of chlorophyll concentration for ', day_label)
+        isolate({
+            concentration_type <- state$concentration_type
+            cell_size_model1 <- state$cell_size_model1
+            cell_size_model2 <- state$cell_size_model2
+        })
+        
+        plot_title <- paste0(ifelse(concentration_type=="model1", paste0(proper(cell_size_model1), " cell size: "),
+                                    ifelse(concentration_type=="model2", paste0(proper(cell_size_model2), " cell size: "), "")),
+                             'Density plot of chlorophyll concentration for ', day_label)
         
         # create base plot
         p <- ggplot() + theme_bw()
@@ -2448,8 +2500,19 @@ server <- function(input, output, session) {
         # get the most recent annual data
         rchla <- annual_stats()
         
-        plot_title <- paste0("Time series of ", isolate(state$interval), " ", isolate(state$dailystat),
-                             " chlorophyll concentration for ", isolate(state$year))
+        isolate({
+            concentration_type <- state$concentration_type
+            cell_size_model1 <- state$cell_size_model1
+            cell_size_model2 <- state$cell_size_model2
+            interval <- state$interval
+            dailystat <- state$dailystat
+            year <- state$year
+            log_chla <- state$log_chla
+        })
+        
+        plot_title <- paste0(ifelse(concentration_type=="model1", paste0(proper(cell_size_model1), " cell size: "),
+                                    ifelse(concentration_type=="model2", paste0(proper(cell_size_model2), " cell size: "), "")),
+                             "Time series of ", interval, " ", dailystat, " chlorophyll concentration for ", year)
         
         # Get the vector of dataframe names
         pnames <- pnlist[[state$fitmethod]]
@@ -2526,7 +2589,7 @@ server <- function(input, output, session) {
         
         if (is.null(em)) {
             
-            bf_data <- get_bloom_fit_data(interval=isolate(state$interval),
+            bf_data <- get_bloom_fit_data(interval=interval,
                                           p=p,
                                           pnames = pnames,
                                           dailystat = state$dailystat,
@@ -2550,7 +2613,7 @@ server <- function(input, output, session) {
                                           tm_limits = state$tm_limits,
                                           ti_limits = state$ti_limits,
                                           t_range = c(first_day, last_day),
-                                          log_chla = isolate(state$log_chla),
+                                          log_chla = log_chla,
                                           threshcoef = state$threshcoef,
                                           doy_vec = doy_vec,
                                           plot_title = plot_title,
@@ -2676,6 +2739,9 @@ server <- function(input, output, session) {
             typedpoly = state$typedpoly
             fullrunoutput_png <- input$fullrunoutput_png
             fullrunoutput_statcsv <- input$fullrunoutput_statcsv
+            concentration_type = state$concentration_type
+            cell_size_model1 = state$cell_size_model1
+            cell_size_model2 = state$cell_size_model2
         })
         
         # create column names for parameter table
@@ -2700,7 +2766,10 @@ server <- function(input, output, session) {
                                            interval=interval,
                                            log_chla=log_chla,
                                            fitmethod=fitmethod,
-                                           custom_end="fulltimeseries"))
+                                           custom_end="fulltimeseries",
+                                           concentration_type=concentration_type,
+                                           cell_size_model1=cell_size_model1,
+                                           cell_size_model2=cell_size_model2))
         dir.create(output_dir)
         
         steps <- 100/length(year_list)
@@ -2767,7 +2836,10 @@ server <- function(input, output, session) {
                 ti_threshold_type = ti_threshold_type,
                 ti_threshold_constant = ti_threshold_constant,
                 fullrunoutput_png = fullrunoutput_png,
-                fullrunoutput_statcsv = fullrunoutput_statcsv)
+                fullrunoutput_statcsv = fullrunoutput_statcsv,
+                concentration_type = concentration_type,
+                cell_size_model1 = cell_size_model1,
+                cell_size_model2 = cell_size_model2)
             
             # add to final output dataframe
             total_params_df[((x-1)*length(polygon_list$full_names)+1):(x*length(polygon_list$full_names)),] <- tmp_par
@@ -3013,9 +3085,12 @@ server <- function(input, output, session) {
                        interval=isolate(state$interval),
                        log_chla=isolate(state$log_chla),
                        day_label=gsub(" ", "", strsplit(isolate(state$day_label), "[()]+")[[1]][2]),
-                       polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
+                       polygon=isolate(state$box),
                        fitmethod=isolate(state$fitmethod),
-                       custom_end="settings.csv")
+                       custom_end="settings.csv",
+                       concentration_type=isolate(state$concentration_type),
+                       cell_size_model1=isolate(state$cell_size_model1),
+                       cell_size_model2=isolate(state$cell_size_model2))
             },
         content <- function(file) {
             if (isolate(state$box)=="custom") {

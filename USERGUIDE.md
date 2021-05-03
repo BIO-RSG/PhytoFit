@@ -137,7 +137,21 @@ Open app.R within RStudio, and click “Run app”.
     *Threshold* methods)**:  
     TECH REPORT IN PROGRESS
 
--   **Chlorophyll-a algorithms *OCx*, *POLY4*, and *GSM\_GS***:  
+-   **Chlorophyll-a algorithm *OCx***:  
+    [O’Reilly, John & Maritorena, S. & Mitchell, B.G. & Siegel, David &
+    Carder, Kendall & Garver, S.A. & Kahru, Mati & Mcclain, Charles.
+    (1998). Ocean color chlorophyll algorithms for SeaWiFS. Journal of
+    Geophysical Research. 103.
+    937-953.](https://www.researchgate.net/publication/284463756_Ocean_color_chlorophyll_algorithms_for_SeaWiFS)
+
+-   **Chlorophyll-a algorithm *GSM***:  
+    [Maritorena, Stéphane & Siegel, David & Peterson, Alan. (2002).
+    Optimization of a semianalytical ocean color model for global-scale
+    application. Applied optics. 41. 2705-14.
+    10.1364/AO.41.002705.](https://www.researchgate.net/publication/11345370_Optimization_of_a_semianalytical_ocean_color_model_for_global-scale_application)
+
+-   **Chlorophyll-a algorithms *OCx*, *POLY4*, and *GSM\_GS* (regional
+    tuning)**:  
     [Clay, S.; Peña, A.; DeTracey, B.; Devred, E. Evaluation of
     Satellite-Based Algorithms to Retrieve Chlorophyll-a Concentration
     in the Canadian Atlantic and Pacific Oceans. Remote Sens. 2019,
@@ -149,6 +163,27 @@ Open app.R within RStudio, and click “Run app”.
     St. Lawrence Estuary and Gulf Using Principal Component Analysis.
     Remote Sens. 2018,
     10, 265.](https://www.mdpi.com/2072-4292/10/2/265)
+
+-   **Phytoplankton cell size model 1 (small/large cells)**:  
+    [Devred, Emmanuel & Sathyendranath, S & Stuart, V & Maass, H &
+    Ulloa, Osvaldo & Platt, T. (2006). A two-component model of
+    phytoplankton absorption in the open ocean: Theory and applications.
+    Journal of Geophysical Research. 111.
+    10.1029/2005JC002880.](https://www.researchgate.net/publication/229086123_A_two-component_model_of_phytoplankton_absorption_in_the_open_ocean_Theory_and_applications)
+
+-   **Phytoplankton cell size model 2 (small/medium/large cells)**:  
+    [Devred, Emmanuel & Sathyendranath, Shubha & Stuart, Venetia &
+    Platt, Trevor. (2011). A three component classification of
+    phytoplankton absorption spectra: Application to ocean-color data.
+    Remote Sensing of Environment - REMOTE SENS ENVIRON. 115. 2255-2266.
+    10.1016/j.rse.2011.04.025.](https://www.researchgate.net/publication/251494326_A_three_component_classification_of_phytoplankton_absorption_spectra_Application_to_ocean-color_data)
+
+-   **Phytoplankton cell size models (updated coefficients)**:  
+    [Liu, Xiaohan & Devred, Emmanuel & Johnson, Catherine. (2018).
+    Remote Sensing of Phytoplankton Size Class in Northwest Atlantic
+    from 1998 to 2016: Bio-Optical Algorithms Comparison and
+    Application. Remote Sensing. 10.
+    10.3390/rs10071028.](https://www.researchgate.net/publication/326033452_Remote_Sensing_of_Phytoplankton_Size_Class_in_Northwest_Atlantic_from_1998_to_2016_Bio-Optical_Algorithms_Comparison_and_Application#pf18)
 
 -   **Raw data**:  
     Daily level-3 binned files are downloaded from [NASA
@@ -207,17 +242,30 @@ Select:
     -   OCx (global, band ratio)  
     -   POLY4 (regional, band ratio)  
     -   GSM\_GS (regional, semi-analytical)  
-4.  Year
+4.  Chl-a concentration type
+    -   Full chlorophyll-a concentration  
+    -   Cell size model 1: Small/Large cell concentrations  
+    -   Cell size model 2: Small/Medium/Large cell concentrations  
+        \***Note**: The cell size model is applied to the chlorophyll-a
+        data immediately after loading, before it is logged (if the user
+        selects logged chl-a) or averaged over 8 days (if user selects
+        weekly data composites).  
+5.  Cell size (if not using full concentration)
+    -   Small or large (from cell size model 1), OR  
+    -   Small, medium, or large (from cell size model 2)  
+6.  Year
     -   2003-2021 (MODIS)  
     -   2012-2021 (VIIRS)  
     -   1997-2010 (SeaWiFS)  
-5.  Temporal binning
+7.  Temporal binning
     -   Daily  
     -   Weekly (mean value of 8-day intervals)  
-6.  Logged or unlogged chlorophyll-a
+        \***Note**: For weekly data, the daily data is averaged over the
+        8-day period before logging it (if selected).  
+8.  Logged or unlogged chlorophyll-a
 
 Click “Load data”.  
-*NOTE: Changes to any of the 6 options above will not be used until the
+*NOTE: Changes to any of the 8 options above will not be used until the
 “load” button is clicked.*
 
 #### COLOUR SCALE
@@ -239,7 +287,8 @@ If you choose “Custom polygon”:
 
 1.  *(Optional)* Name your polygon and click “Apply”  
 
-2.  Choose how to define polygon vertices:
+2.  Choose how to define polygon vertices by selecting one of 3 options,
+    then follow the instructions below:
 
     -   **Option 1:** Draw it on the map
 
@@ -264,6 +313,24 @@ If you choose “Custom polygon”:
         -   decimal degrees  
         -   separated by commas  
         -   use latitude/longitude &lt; 0 for south/west
+
+    -   **Option 3:** Load a shapefile (.shp)
+
+        Click “Browse” to find a shapefile.  
+        Select the “shp” file and all files with the same name but
+        different extensions (e.g. dbf, sbn, sbx, shx, prj, qix…).  
+        Click “Open” and the polygon will be automatically loaded (this
+        may take several seconds for larger polygons. If it does not
+        load and display on the map automatically, click “Create
+        polygon”).  
+        **WARNINGS:**
+
+        -   The shapefile is read using the command below, and must
+            contain a continuous *SpatialPolygonsDataFrame* (i.e. NO
+            DISJOINT POLYGONS):  
+            `rgdal::readOGR(dsn=filename)@polygons[[1]]@Polygons[[1]]@coords`  
+        -   If there are multiple polygons in the shapefile, only the
+            first one will be used
 
 ##### EXISTING BOXES
 
@@ -1232,7 +1299,31 @@ Change model.
 
 #### SAVE OPTIONS
 
-1.  Settings (.csv)  
+1.  Settings (.csv)
+
+The suggested file naming convention is *satellite\_ region\_ polygon\_
+compositeLength\_ year\_ day(s)\_ cellSizes\_ chlaAlgorithm\_
+fitmethod\_ timecreated*, where:  
+- *satellite* is the first letter of the satellite and the spatial
+resolution,  
+- *region* is atlantic or pacific,  
+- *polygon* is the polygon abbreviation (or “custom”),  
+- *compositeLength* is daily or weekly,  
+- *year* is the current selected year,  
+- *day(s)* is the current selected day of year (or range of days of the
+week, if using weekly data),  
+- *cellSizes* is the current selected cell size (or cellSizeAll, if
+viewing full \[chla\]),  
+- *chlaAlgorithm* is the chlorophyll algorithm with “log” prefix if
+\[chla\] is logged, and  
+- *fitmethod* is the abbreviated version of the bloom fit model (gauss,
+roc, or thresh)
+
+Note: This file is formatted in a way that it can be loaded back into
+PhytoFit later to reapply the same settings.  
+**WARNING**: Do NOT change the contents of the file, otherwise PhytoFit
+might not be able to read it correctly if you try to reapply it.
+
 2.  Map (.html)  
 3.  Density plot (.png)  
 4.  Time series plot (.png)  
@@ -1253,8 +1344,9 @@ Change model.
     -   CSV file containing the settings for the current run  
         Files will be zipped to a folder with the following name
         convention:  
-        **satellite\_ region\_ algorithm\_ years\_ interval\_
-        (un)loggedChla\_ fitmethod\_ timecreated.zip**  
+        **satellite\_ region\_ compositeLength\_ years\_ cellSizes\_
+        chlaAlgorithm\_ fitmethod\_ timecreated.zip**  
+        (see “1. Settings (.csv)” for more details)  
 -   Click “Download results (.zip)”  
     This will download the zipped file to your browser’s downloads
     folder.
