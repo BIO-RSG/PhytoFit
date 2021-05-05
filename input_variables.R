@@ -3,7 +3,9 @@
 sensors <- c("MODIS 4km" = "modis",
              "VIIRS 4km" = "viirs",
              "SeaWiFS 4km" = "seawifs",
-             "MODIS 1km" = "modis1km")
+             "MODIS 1km" = "modis1km",
+             "VIIRS 1km" = "viirs1km",
+             "SeaWiFS 1km" = "seawifs1km")
 
 regions <- c("Atlantic"="atlantic",
              "Pacific"="pacific")
@@ -26,7 +28,9 @@ cell_sizes_model2 <- list("Small"="small",
 years <- list("modis"=2003:2021,
               "viirs"=2012:2021,
               "seawifs"=1997:2010,
-              "modis1km"=2003:2021)
+              "modis1km"=2003:2020,
+              "viirs1km"=2012:2020,
+              "seawifs1km"=1997:2010)
 for (i in 1:length(years)) {names(years[[i]]) <- years[[i]]}
 default_years <- years[["modis"]]
 

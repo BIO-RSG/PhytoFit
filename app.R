@@ -1004,7 +1004,12 @@ server <- function(input, output, session) {
             # if it doesn't need to be updated, then continue checking if data exists
             new_years <- years[[input$satellite]]
             if (!identical(new_years, state$current_years)) {
-                updateSelectInput(session, inputId = "year", choices = rev(new_years))
+                if (state$year %in% new_years) {
+                    selected_year <- state$year
+                } else {
+                    selected_year <- max(new_years)
+                }
+                updateSelectInput(session, inputId = "year", choices = rev(new_years), selected = selected_year)
                 state$current_years <- new_years
             } else {
                 # enable/disable load button depending on whether or not data exists for these settings
