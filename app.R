@@ -1145,6 +1145,7 @@ server <- function(input, output, session) {
     
     observeEvent(input$latlon_method, {
         state$latlon_method <- input$latlon_method
+        state$help_latlon_txt <- ""
         if (state$latlon_method == "drawPoly") {
             state$draw_toolbar <- TRUE
         } else {
