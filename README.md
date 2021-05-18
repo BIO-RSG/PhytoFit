@@ -1,5 +1,7 @@
 # PhytoFit
 
+[![DOI](https://zenodo.org/badge/277295931.svg)](https://zenodo.org/badge/latestdoi/277295931)
+
 This app can be used to display satellite chlorophyll concentration, and calculate statistics and model phytoplankton blooms for regions within custom polygons. See below for example in screen capture.
 
 <a target="_blank" href="images/screencap01.png">
