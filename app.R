@@ -793,7 +793,7 @@ server <- function(input, output, session) {
     # initialize some defaults so the code doesn't break
     state$null_rchla <- TRUE # used to tell the plots that there's no custom polygon data yet
     state$latlon_invalid <- FALSE # used to prevent custom polygons with invalid coordinates
-    state$latlon_toolarge <- FALSE # used to prevent custom polygons that are too large (>500 degrees square)
+    state$latlon_toolarge <- FALSE # used to prevent custom polygons that are too large
     state$num_invalid_polygons_drawn <- 0
     state$data_loaded <- FALSE
     state$satellite <- "modis"
@@ -830,6 +830,7 @@ server <- function(input, output, session) {
     state$current_years <- default_years
     state$num_sfile_no_main_change <- 0 # number of settings files loaded that changed the main inputs
     state$map_resolution <- c(0.065,0.04333333)
+    state$max_area <- 500
     
     
     # START SCREEN POPUP ####
@@ -843,6 +844,9 @@ server <- function(input, output, session) {
                         "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/fst_tutorial.md\">Using the raw (binned) data</a><br>This is a quick tutorial explaining how the raw satellite chlorophyll data used in PhytoFit can be read into R and manipulated for other purposes.<br><br>",
                         "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/updates.md\">Code updates affecting the algorithms</a><br>Summary of updates that affect the way the bloom metrics are calculated.<br><br>",
                         "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md#references-and-data-sources\">References and data sources</a><br><br>",
+                        "<b>How to cite:</b><br>",
+                        "In publications, please include acknowledgements to <a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a> for the raw satellite data and the <a href=\"https://github.com/BIO-RSG\">BIO remote sensing group</a> for the application, and use this citation in the references:<br>",
+                        "<i>Stephanie Clay, & Chantelle Layton. (2021, May 18). BIO-RSG/PhytoFit: First release (Version v1.0.0). Zenodo. http://doi.org/10.5281/zenodo.4770754</i><br><br>",
                         "<b>Contact:</b><br>",
                         "Stephanie.Clay@dfo-mpo.gc.ca<br><br>",
                         "<b>Dataset last updated:</b><br>", data_last_updated)),
@@ -1004,7 +1008,12 @@ server <- function(input, output, session) {
             # if it doesn't need to be updated, then continue checking if data exists
             new_years <- years[[input$satellite]]
             if (!identical(new_years, state$current_years)) {
-                updateSelectInput(session, inputId = "year", choices = rev(new_years))
+                if (state$year %in% new_years) {
+                    selected_year <- state$year
+                } else {
+                    selected_year <- max(new_years)
+                }
+                updateSelectInput(session, inputId = "year", choices = rev(new_years), selected = selected_year)
                 state$current_years <- new_years
             } else {
                 # enable/disable load button depending on whether or not data exists for these settings
@@ -1139,6 +1148,7 @@ server <- function(input, output, session) {
     
     observeEvent(input$latlon_method, {
         state$latlon_method <- input$latlon_method
+        state$help_latlon_txt <- ""
         if (state$latlon_method == "drawPoly") {
             state$draw_toolbar <- TRUE
         } else {
@@ -1574,14 +1584,17 @@ server <- function(input, output, session) {
             sslat <- coord_list[["gosl_1km"]]$lat
             sslon <- coord_list[["gosl_1km"]]$lon
             state$map_resolution <- c(0.03,0.02)
+            state$max_area <- 50
         } else if (state$algorithm=="eof") {
             sslat <- coord_list[["gosl_4km"]]$lat
             sslon <- coord_list[["gosl_4km"]]$lon
             state$map_resolution <- c(0.065,0.04333333)
+            state$max_area <- 500
         } else {
             sslat <- coord_list[[state$region]]$lat
             sslon <- coord_list[[state$region]]$lon
             state$map_resolution <- c(0.065,0.04333333)
+            state$max_area <- 500
         }
         all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
                              state$yearday, state$interval, state$log_chla, length(sslat),
@@ -1933,12 +1946,12 @@ server <- function(input, output, session) {
           # check area of polygon in case it's too large
           polygon_area <- polyarea(x=Longitude, y=Latitude)
           
-          if (polygon_area > 500) {
+          if (polygon_area > isolate(state$max_area)) {
             coords <- NULL
             state$latlon_toolarge <- TRUE
             state$num_invalid_polygons_drawn <- state$num_invalid_polygons_drawn + 1
             showModal(modalDialog(
-                "WARNING: Polygon is too large (must be <= 500 degrees squared).",
+                paste0("WARNING: Polygon is too large (must be <= ", isolate(state$max_area), " degrees squared)."),
                 title = NULL,
                 footer = modalButton("Dismiss"),
                 size = c("m", "s", "l"),
@@ -2361,7 +2374,7 @@ server <- function(input, output, session) {
                 
             } else if (state$box=="custom" & state$latlon_toolarge) {
               
-                em <- "Polygon is too large (max allowed area = 500 degrees^2)."
+                em <- paste0("Polygon is too large (max allowed area = ", isolate(state$max_area), " degrees^2).")
             
             } else if (state$null_rchla) {
                 
@@ -2538,7 +2551,7 @@ server <- function(input, output, session) {
             
             if (state$box=="custom" & state$latlon_toolarge) {
             
-              em <- "Polygon is too large (max allowed area = 500 degrees^2)."
+              em <- paste0("Polygon is too large (max allowed area = ", isolate(state$max_area), " degrees^2).")
             
             } else if (state$null_rchla) {
                 
