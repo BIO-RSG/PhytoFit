@@ -40,7 +40,7 @@ flag_check <- function(mag_real, mag_fit, amp_real, amp_fit, sigma, time_res=1,
 
 get_failure_msg <- function(code) {
   if (code==0) {return(NULL)}
-  messages <- c("no data in the selected limits",
+  messages <- c("not enough data in the selected limits",
                 "nls failed",
                 "t[start] threshold too high",
                 "t[start] too early (before day 1)",
@@ -217,6 +217,16 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
       lower$sigma <- sigma_limit1
       upper$sigma <- sigma_limit2
       
+    }
+    
+    # need at least 3 points to attempt to fit a gaussian curve
+    if (length(yday)<3) {
+      nofit_code <- 1
+      values[,"failure_code"] <- nofit_code
+      return(list(fit = NULL, values = values,
+                  yfit = yfit, ybkrnd = ybkrnd,
+                  nofit_msg = get_failure_msg(nofit_code),
+                  nofit_code = nofit_code))
     }
     
     

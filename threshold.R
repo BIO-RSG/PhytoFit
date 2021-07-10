@@ -25,11 +25,14 @@ threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm
   
   values[1,1:2] <- c(mean(y, na.rm=TRUE), median(y, na.rm=TRUE))
   
+  # need at least 3 points
+  if (length(y)<3) {return(list(values = values, nofit_msg="Unable to fit: Not enough data"))}
+  
   # get index of max concentration, subset to limited range of days
   yday_tm <- t >= tm_limits[1] & t <= tm_limits[2]
-  if (sum(yday_tm)==0) {return(list(values = values))}
+  if (sum(yday_tm)==0) {return(list(values = values, nofit_msg="Unable to fit: Not enough data between selected t[max] limits"))}
   maxidx <- which(y==max(y[yday_tm],na.rm=TRUE) & yday_tm)
-  if (length(maxidx)==0) {return(list(values = values))}
+  if (length(maxidx)==0) {return(list(values = values, nofit_msg="Unable to fit: Not enough data between selected t[max] limits"))}
   
   tm <- t[maxidx]
   Bm <- y[maxidx]
@@ -49,7 +52,7 @@ threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm
   
   # find where concentration drops below thresh for 14 days (before the bloom)
   yday_ti <- t >= ti_limits[1] & t <= tm
-  if (sum(yday_ti)==0) {return(list(values = values))}
+  if (sum(yday_ti)==0) {return(list(values = values, nofit_msg="Unable to fit: Not enough data between t[start] lower limit and t[max]"))}
   ytmp <- y[yday_ti]
   ttmp <- t[yday_ti]
   # temporarily reverse vector
@@ -139,6 +142,6 @@ threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm
   
   values[1,3:9] <- c(ti, tm, tt, td, mag, amp, thresh)
   
-  return(list(values = values))
+  return(list(values = values, nofit_msg=NULL))
   
 }

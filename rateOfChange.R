@@ -26,11 +26,14 @@ rateOfChange <- function(y, yall, t, tall, bloomShape = "symmetric", tm_limits =
   
   values[1,1:2] <- c(mean(y, na.rm=TRUE), median(y, na.rm=TRUE))
   
+  # need at least 3 points
+  if (length(y)<3) {return(list(values = values, nofit_msg="Unable to fit: Not enough data"))}
+  
   # get index of max concentration, subset to limited range of days
   yday_tm <- t >= tm_limits[1] & t <= tm_limits[2]
-  if (sum(yday_tm)==0) {return(list(values = values))}
+  if (sum(yday_tm)==0) {return(list(values = values, nofit_msg="Unable to fit: Not enough data between selected t[max] limits"))}
   maxidx <- which(y==max(y[yday_tm],na.rm=TRUE) & yday_tm)
-  if (length(maxidx)==0) {return(list(values = values))}
+  if (length(maxidx)==0) {return(list(values = values, nofit_msg="Unable to fit: Not enough data between selected t[max] limits"))}
   
   if (maxidx != 1) {
     
@@ -50,7 +53,7 @@ rateOfChange <- function(y, yall, t, tall, bloomShape = "symmetric", tm_limits =
     
     # pick the largest slope (rate of change) - this is the bloom start
     yday_ti <- tpm_short >= ti_limits[1] & tpm_short <= ti_limits[2]
-    if (sum(yday_ti)==0) {return(list(values = values))}
+    if (sum(yday_ti)==0) {return(list(values = values, nofit_msg="Unable to fit: Not enough data between selected t[start] limits"))}
     
     maxidxdcdt <- which(dchladt==max(dchladt[yday_ti],na.rm=TRUE) & yday_ti)
     ti <- tpm_short[maxidxdcdt]
@@ -118,6 +121,6 @@ rateOfChange <- function(y, yall, t, tall, bloomShape = "symmetric", tm_limits =
   }
   
   values[1,3:8] <- c(ti, tm, tt, td, mag, amp)
-  return(list(values = values))
+  return(list(values = values, nofit_msg=NULL))
   
 }
