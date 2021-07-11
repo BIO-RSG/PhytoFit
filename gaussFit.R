@@ -284,6 +284,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           tt <- ti + td
         } else {
           ti_ind <- ydays_dayrange < tm_value & ydays_dayrange >= ti_limits[1] & ydays_dayrange <= ti_limits[2]
+          # note that yfit and ybkrnd are the fitted values, so the difference between them is constantly increasing before tmax
           if (log_chla) {
             ti <- ydays_dayrange[ti_ind][which(abs(10^yfit-10^ybkrnd)[ti_ind] >= ti_threshold_constant)[1]]
           } else {

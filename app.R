@@ -564,7 +564,7 @@ ui <- fluidPage(
                              #                               max = 50,
                              #                               step = 1,
                              #                               width = widget_width)),
-                             helpText(HTML("Select the method used to calculate t<sub>start</sub> :<br>Either 20% of the curve amplitude (peak minus background), or a constant threshold between 0.05 and 1."),
+                             helpText(HTML("Select the method used to calculate t<sub>start</sub> :<br>Either 20% of the curve amplitude (peak minus background), or a constant threshold between 0.05 and 1 (difference between the fitted curve and background chla, calculated in linear space)."),
                                       width = widget_width,
                                       style = help_text_style),
                              radioButtons(inputId = "ti_threshold_type",
