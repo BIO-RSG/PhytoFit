@@ -442,8 +442,8 @@ output_str <- function(satellite, region, algorithm, year, interval, log_chla,
   }
   
   cellSize <- paste0("cellSize", ifelse(concentration_type=="full", "All",
-                                        ifelse(concentration_type=="model1", proper(cell_size_model1),
-                                               proper(cell_size_model2))))
+                                        ifelse(concentration_type=="model1", paste0(proper(cell_size_model1), "-mod1"),
+                                               paste0(proper(cell_size_model2), "-mod2"))))
   
   output_name <- paste(c(ifelse(satellite=="modis1km", "M1", paste0(toupper(substr(satellite,1,1)),"4")),
                          region, polygon, interval, year, day_label, cellSize,

@@ -2895,7 +2895,10 @@ server <- function(input, output, session) {
                             interval=interval,
                             log_chla=log_chla,
                             fitmethod=fitmethod,
-                            custom_end="fulltimeseries.zip")
+                            custom_end="fulltimeseries.zip",
+                            concentration_type=concentration_type,
+                            cell_size_model1=cell_size_model1,
+                            cell_size_model2=cell_size_model2)
         
         # zip files up to be downloaded
         # j flag prevents files from being sorted into subdirectories inside the zip file (the other flags are defaults)
@@ -2960,7 +2963,10 @@ server <- function(input, output, session) {
                        day_label=gsub(" ", "", strsplit(isolate(state$day_label), "[()]+")[[1]][2]),
                        polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
                        fitmethod=isolate(state$fitmethod),
-                       custom_end="map.html")
+                       custom_end="map.html",
+                       concentration_type=isolate(state$concentration_type),
+                       cell_size_model1=isolate(state$cell_size_model1),
+                       cell_size_model2=isolate(state$cell_size_model2))
             },
         content <- function(file) {
             isolate({
@@ -3001,7 +3007,10 @@ server <- function(input, output, session) {
                        day_label=gsub(" ", "", strsplit(isolate(state$day_label), "[()]+")[[1]][2]),
                        polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
                        fitmethod=isolate(state$fitmethod),
-                       custom_end="density_plot.png")
+                       custom_end="density_plot.png",
+                       concentration_type=isolate(state$concentration_type),
+                       cell_size_model1=isolate(state$cell_size_model1),
+                       cell_size_model2=isolate(state$cell_size_model2))
             },
         content <- function(file) {
             ggsave(file=file,
@@ -3024,7 +3033,10 @@ server <- function(input, output, session) {
                        log_chla=isolate(state$log_chla),
                        polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
                        fitmethod=isolate(state$fitmethod),
-                       custom_end="bloom_fit.png")
+                       custom_end="bloom_fit.png",
+                       concentration_type=isolate(state$concentration_type),
+                       cell_size_model1=isolate(state$cell_size_model1),
+                       cell_size_model2=isolate(state$cell_size_model2))
             },
         content <- function(file) {
             ggsave(file=file,
@@ -3047,7 +3059,10 @@ server <- function(input, output, session) {
                        log_chla=isolate(state$log_chla),
                        polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
                        fitmethod=isolate(state$fitmethod),
-                       custom_end="annual_stats.csv")
+                       custom_end="annual_stats.csv",
+                       concentration_type=isolate(state$concentration_type),
+                       cell_size_model1=isolate(state$cell_size_model1),
+                       cell_size_model2=isolate(state$cell_size_model2))
             },
         content <- function(file) {
             write.csv(data.frame(doy=isolate(state$doy_vec),
@@ -3077,7 +3092,10 @@ server <- function(input, output, session) {
                        log_chla=isolate(state$log_chla),
                        polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
                        fitmethod=isolate(state$fitmethod),
-                       custom_end="bloom_parameters.csv")
+                       custom_end="bloom_parameters.csv",
+                       concentration_type=isolate(state$concentration_type),
+                       cell_size_model1=isolate(state$cell_size_model1),
+                       cell_size_model2=isolate(state$cell_size_model2))
             },
         content <- function(file) {
             write.csv(isolate(state$fitparams),
