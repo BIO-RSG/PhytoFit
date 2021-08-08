@@ -618,3 +618,19 @@ Some differences are unavoidable due to the following:
 - Use t[max] parameter: FALSE  
 - Use beta parameter: FALSE  
 - Weight fit points by weekly percent coverage: FALSE
+
+
+
+# fit_bloom_from_chla.R
+
+This standalone script can accept a dataframe with year, doy, and chl columns, and fit a bloom to the chl using the same settings as used in the app. This is useful for fitting blooms to in situ data records that only have one value per day or week.  
+
+To use this script on your own computer, you must also download `functions.R`, `gaussFit.R`, `threshold.R`, and `rateOfChange.R`.  
+Required packages: `dplyr`, `oceancolouR`, `minpack.lm`  
+Optional packages for plotting results: `ggplot2`, `patchwork`  
+
+To install [oceancolouR](https://github.com/BIO-RSG/oceancolouR):  
+`remotes::install_github("BIO-RSG/oceancolouR", build_vignettes = TRUE)`  
+
+Note that the "chl" column in the output "data" file is the transformed value, if concentration_type is not set to "full". It has also been transformed to weekly values, if that option is selected. However, if log_chla=TRUE, the fit is performed on the logged values, but chl is transformed back to linear space before writing it to the output file (although the "mean" and "median" are left in log space).  
+
