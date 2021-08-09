@@ -34,19 +34,22 @@ str(dat)
 The data has been flattened and formatted as a long dataframe to write to fst, so it needs to be reshaped to a matrix where rows = pixels, columns = days, like so:  
 
 ```{r}
-# if you're using ocx, poly4, or gsm_gs
+# if you're using ocx, poly4, or gsm_gs in the atlantic
 dat_mat <- matrix(dat$chl, nrow=183824)
+# # if you're using ocx, poly4, or gsm_gs in the pacific
+# dat_mat <- matrix(dat$chl, nrow=48854)
 # # if you're using eof
 # dat_mat <- matrix(dat$chl, nrow=68067)
 str(dat_mat)
 ```
 
-(Note the different options depending on the algorithm you use - ocx, poly4, and gsmgs are on a 4km-resolution "atlantic" grid, which has 183824 pixels, but eof is on a 4km-resolution Gulf of Saint Lawrence grid, which only has 68067)  
+(Note the different options depending on the algorithm you use - ocx, poly4, and gsmgs are on a 4km-resolution "atlantic" or "pacific" grid, which has 183824 (or 48854) pixels, but eof is on a 4km-resolution Gulf of Saint Lawrence grid, which only has 68067)  
 
-Now load the coordinates file and grab the vector of coordinates associated with the pixels for the Atlantic (or GoSL) region:  
+Now load the coordinates file and grab the vector of coordinates associated with the pixels for the Atlantic (or Pacific or GoSL) region:  
 
 ```{r}
 coordinates <- readRDS("coords.rds")$atlantic
+# coordinates <- readRDS("coords.rds")$pacific
 # coordinates <- readRDS("coords.rds")$gosl_4km
 str(coordinates)
 ```
@@ -54,19 +57,17 @@ str(coordinates)
 To subset the data to your region of choice, you can use the `point.in.polygon()` function from the `sp` package. Here we subset the data to the Gulf of Saint Lawrence, defined as 41 to 53 degrees latitude, -75 to -49 degrees longitude (decimal degrees). You need a vector of coordinates for each vertex of the polygon / box:  
 
 ```{r}
-gosl_lats <- c(41, 53, 53, 41, 41)
-gosl_lons <- c(-75, -75, -49, -49, -75)
+# example box vertices to subset the grid
+lat_example <- c(41, 53, 53, 41, 41)
+lon_example <- c(-75, -75, -49, -49, -75)
 
 pixel_index <- as.logical(point.in.polygon(point.x = coordinates$lon,
                                            point.y = coordinates$lat,
-                                           pol.x = gosl_lons,
-                                           pol.y = gosl_lats))
+                                           pol.x = lon_example,
+                                           pol.y = lat_example))
 ```
 
 Note that `point.in.polygon()` returns an integer vector of values the same length as point.x and point.y, where the value is 0 if the point is outside the bounds, 1 if it's inside, 2 if on the edge, and 3 if on a vertex. Converting this to a logical vector makes all 0 points *FALSE* and everything else *TRUE*.  
-
-Also note that if you're using eof data, which is already on a smaller grid defined by gosl_lats and gosl_lons, you can skip this step (but it won't hurt to do it anyway).  
-
 
 Now use this index to subset the data and vectors of coordinates:  
 
@@ -79,13 +80,15 @@ lon_subset <- coordinates$lon[pixel_index]
 To turn this daily data for 2003 into a dataframe with columns latitude, longitude, day, and chlorophyll, you can do this:  
 
 ```{r}
-df <- data.frame(latitude = rep(lat_subset, 365),
-                 longitude = rep(lon_subset, 365),
-                 day = rep(1:365, each = nrow(dat_mat_subset)),
+df <- data.frame(latitude = rep(lat_subset, ncol(dat_mat)),
+                 longitude = rep(lon_subset, ncol(dat_mat)),
+                 day = rep(1:ncol(dat_mat), each = nrow(dat_mat_subset)),
                  chlorophyll = as.numeric(dat_mat_subset),
                  stringsAsFactors = FALSE)
 str(df)
 ```
+
+(Note that this dataframe might be empty if your example box above this is outside the bounds of the region you chose - i.e. *atlantic*, *pacific*, or *gosl*)  
 
 View the data for day of year 126:  
 
