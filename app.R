@@ -580,7 +580,7 @@ ui <- fluidPage(
                                               max = 1,
                                               step = 0.05,
                                               width = widget_width)),
-                             helpText(HTML("Switch to ON to consider t<sub>max</sub> a parameter in the regression."),
+                             helpText(HTML("Switch to ON to consider t<sub>max</sub> a parameter in the regression.<br><b>WARNING: This will disable t<sub>start</sub> limits.</b>"),
                                       width = widget_width,
                                       style = help_text_style),
                              switchInput(inputId = 'tm',
