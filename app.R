@@ -1015,19 +1015,18 @@ server <- function(input, output, session) {
                 }
                 updateSelectInput(session, inputId = "year", choices = rev(new_years), selected = selected_year)
                 state$current_years <- new_years
-            } else {
-                # enable/disable load button depending on whether or not data exists for these settings
-                state$data_loaded <- FALSE
-                data_exists <- file.exists(paste0("./data/", input$region, "/", input$region, "_", input$satellite, "_", input$algorithm, "_", input$year, ".fst"))
-                if (data_exists) {
-                    enable("load")
-                    state$help_load_txt <- ""
-                } else {
-                    disable("load")
-                    state$help_load_txt <- "No data available for the selected options."
-                }
             }
-        
+            # enable/disable load button depending on whether or not data exists for these settings
+            state$data_loaded <- FALSE
+            data_exists <- file.exists(paste0("./data/", input$region, "/", input$region, "_", input$satellite, "_", input$algorithm, "_", input$year, ".fst"))
+            if (data_exists) {
+                enable("load")
+                state$help_load_txt <- ""
+            } else {
+                disable("load")
+                state$help_load_txt <- "No data available for the selected options."
+            }
+            
         # FOR APPLYING A SETTINGS FILE
         } else {
             
