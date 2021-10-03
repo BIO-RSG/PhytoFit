@@ -5,7 +5,10 @@ sensors <- c("MODIS 4km" = "modis",
              "SeaWiFS 4km" = "seawifs",
              "MODIS 1km" = "modis1km",
              "VIIRS 1km" = "viirs1km",
-             "SeaWiFS 1km" = "seawifs1km")
+             "SeaWiFS 1km" = "seawifs1km")#,
+             #"SeaWiFS recalibrated 4km" = "recalibratedseawifs",
+             #"VIIRS recalibrated 4km" = "recalibratedviirs",
+             #"Merged 4km" = "merged")
 
 regions <- c("Atlantic"="atlantic",
              "Pacific"="pacific")
@@ -30,7 +33,10 @@ years <- list("modis"=2003:2021,
               "seawifs"=1997:2010,
               "modis1km"=2003:2020,
               "viirs1km"=2012:2020,
-              "seawifs1km"=1997:2010)
+              "seawifs1km"=1997:2010)#,
+              #"recalibratedseawifs"=1997:2010,
+              #"recalibratedviirs"=2012:2021,
+              #"merged"=1997:2021)
 for (i in 1:length(years)) {names(years[[i]]) <- years[[i]]}
 default_years <- years[["modis"]]
 
