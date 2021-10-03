@@ -445,8 +445,15 @@ output_str <- function(satellite, region, algorithm, year, interval, log_chla,
                                         ifelse(concentration_type=="model1", paste0(proper(cell_size_model1), "-mod1"),
                                                paste0(proper(cell_size_model2), "-mod2"))))
   
-  output_name <- paste(c(ifelse(satellite=="modis1km", "M1", paste0(toupper(substr(satellite,1,1)),"4")),
-                         region, polygon, interval, year, day_label, cellSize,
+  if (satellite=="merged") {
+    satellite_name <- "Merged4"
+  } else {
+    satellite_name <- paste0(toupper(substr(gsub("recalibrated","",satellite),1,1)),
+                             ifelse(grepl("1km",satellite),"1","4"),
+                             ifelse(grepl("recalibrated",satellite),"recal",""))
+  }
+  
+  output_name <- paste(c(satellite_name, region, polygon, interval, year, day_label, cellSize,
                          ifelse(log_chla, paste0("log", proper(algorithm), "Chla"), paste0(proper(algorithm), "Chla")),
                          fitmethod, paste0("created", format(Sys.time(),"%Y-%m-%d-%H%M%S")), custom_end),
                        collapse="_")
