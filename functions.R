@@ -153,6 +153,8 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                                flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, ti_threshold=0.2, tt_threshold=0.2,
                                rm_bkrnd=FALSE, ti_threshold_type = "percent_thresh", ti_threshold_constant = 0.1) {
   
+  nofit_msg <- NULL
+  
   # Get vector of chlorophyll based on daily/weekly statistic and valid indices.
   # "chlall" is plotted as the points in the scatterplot, sized by percent coverage.
   # "chlorophyll" is used for the fit (all chl within the day range, with sufficient percent coverage).
@@ -241,6 +243,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     }
     
     # collect parameters from "rate of change" or "threshold" fit
+    nofit_msg <- bf_results$nofit_msg
     bf_results <- bf_results$values
     bf_results[,3:6] <- round(as.numeric(bf_results[,3:6])) # round days
     
@@ -322,9 +325,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
       p <- p +
         annotation_custom(rectGrob(gp=gpar(fill="white", alpha=0.6))) +
         annotation_custom(textGrob("Unable to fit:", x=0.018, y=0.8, hjust=0,
-                                   gp=gpar(fontsize=16, col="red", fontface="bold"))) +
-        annotation_custom(textGrob(nofit_msg, x=0.018, y=0.76, hjust=0,
-                                   gp=gpar(fontsize=12, col="black")))
+                                   gp=gpar(fontsize=16, col="red", fontface="bold")))
     } else {
       # add data to base plot
       p <- p +
@@ -346,6 +347,13 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     p <- p +
       geom_hline(yintercept=thresh_val, color="red", alpha=0.4) +
       geom_label(aes(5, thresh_val, label="Threshold", vjust=0), color="red", label.size=0, position=position_dodge(0.9), alpha=0.5)
+  }
+  
+  # if no fit, add error message to plot
+  if (!is.null(nofit_msg)) {
+    p <- p +
+      annotation_custom(textGrob(nofit_msg, x=0.018, y=0.76, hjust=0,
+                                 gp=gpar(fontsize=12, col="black")))
   }
   
   # add the parameter table to the right side of the plot
@@ -434,8 +442,8 @@ output_str <- function(satellite, region, algorithm, year, interval, log_chla,
   }
   
   cellSize <- paste0("cellSize", ifelse(concentration_type=="full", "All",
-                                        ifelse(concentration_type=="model1", proper(cell_size_model1),
-                                               proper(cell_size_model2))))
+                                        ifelse(concentration_type=="model1", paste0(proper(cell_size_model1), "-mod1"),
+                                               paste0(proper(cell_size_model2), "-mod2"))))
   
   output_name <- paste(c(ifelse(satellite=="modis1km", "M1", paste0(toupper(substr(satellite,1,1)),"4")),
                          region, polygon, interval, year, day_label, cellSize,

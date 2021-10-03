@@ -35,7 +35,7 @@ for (i in 1:length(years)) {names(years[[i]]) <- years[[i]]}
 default_years <- years[["modis"]]
 
 intervals <- c("Daily"="daily",
-               "Weekly"="weekly")
+               "Weekly (8day)"="weekly")
 
 polygonChoices <- list("atlantic"=c("custom", poly_ID[["atlantic"]]),
                        "pacific"=c("custom", poly_ID[["pacific"]]))
