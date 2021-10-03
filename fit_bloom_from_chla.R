@@ -4,7 +4,7 @@
 # Given a csv file with chlorophyll data, fit a bloom using the same settings from PhytoFit.
 
 # Notes:
-#     - if there are less than 3 days of data, this does not attempt a fit
+#     - if there are fewer than 3 days of data, this does not attempt a fit
 #     - day 366 is removed from leap years
 #     - the "fitted_chl" and "fitted_bkrnd_chl" columns in the output data csv (for fitmethod=="gauss") only span the range of selected days to use in the fit (rather than the entire year)
 
