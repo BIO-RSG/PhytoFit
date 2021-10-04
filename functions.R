@@ -27,11 +27,12 @@ get_data <- function(region, satellite, algorithm, year, yearday, interval, log_
                      concentration_type="full", cell_size_model1="small", cell_size_model2="small") {
   
   sschla <- read_fst(paste0("./data/", region, "/", region, "_", satellite, "_", algorithm, "_", year, ".fst"))
+  colnames(sschla) <- "var"
   
   available_days <- nrow(sschla)/num_pix
   
   # Reshape
-  sschla <- matrix(sschla$chl, ncol=available_days)
+  sschla <- matrix(sschla$var, ncol=available_days)
   
   # If separating chla into phytoplankton cells of different sizes
   if (concentration_type=="model1") {
