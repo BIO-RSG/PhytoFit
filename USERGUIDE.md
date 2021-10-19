@@ -1492,7 +1492,9 @@ user that the fit might have issues.*
     -   For boxes &gt;= 56 degrees North: 31-244 (Feb-Aug)  
 -   Use t\[max\] parameter: FALSE  
 -   Use beta parameter: FALSE  
--   Weight fit points by weekly percent coverage: FALSE
+-   Weight fit points by weekly percent coverage: FALSE  
+-   Method to calculate t\[start\]: 20% amplitude  
+-   Remove background: TRUE
 
 # fit\_bloom\_from\_chla.R
 
