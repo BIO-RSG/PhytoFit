@@ -61,7 +61,7 @@ get_data <- function(region, satellite, algorithm, year, yearday, interval, log_
     available_days <- edoy_vec[length(edoy_vec)]
     
     # Convert daily data to weekly data.
-    sschla <- sapply(1:length(doys_per_week_sub), function(i) rowMeans(sschla[,doys_per_week_sub[[i]]],na.rm=TRUE))
+    sschla <- sapply(1:length(doys_per_week_sub), function(i) rowMeans(matrix(sschla[,doys_per_week_sub[[i]]],nrow=nrow(sschla)),na.rm=TRUE))
     
     time_variables <- get_time_vars(interval, year, yearday, doys_per_week)
     
