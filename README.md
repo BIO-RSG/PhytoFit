@@ -12,7 +12,7 @@ This app can be used to display satellite chlorophyll concentration, and calcula
 
 In publications, please include acknowledgements to <a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a> for the raw satellite data and the <a href=\"https://github.com/BIO-RSG\">BIO remote sensing group</a> for the application, and use this citation in the references:  
 
-*Stephanie Clay, & Chantelle Layton. (2021, May 18). BIO-RSG/PhytoFit: First release (Version v1.0.0). Zenodo. http://doi.org/10.5281/zenodo.4770754*  
+*Stephanie Clay, Chantelle Layton, & Emmanuel Devred. (2021). BIO-RSG/PhytoFit: First release (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.4770754*  
 
 
 ## Prerequisites
@@ -46,13 +46,14 @@ Open app.R within RStudio, and click "Run app"
 
 ## Authors
 
-* **Chantelle Layton** - *Initial concept, design, and coding*
-
-* **Stephanie Clay** - *Significant modifications - extra features, formatting, new datasets*
+* **Chantelle Layton** - *Initial concept, preliminary design, coding, and algorithm development/improvements*  
+* **Stephanie Clay** - *Final app design and modifications, feature addition, new datasets, maintenance, and algorithm improvements*  
+* **Emmanuel Devred** - *Scientific support, algorithm development/improvements, review and feature recommendations*  
 
 ## Acknowledgments
 
 * **Andrea Hilborn** for many valuable suggestions
+
 
 ## Links
 

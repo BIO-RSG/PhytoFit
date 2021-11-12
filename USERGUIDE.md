@@ -1,6 +1,11 @@
 PhytoFit User Guide
 ================
+2021-11-12
 
+-   [CREDIT](#credit)
+    -   [Authors](#authors)
+    -   [Acknowledgments](#acknowledgments)
+    -   [How to cite](#how-to-cite)
 -   [ACCESSING THE APP](#accessing-the-app)
     -   [Option 1: DM APPS](#option-1-dm-apps)
     -   [Option 2: Github](#option-2-github)
@@ -36,10 +41,36 @@ PhytoFit User Guide
         PhytoFit](#differences-between-azmp-fortranmanual-fitting-and-phytofit)
 -   [fit\_bloom\_from\_chla.R](#fit_bloom_from_chlar)
 
-2020-09-25  
 Report issues to: <Stephanie.Clay@dfo-mpo.gc.ca>
 
 ------------------------------------------------------------------------
+
+# CREDIT
+
+## Authors
+
+-   **Chantelle Layton** - *Initial concept, preliminary design, coding,
+    and algorithm development/improvements*  
+-   **Stephanie Clay** - *Final app design and modifications, feature
+    addition, new datasets, maintenance, and algorithm improvements*  
+-   **Emmanuel Devred** - *Scientific support, algorithm
+    development/improvements, review and feature recommendations*
+
+## Acknowledgments
+
+-   **Andrea Hilborn** for many valuable suggestions
+
+## How to cite
+
+In publications, please include acknowledgments to
+<a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a> for the raw
+satellite data and the <a href=\"https://github.com/BIO-RSG\">BIO remote
+sensing group</a> for the application, and use this citation in the
+references:
+
+*Stephanie Clay, Chantelle Layton, & Emmanuel Devred. (2021).
+BIO-RSG/PhytoFit: First release (v1.0.0). Zenodo.
+<https://doi.org/10.5281/zenodo.4770754>*
 
 # ACCESSING THE APP
 

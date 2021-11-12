@@ -1,5 +1,6 @@
 ---
 title: "PhytoFit User Guide"
+date: "`r Sys.Date()`"
 output:
   github_document:
     toc: true
@@ -12,10 +13,29 @@ output:
 knitr::opts_chunk$set(echo = FALSE, comment=NA)
 ```
 
-2020-09-25  
 Report issues to: Stephanie.Clay@dfo-mpo.gc.ca  
   
 ***
+
+# CREDIT
+
+## Authors
+
+* **Chantelle Layton** - *Initial concept, preliminary design, coding, and algorithm development/improvements*  
+* **Stephanie Clay** - *Final app design and modifications, feature addition, new datasets, maintenance, and algorithm improvements*  
+* **Emmanuel Devred** - *Scientific support, algorithm development/improvements, review and feature recommendations* 
+
+## Acknowledgments
+
+* **Andrea Hilborn** for many valuable suggestions
+
+## How to cite
+
+In publications, please include acknowledgments to <a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a> for the raw satellite data and the <a href=\"https://github.com/BIO-RSG\">BIO remote sensing group</a> for the application, and use this citation in the references:  
+
+*Stephanie Clay, Chantelle Layton, & Emmanuel Devred. (2021). BIO-RSG/PhytoFit: First release (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.4770754*  
+
+
 
 # ACCESSING THE APP
 
