@@ -12,6 +12,7 @@ This is a summary of updates to the algorithms (or updates to the code that affe
 - Fig.1: SAB 2020  
 - Fig.2,3,5: LAS 2004  
 - Fig.4: CS_V02 2020  
+- Fig.6: AC 2020  
 
 
 ### Commit 1 - Feb 11, 2021
@@ -64,5 +65,24 @@ _**Fig.5**_: **Before (left)**: If the calculated ti or tt did not have valid da
 **CHANGES PULLED TO DMAPPS ON MAR 8, 2021**
 
 ***
+
+<br><br>
+
+### Commit 5 - Nov 11, 2021
+
+- Fixed order of operations when LOESS smoothing and point-weighting are both selected (**see Fig.6**).  
+
+![Fig.6](images/phytofit_updates_fig06.png){width=90%}  
+_**Fig.6**_: **Before (A)**: When LOESS and weighting were both selected, the LOESS-smoothed points were fitted using the unweighted real data points, and then the Gaussian curve was fitted to the weighted LOESS values. **After (B)**: The LOESS-smoothed points are fitted using the weighted real data points, and then the Gaussian curve is fitted to the LOESS values.  
+
+
+
+***
+
+**CHANGES PULLED TO DMAPPS ON ????????????????????????????**
+
+***
+
+<br><br>
 
 

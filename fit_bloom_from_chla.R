@@ -173,20 +173,33 @@ for (i in 1:length(years)) {
   
   # create final day/chlorophyll vectors for the fit, smoothed or not
   t <- ydays_dayrange_percov
+  
+  if (use_weights) {
+    weights <- daily_percov[ind_dayrange_percov]
+  } else {
+    weights <- rep(1,length(chlorophyll))
+  }
+  
   if (smoothMethod == 'loess'){
-    mod <- try(loess(chl_dayrange_percov ~ ydays_dayrange_percov, span = loessSpan, degree = 2), silent=TRUE)
+    mod <- try(loess(chl_dayrange_percov ~ ydays_dayrange_percov,
+                     weights = weights,
+                     span = loessSpan,
+                     degree = 2),
+               silent=TRUE)
     bad_loess <- class(mod)=="try-error" | is.null(mod)
-    if (bad_loess) {y <- chl_dayrange_percov
-    } else {y <- fitted(mod)}
+    if (bad_loess) {
+      y <- chl_dayrange_percov
+    } else {
+      y <- fitted(mod)
+      # reset the weights so they aren't used again in a gaussian fit
+      weights <- rep(1,length(chlorophyll))
+    }
   } else if (smoothMethod == 'nofit'){
     y <- chl_dayrange_percov
   }
   
   
   if (fitmethod == 'gauss') {
-    
-    if (use_weights) {weights <- daily_percov[ind_dayrange_percov]
-    } else {weights <- rep(1,length(chl_dayrange_percov))}
     
     if (tm) {tmp_ti_lim <- c(1,365)
     } else {tmp_ti_lim <- ti_limits}
