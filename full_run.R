@@ -178,6 +178,11 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                                           rm_bkrnd = rm_bkrnd,
                                           ti_threshold_type = ti_threshold_type,
                                           ti_threshold_constant = ti_threshold_constant)
+            loess_smooth <- rep(NA,length(daily_percov))
+            if (smoothMethod == 'loess') {
+                loess_smooth[ind_dayrange_percov] <- bf_data$y$y
+            }
+            stats_df$loess_smooth <- loess_smooth
             
             p <- bf_data$p
             fitparams <- bf_data$fitparams

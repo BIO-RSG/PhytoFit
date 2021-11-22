@@ -176,6 +176,11 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     weights <- rep(1,length(chlorophyll))
   }
   
+  # list containing the values to fit and the real chla values
+  y <- list(y=chlorophyll, chla=chlorophyll)
+  
+  # use loess smooth on the real data points, if selected, and assign the results
+  # to y so they will be used in the fit instead of the real chla values
   if (smoothMethod == 'loess'){
     mod <- try(loess(chlorophyll ~ ydays_dayrange_percov,
                      weights = weights,
@@ -183,15 +188,12 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                      degree = 2),
                silent=TRUE)
     bad_loess <- class(mod)=="try-error" | is.null(mod)
-    if (bad_loess) {
-      y <- chlorophyll
-    } else {
-      y <- fitted(mod)
+    if (!bad_loess) {
+      # use loess for fitting instead of real values
+      y$y <- fitted(mod)
       # reset the weights so they aren't used again in a gaussian fit
       weights <- rep(1,length(chlorophyll))
     }
-  } else if (smoothMethod == 'nofit'){
-    y <- chlorophyll
   }
   
   if (fitmethod == 'gauss') {
@@ -319,9 +321,9 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   
   # If you use LOESS smoothing, add the line to the data
   if (smoothMethod == 'loess') {
-    if (!bad_loess & all(is.finite(y))) {
+    if (!bad_loess & all(is.finite(y$y))) {
       p <- p +
-        geom_line(data=data.frame(x=t, yloess=y, stringsAsFactors = FALSE),
+        geom_line(data=data.frame(x=t, yloess=y$y, stringsAsFactors = FALSE),
                   aes(x=x, y=yloess), color="green") +
         annotation_custom(grobTree(textGrob("** LOESS smoothing",
                                             x=0.01, y=0.89, hjust=0,
@@ -373,7 +375,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   # add the parameter table to the right side of the plot
   p <- p + annotation_custom(values_df, xmin=325, xmax=360, ymin=-Inf, ymax=Inf)
   
-  return(list(p=p, fitparams=bf_results, chlall=chlall))
+  return(list(p=p, fitparams=bf_results, chlall=chlall, y=y))
   
 }
 

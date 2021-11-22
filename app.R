@@ -831,6 +831,7 @@ server <- function(input, output, session) {
     state$num_sfile_no_main_change <- 0 # number of settings files loaded that changed the main inputs
     state$map_resolution <- c(0.065,0.04333333)
     state$max_area <- 500
+    state$loess_smooth <- NA
     
     
     # START SCREEN POPUP ####
@@ -2638,6 +2639,11 @@ server <- function(input, output, session) {
                                           rm_bkrnd = state$rm_bkrnd,
                                           ti_threshold_type = state$ti_threshold_type,
                                           ti_threshold_constant = state$ti_threshold_constant)
+            loess_smooth <- rep(NA,length(daily_percov))
+            if (state$smoothMethod == 'loess') {
+                loess_smooth[ind_dayrange_percov] <- bf_data$y$y
+            }
+            state$loess_smooth <- loess_smooth
             
             p <- bf_data$p
             
@@ -3072,6 +3078,7 @@ server <- function(input, output, session) {
                                  max_chl=isolate(state$chl_max),
                                  nobs=isolate(state$nobs),
                                  percent_coverage=isolate(state$percent_coverage),
+                                 loess_smooth=isolate(state$loess_smooth),
                                  stringsAsFactors=FALSE),
                       file=file,
                       quote=FALSE,
