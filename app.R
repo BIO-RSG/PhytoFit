@@ -829,8 +829,8 @@ server <- function(input, output, session) {
     state$applyname_programmatically <- FALSE
     state$current_years <- default_years
     state$num_sfile_no_main_change <- 0 # number of settings files loaded that changed the main inputs
-    state$map_resolution <- c(0.065,0.04333333)
     state$max_area <- 500
+    state$loess_smooth <- NA
     
     
     # START SCREEN POPUP ####
@@ -845,8 +845,8 @@ server <- function(input, output, session) {
                         "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/updates.md\">Code updates affecting the algorithms</a><br>Summary of updates that affect the way the bloom metrics are calculated.<br><br>",
                         "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md#references-and-data-sources\">References and data sources</a><br><br>",
                         "<b>How to cite:</b><br>",
-                        "In publications, please include acknowledgements to <a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a> for the raw satellite data and the <a href=\"https://github.com/BIO-RSG\">BIO remote sensing group</a> for the application, and use this citation in the references:<br>",
-                        "<i>Stephanie Clay, & Chantelle Layton. (2021, May 18). BIO-RSG/PhytoFit: First release (Version v1.0.0). Zenodo. http://doi.org/10.5281/zenodo.4770754</i><br><br>",
+                        "In publications, please include acknowledgments to <a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a> for the raw satellite data and the <a href=\"https://github.com/BIO-RSG\">BIO remote sensing group</a> for the application, and use this citation in the references:<br>",
+                        "<i>Stephanie Clay, Chantelle Layton, & Emmanuel Devred. (2021). BIO-RSG/PhytoFit: First release (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.4770754</i><br><br>",
                         "<b>Contact:</b><br>",
                         "Stephanie.Clay@dfo-mpo.gc.ca<br><br>",
                         "<b>Dataset last updated:</b><br>", data_last_updated)),
@@ -1580,19 +1580,19 @@ server <- function(input, output, session) {
         
         # Load full map data
         if (grepl("1km", state$satellite)) {
+            ssbin <- coord_list[["gosl_1km"]]$bin
             sslat <- coord_list[["gosl_1km"]]$lat
             sslon <- coord_list[["gosl_1km"]]$lon
-            state$map_resolution <- c(0.03,0.02)
             state$max_area <- 50
         } else if (state$algorithm=="eof") {
+            ssbin <- coord_list[["gosl_4km"]]$bin
             sslat <- coord_list[["gosl_4km"]]$lat
             sslon <- coord_list[["gosl_4km"]]$lon
-            state$map_resolution <- c(0.065,0.04333333)
             state$max_area <- 500
         } else {
+            ssbin <- coord_list[[state$region]]$bin
             sslat <- coord_list[[state$region]]$lat
             sslon <- coord_list[[state$region]]$lon
-            state$map_resolution <- c(0.065,0.04333333)
             state$max_area <- 500
         }
         all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
@@ -1697,6 +1697,7 @@ server <- function(input, output, session) {
         gc()
         
         return(list(sschla=sschla,
+                    ssbin=ssbin,
                     sslon=sslon,
                     sslat=sslat))
         
@@ -1758,6 +1759,7 @@ server <- function(input, output, session) {
         # Get the selected annual dataset
         ssfull <- full_data()
         sschla <- ssfull$sschla
+        ssbin <- ssfull$ssbin
         sslat <- ssfull$sslat
         sslon <- ssfull$sslon
         
@@ -1804,19 +1806,22 @@ server <- function(input, output, session) {
                 
             } else {
                 
-                pts <- data.frame(lon = sslon[chla_ind],
-                                  lat = sslat[chla_ind],
-                                  chl = sschla[chla_ind,time_ind],
-                                  stringsAsFactors = FALSE)
-                state$pts <- pts
+                # 1km resolution is too high to use var_to_rast()
+                if (grepl("1km", isolate(state$satellite))) {
+                    pts <- data.frame(lon = sslon[chla_ind],
+                                      lat = sslat[chla_ind],
+                                      chl = sschla[chla_ind,time_ind],
+                                      stringsAsFactors = FALSE)
+                    # state$pts <- pts
+                    coordinates(pts) = ~lon+lat
+                    tr <- raster(ext=extent(pts), resolution = c(0.03,0.02))
+                    tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = TRUE)
+                } else {
+                    tr <- var_to_rast(data.frame(bin=ssbin[chla_ind],
+                                                 chl=sschla[chla_ind,time_ind]),
+                                      ext=c(range(sslon[chla_ind]), range(sslat[chla_ind])))
+                }
                 
-                coordinates(pts) = ~lon+lat
-                
-                # create an empty raster object to the extent of the points
-                tr <- raster(ext=extent(pts), resolution = state$map_resolution)
-                
-                # rasterize your irregular points
-                tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = T) # we use a mean function here to regularly grid the irregular input points
                 # state$tr <- tr # only used for input$fullmap_click, currently disabled
                 
                 # Get colour scale for leaflet map
@@ -2638,6 +2643,11 @@ server <- function(input, output, session) {
                                           rm_bkrnd = state$rm_bkrnd,
                                           ti_threshold_type = state$ti_threshold_type,
                                           ti_threshold_constant = state$ti_threshold_constant)
+            loess_smooth <- rep(NA,length(daily_percov))
+            if (state$smoothMethod == 'loess') {
+                loess_smooth[ind_dayrange_percov] <- bf_data$y$y
+            }
+            state$loess_smooth <- loess_smooth
             
             p <- bf_data$p
             
@@ -3072,6 +3082,7 @@ server <- function(input, output, session) {
                                  max_chl=isolate(state$chl_max),
                                  nobs=isolate(state$nobs),
                                  percent_coverage=isolate(state$percent_coverage),
+                                 loess_smooth=isolate(state$loess_smooth),
                                  stringsAsFactors=FALSE),
                       file=file,
                       quote=FALSE,

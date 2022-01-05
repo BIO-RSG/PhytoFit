@@ -1,6 +1,11 @@
 PhytoFit User Guide
 ================
+2021-11-22
 
+-   [CREDIT](#credit)
+    -   [Authors](#authors)
+    -   [Acknowledgments](#acknowledgments)
+    -   [How to cite](#how-to-cite)
 -   [ACCESSING THE APP](#accessing-the-app)
     -   [Option 1: DM APPS](#option-1-dm-apps)
     -   [Option 2: Github](#option-2-github)
@@ -36,10 +41,36 @@ PhytoFit User Guide
         PhytoFit](#differences-between-azmp-fortranmanual-fitting-and-phytofit)
 -   [fit\_bloom\_from\_chla.R](#fit_bloom_from_chlar)
 
-2020-09-25  
 Report issues to: <Stephanie.Clay@dfo-mpo.gc.ca>
 
 ------------------------------------------------------------------------
+
+# CREDIT
+
+## Authors
+
+-   **Chantelle Layton** - *Initial concept, preliminary design, coding,
+    and algorithm development/improvements*  
+-   **Stephanie Clay** - *Final app design and modifications, feature
+    addition, new datasets, maintenance, and algorithm improvements*  
+-   **Emmanuel Devred** - *Scientific support, algorithm
+    development/improvements, review and feature recommendations*
+
+## Acknowledgments
+
+-   **Andrea Hilborn** for many valuable suggestions
+
+## How to cite
+
+In publications, please include acknowledgments to
+<a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a> for the raw
+satellite data and the <a href=\"https://github.com/BIO-RSG\">BIO remote
+sensing group</a> for the application, and use this citation in the
+references:
+
+*Stephanie Clay, Chantelle Layton, & Emmanuel Devred. (2021).
+BIO-RSG/PhytoFit: First release (v1.0.0). Zenodo.
+<https://doi.org/10.5281/zenodo.4770754>*
 
 # ACCESSING THE APP
 
@@ -1080,31 +1111,42 @@ day/week are used, within the range of days selected by the user.
 | Amplitude            | mg m<sup>-3</sup>           | maximum concentration of the bloom |
 | Magnitude            | (mg m<sup>-3</sup>) \* days | area under bloom data points       |
 
-Each bloom fit model (Shifted Gaussian, Rate of Change, or Threshold)
-calculates amplitude and magnitude using the real values:
+Shifted Gaussian calculates amplitude and magnitude using the real
+values:
 
 -   Amplitude<sub>real</sub>: Maximum real data value between
     t<sub>start</sub> and t<sub>end</sub>  
 -   Magnitude<sub>real</sub>: Area under the real data points from start
     to end of the bloom
 
-The Shifted Gaussian also calculates amplitude and magnitude using the
-fitted curve:
+and the fitted curve:
 
 -   Amplitude<sub>fit</sub>: Height of the curve at t<sub>max</sub>  
 -   Magnitude<sub>fit</sub>: Area under the curve from start to end of
     the bloom
 
+Rate of Change and Threshold methods calculate amplitude and magnitude
+using the real values if they are not smoothed, and the LOESS values if
+they are smoothed.
+
 *Notes:*
 
 -   If “remove background” has been checked, the background
-    chlorophyll-a line will be subtracted before calculating these
-    values.  
+    chlorophyll-a line will be subtracted before calculating amplitude
+    and magnitude.  
 -   If points between t\[start\] and t\[end\] are below the background
     line and “remove background” has been selected, the magnitude (area)
     below the line will be negative so it will be subtracted from the
     final value (note this only affects Magnitude<sub>real</sub> when
-    “remove background” has been checked)
+    “remove background” has been checked).  
+-   If LOESS smoothing and point-weighting are both selected, the
+    LOESS-smoothed curve will be calculated using the weighted real data
+    points.  
+-   If LOESS smoothing, point-weighting, and Gaussian curve are all
+    selected, the LOESS-smoothed curve is calculated using the weighted
+    real data points, then the curve is fit using the LOESS values. Note
+    that in this case, the mean / median / Amplitude<sub>real</sub> /
+    Magnitude<sub>real</sub> are still calculated using the real values.
 
 1.  Choose the fit method
 

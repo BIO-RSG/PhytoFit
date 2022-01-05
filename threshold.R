@@ -2,6 +2,8 @@ threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm
   
   require(quantreg)
   
+  y <- y$y
+  
   # yall, tall - vector of points with high enough % coverage
   # y, t - vector of points within the selected range of days and with high enough % coverage
   

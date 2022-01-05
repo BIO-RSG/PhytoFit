@@ -173,20 +173,33 @@ for (i in 1:length(years)) {
   
   # create final day/chlorophyll vectors for the fit, smoothed or not
   t <- ydays_dayrange_percov
+  
+  if (use_weights) {
+    weights <- daily_percov[ind_dayrange_percov]
+  } else {
+    weights <- rep(1,sum(ind_dayrange_percov))
+  }
+  
+  # list containing the values to fit and the real chla values
+  y <- list(y=chl_dayrange_percov, chla=chl_dayrange_percov)
+  
   if (smoothMethod == 'loess'){
-    mod <- try(loess(chl_dayrange_percov ~ ydays_dayrange_percov, span = loessSpan, degree = 2), silent=TRUE)
+    mod <- try(loess(chl_dayrange_percov ~ ydays_dayrange_percov,
+                     weights = weights,
+                     span = loessSpan,
+                     degree = 2),
+               silent=TRUE)
     bad_loess <- class(mod)=="try-error" | is.null(mod)
-    if (bad_loess) {y <- chl_dayrange_percov
-    } else {y <- fitted(mod)}
-  } else if (smoothMethod == 'nofit'){
-    y <- chl_dayrange_percov
+    if (!bad_loess) {
+      # use loess for fitting instead of real values
+      y$y <- fitted(mod)
+      # reset the weights so they aren't used again in a gaussian fit
+      weights <- rep(1,sum(ind_dayrange_percov))
+    }
   }
   
   
   if (fitmethod == 'gauss') {
-    
-    if (use_weights) {weights <- daily_percov[ind_dayrange_percov]
-    } else {weights <- rep(1,length(chl_dayrange_percov))}
     
     if (tm) {tmp_ti_lim <- c(1,365)
     } else {tmp_ti_lim <- ti_limits}
@@ -230,11 +243,17 @@ for (i in 1:length(years)) {
       ybkrnd <- gauss_res$ybkrnd
     }
     
+    loess_smooth <- rep(NA,length(daily_percov))
+    if (smoothMethod == 'loess') {
+      loess_smooth[ind_dayrange_percov] <- y$y
+    }
+    
     # transform fitted data and chl back to linear space if necessary
     if (log_chla) {
       yfit <- 10^yfit
       ybkrnd <- 10^ybkrnd
       chl <- 10^chl
+      loess_smooth <- 10^loess_smooth
     }
     
     # gather fitted data in an output dataframe
@@ -243,10 +262,10 @@ for (i in 1:length(years)) {
                          fitted_chl=yfit,
                          fitted_bkrnd_chl=ybkrnd,
                          stringsAsFactors = FALSE)
+
     # add data and to output list
-    all_data[[i]] <- dplyr::left_join(data.frame(year=year, doy=doy_vec, chl=chl),
-                                      new_df,
-                                      by=c("year","doy")) %>%
+    all_data[[i]] <- dplyr::left_join(data.frame(year=year, doy=doy_vec, chl=chl), new_df, by=c("year","doy")) %>%
+      dplyr::mutate(loess_smooth = loess_smooth) %>%
       dplyr::filter(is.finite(chl) & !is.na(chl) & !is.nan(chl))
     
   } else if (fitmethod=="roc" | fitmethod=="thresh") {
@@ -277,7 +296,10 @@ for (i in 1:length(years)) {
     }
     
     # add data to output list
-    all_data[[i]] <- data.frame(year=year, doy=doy_vec, chl=chl) %>%
+    all_data[[i]] <- data.frame(year=year, doy=doy_vec, chl=chl,
+                                fitted_chl=NA,
+                                fitted_bkrnd_chl=NA,
+                                loess_smooth=NA) %>%
       dplyr::filter(is.finite(chl) & !is.na(chl) & !is.nan(chl))
     
   }
@@ -286,6 +308,7 @@ for (i in 1:length(years)) {
   bloom_fits[[i]] <- dplyr::bind_cols(data.frame(year=year, stringsAsFactors=FALSE), bf_results)
   
 }
+
 
 
 #*******************************************************************************
@@ -339,23 +362,27 @@ plots <- list()
 for (i in 1:length(years_to_plot)) {
   
   year_to_plot <- years_to_plot[i]
-  tmp_data <- all_data %>% dplyr::filter(year==year_to_plot)
+  tmp_data <- all_data %>%
+    dplyr::filter(year==year_to_plot) %>%
+    tidyr::pivot_longer(cols=c("fitted_chl", "fitted_bkrnd_chl", "loess_smooth"),
+                        names_to="fit_type", values_to="values") %>%
+    dplyr::filter(!is.na(values)) %>%
+    dplyr::mutate(fit_type=ifelse(fit_type=="fitted_chl","Fitted chla",
+                                ifelse(fit_type=="fitted_bkrnd_chl","Fitted background chla",
+                                       ifelse(fit_type=="loess_smooth","LOESS smoothed chla",NA))))
   
   p <- ggplot(tmp_data) +
     geom_point(aes(x=doy, y=chl), alpha=0.6) +
-    geom_vline(xintercept=as.numeric(bloom_fits[i,c("t[start]","t[max]","t[end]")]),
-               linetype="dashed") +
+    geom_vline(xintercept=as.numeric(bloom_fits[i,c("t[start]","t[max]","t[end]")]), linetype="dashed") +
+    geom_line(aes(x=doy, y=values, color=fit_type)) +
     theme_bw() +
     scale_y_log10() +
     scale_x_continuous(limits=c(1,365), expand=c(0,0)) +
     ggtitle(year_to_plot) +
-    labs(x="Day of year", y="Chl-a (mg m^-3)")
-  
-  if (fitmethod=="gauss") {
-    p <- p + 
-      geom_line(aes(x=doy, y=fitted_chl), linetype="dashed", color="red") +
-      geom_line(aes(x=doy, y=fitted_bkrnd_chl), linetype="dashed", color="red")
-  } else if (fitmethod=="thresh") {
+    labs(x="Day of year", y="Chl-a (mg m^-3)") +
+    theme(legend.title=element_blank())
+
+  if (fitmethod=="thresh") {
     tmp_threshold <- median(tmp_data$chl,na.rm=TRUE) * threshcoef
     p <- p +
       geom_hline(yintercept=tmp_threshold, color="red", alpha=0.4) +
@@ -375,7 +402,7 @@ for (i in 1:length(years_to_plot)) {
   
 }
 
-print(wrap_plots(plots, ncol=1))
+print(wrap_plots(plots, ncol=1) + plot_layout(guides="collect"))
 
 })
 

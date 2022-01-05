@@ -12,6 +12,7 @@ This is a summary of updates to the algorithms (or updates to the code that affe
 - Fig.1: SAB 2020  
 - Fig.2,3,5: LAS 2004  
 - Fig.4: CS_V02 2020  
+- Fig.6,7: AC 2020  
 
 
 ### Commit 1 - Feb 11, 2021
@@ -64,5 +65,35 @@ _**Fig.5**_: **Before (left)**: If the calculated ti or tt did not have valid da
 **CHANGES PULLED TO DMAPPS ON MAR 8, 2021**
 
 ***
+
+<br><br>
+
+### Commit 5 - Nov 19, 2021
+
+- Fixed order of operations when LOESS smoothing and point-weighting are both selected (**see Fig.6**).  
+
+<img src="images/phytofit_updates_fig06.png" width=80%>  
+
+_**Fig.6**_: **Before (A)**: When LOESS and weighting were both selected, the LOESS-smoothed points were fitted using the unweighted real data points, and then the Gaussian curve was fitted to the weighted LOESS values. **After (B)**: The LOESS-smoothed points are fitted using the weighted real data points, and then the Gaussian curve is fitted to the LOESS values.  
+
+
+***
+
+### Commit 6 - Nov 22, 2021
+
+- Fixed calculation of mean/median/magnitude_real/amplitude_real when LOESS smoothing is selected. (**see Fig.7**).  
+
+<img src="images/phytofit_updates_fig07.png" width=80%>  
+
+_**Fig.7**_: **Before (A)**: Mean, median, amplitude_real, and magnitude_real are all calculated using the LOESS curve. **After (B)**: Mean, median, amplitude_real, and magnitude_real are all calculated using the real data points. Note the difference in amplitude_real vs amplitude_fit in A) vs B), and the extra flag (warning of the discrepancy between real and fitted amplitudes) that was missed in the previous version. Data points are weighted to create these plots.  
+
+
+***
+
+**CHANGES PULLED TO DMAPPS ON NOV 22, 2021**
+
+***
+
+<br><br>
 
 

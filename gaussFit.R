@@ -62,8 +62,8 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                      ti_threshold = 0.2, tt_threshold = 0.2, ydays_dayrange, rm_bkrnd=FALSE,
                      ti_threshold_type="percent_thresh", ti_threshold_constant=0.1){
   
-    # t, y, w              = numeric vectors: day of year, chlorophyll concentration, and weights
-    #                        (reduced by selected day range and percent coverage)
+    # t, w                 = numeric vectors: day of year and weights (reduced by selected day range and percent coverage)
+    # y                    = list containing y and chla (numeric vectors where the "y" element is the vector of values to be fitted, either real or LOESS-smoothed points, same length as t and w, reduced by selected day range and percent coverage)
     # bloomShape           = string: "symmetric" or "asymmetric"
     # tm, beta             = logical values
     # tm_limits, ti_limits = numeric vectors: the range of days to search for max chla concentration and the start of the bloom
@@ -84,10 +84,11 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     ti_width <- sqrt(-2 * log(ti_threshold))
     tt_width <- sqrt(-2 * log(tt_threshold))
     
-    chlorophyll <- y
+    chlorophyll <- y$chla
+    y <- y$y
     yday <- t
     
-    nls_data = list(B = chlorophyll, t = yday)
+    nls_data = list(B = y, t = yday)
     
     # these are for the curve and background line, they will be filled in and returned to use in the plots
     yfit <- NULL
@@ -180,7 +181,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                   nofit_code = nofit_code))
     }
     # Get the day of max concentration within this range
-    tm_value <- yday[which(chlorophyll==max(chlorophyll[limited_yday],na.rm=TRUE) & limited_yday)]
+    tm_value <- yday[which(y==max(y[limited_yday],na.rm=TRUE) & limited_yday)]
     # Check again if no data available
     if (length(tm_value)==0) {
       nofit_code <- 1
