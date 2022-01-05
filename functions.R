@@ -33,6 +33,9 @@ get_data <- function(region, satellite, algorithm, year, yearday, interval, log_
   
   # Reshape
   sschla <- matrix(sschla$var, ncol=available_days)
+  # Remove leap day, if present
+  sschla <- sschla[,1:min(available_days,365)]
+  available_days <- min(available_days,365)
   
   # If separating chla into phytoplankton cells of different sizes
   if (concentration_type=="model1") {
