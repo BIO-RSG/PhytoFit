@@ -34,6 +34,7 @@ README.html
 troubleshooting_and_help.html
 updates.html
 data_filesize_speed_tests/
-data/atlantic/old_files/
-data/atlantic/unused/
+
+# 2022-01-02 change - ignore the dataset folder, they should be treated separately and not tracked
+data/
 
