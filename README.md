@@ -20,10 +20,12 @@ In publications, please include acknowledgements to <a href=\"https://oceancolor
 1. Install the latest versions of R and RStudio.
 
 2. Install the necessary libraries:
-`fst, shiny, shinyWidgets, shinyjs, shinybusy, htmlwidgets, leaflet, leaflet.extras, leafem, quantreg, minpack.lm, rgdal, sp, ggplot2, grid, gridExtra, dplyr, geometry, raster, proj4`
+```r
+install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "leafem", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "geometry", "raster", "proj4", "curl"))
+```
 
 3. Install a necessary fix for the leaflet.extras package, and a custom package (oceancolouR):
-``` r
+```r
 # install.packages("remotes")
 remotes::install_github("bhaskarvk/leaflet.extras", ref = remotes::github_pull("184"))
 remotes::install_github("BIO-RSG/oceancolouR")
@@ -34,7 +36,17 @@ remotes::install_github("BIO-RSG/oceancolouR")
 5. Download this repository one of two ways:  
 
 - Code --> Download ZIP  
-- Using git (this will make it easier to download updates in the future): Open git bash terminal, navigate to the folder where you want to download the repository, and type: `git clone https://github.com/BIO-RSG/PhytoFit.git`  
+- Using git (this will make it easier to download updates in the future, by simply using the `git pull` command): Open git bash terminal, navigate to the folder where you want to download the repository, and type: `git clone https://github.com/BIO-RSG/PhytoFit.git`  
+
+6. Download the datasets of your choice, in one of two ways:  
+
+- Manually download from the ftp server where they're stored: `ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit_datasets/`  
+- Run `download_data.R` and follow the prompts to download a dataset from the ftp server, or update existing datasets if you have already downloaded them.  
+
+**WARNINGS:**  
+- Data files will be downloaded to `data/atlantic` or `data/pacific` subfolders - Do NOT move them from there or the app will not be able to read them.  
+- If possible, please keep the data files if you intend to use them in the future, rather than re-downloading them later, to avoid excessive traffic on the ftp server.  
+
 
 
 ## Running
