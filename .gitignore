@@ -36,5 +36,5 @@ updates.html
 data_filesize_speed_tests/
 
 # 2022-01-02 change - ignore the dataset folder, they should be treated separately and not tracked
-data/
-
+data/atlantic/*
+data/pacific/*
