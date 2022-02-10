@@ -36,8 +36,6 @@ remotes::install_github("BIO-RSG/oceancolouR")
 - Code --> Download ZIP  
 - Using git (this will make it easier to download updates in the future): Open git bash terminal, navigate to the folder where you want to download the repository, and type: `git clone https://github.com/BIO-RSG/PhytoFit.git`  
 
-**WARNING: individual data files are generally < 50mb, but the entire dataset is several GB. Check if you have enough space on your drive.**
-
 
 ## Running
 
