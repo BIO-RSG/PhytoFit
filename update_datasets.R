@@ -130,4 +130,6 @@ if (length(files_to_download) > 0) {
     }
     cat("DONE!")
   }
+} else {
+  cat("Everything up-to-date.")
 }
