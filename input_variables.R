@@ -28,8 +28,8 @@ cell_sizes_model2 <- list("Small"="small",
                           "Large"="large")
 
 # years with available data for each sensor
-years <- list("modis"=2003:2021,
-              "viirs"=2012:2021,
+years <- list("modis"=2003:2022,
+              "viirs"=2012:2022,
               "seawifs"=1997:2010,
               "modis1km"=2003:2020,
               "viirs1km"=2012:2020,
