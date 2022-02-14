@@ -41,10 +41,10 @@ remotes::install_github("BIO-RSG/oceancolouR")
 6. Download the datasets of your choice, in one of two ways:  
 
 - Manually download from the ftp server where they're stored: `ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit_datasets/`  
-- Run `download_data.R` and follow the prompts to download a dataset from the ftp server, or update existing datasets if you have already downloaded them.  
+- **Navigate to the PhytoFit repo on your local copy**, then run `download_new_datasets.R` and follow the prompts to download a dataset from the ftp server, or run `update_datasets.R` to update the datasets you have already downloaded with the most recent copies (and download any years of data missing from your local directory).  
 
 **WARNINGS:**  
-- Data files will be downloaded to `data/atlantic` or `data/pacific` subfolders - Do NOT move them from there or the app will not be able to read them.  
+- Data files will be downloaded to `data/atlantic` or `data/pacific` subfolders of the PhytoFit repository - Do NOT move them from there or the app will not be able to read them.  
 - If possible, please keep the data files if you intend to use them in the future, rather than re-downloading them later, to avoid excessive traffic on the ftp server.  
 
 
