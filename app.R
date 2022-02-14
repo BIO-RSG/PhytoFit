@@ -1713,11 +1713,11 @@ server <- function(input, output, session) {
         # Use leaflet() here, and only include aspects of the map that won't need
         # to change dynamically unless the entire map is torn down and recreated.
         leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
-            addProviderTiles("Esri.WorldGrayCanvas",
-                             options = providerTileOptions(minZoom = 4,
-                                                           maxZoom = 10,
-                                                           updateWhenZooming = FALSE,  # map won't update tiles until zoom is done
-                                                           updateWhenIdle = TRUE)) %>% # map won't load new tiles when panning
+            addTiles(options = tileOptions(minZoom = 4,
+                                           maxZoom = 10,
+                                           updateWhenZooming = FALSE,
+                                           updateWhenIdle = TRUE,
+                                           opacity = 0.8)) %>%
             setView(lng = state$center_lon,
                     lat = state$center_lat,
                     zoom = state$zoom_level) %>%
