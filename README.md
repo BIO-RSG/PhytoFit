@@ -10,7 +10,7 @@ This app can be used to display satellite chlorophyll concentration, and calcula
 
 ### How to cite
 
-In publications, please include acknowledgements to <a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a> for the raw satellite data and the <a href=\"https://github.com/BIO-RSG\">BIO remote sensing group</a> for the application, and use this citation in the references:  
+In publications, please include acknowledgements to [NASA OBPG](https://oceancolor.gsfc.nasa.gov) for the raw satellite data and the [BIO remote sensing group](https://github.com/BIO-RSG) for the application, and use this citation in the references:  
 
 *Stephanie Clay, Chantelle Layton, & Emmanuel Devred. (2021). BIO-RSG/PhytoFit: First release (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.4770754*  
 
