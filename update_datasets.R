@@ -29,6 +29,8 @@ base_local <- "data/"
 cat("Retrieving list of files in local directory...\n")
 
 local_file_list <- list.files(base_local, pattern=".fst", recursive=TRUE)
+# remove any non-.fst files
+local_file_list <- local_file_list[endsWith(local_file_list,".fst")]
 local_res <- file.info(paste0(base_local, local_file_list))
 
 if (nrow(local_res) > 0) {
