@@ -28,7 +28,8 @@ base_local <- "data/"
 
 cat("Retrieving list of files in local directory...\n")
 
-local_file_list <- Sys.glob(paste0(base_local,"*/*.fst"))
+local_file_list <- c(Sys.glob(paste0(base_local,"atlantic/*.fst")),
+                     Sys.glob(paste0(base_local,"pacific/*.fst")))
 # remove any non-.fst files
 local_file_list <- local_file_list[endsWith(local_file_list,".fst")]
 local_res <- file.info(local_file_list)
