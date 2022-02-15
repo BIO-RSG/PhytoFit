@@ -28,19 +28,20 @@ base_local <- "data/"
 
 cat("Retrieving list of files in local directory...\n")
 
-local_file_list <- list.files(base_local, pattern=".fst", recursive=TRUE)
+local_file_list <- Sys.glob(paste0(base_local,"*/*.fst"))
 # remove any non-.fst files
 local_file_list <- local_file_list[endsWith(local_file_list,".fst")]
-local_res <- file.info(paste0(base_local, local_file_list))
+local_res <- file.info(local_file_list)
 
 if (nrow(local_res) > 0) {
   
   # convert to a dataframe
   local_df <- data.frame(date_modified=local_res$mtime,
                          size_mb=local_res$size,
-                         filename=gsub("data/","",local_file_list))
+                         filename=as.character(gsub("data/","",local_file_list)),
+                         stringsAsFactors = FALSE)
   tz(local_df$date_modified) <- Sys.timezone()
-  metadata_df <- do.call(rbind, strsplit(local_df$filename, split="_"))
+  metadata_df <- data.frame(do.call(rbind, strsplit(local_df$filename, split="_")), stringsAsFactors = FALSE)
   colnames(metadata_df) <- c("region","sensor","algorithm","year")
   local_df <- dplyr::bind_cols(local_df, metadata_df)
   local_df <- local_df %>%
@@ -75,10 +76,10 @@ ftp_res <- c(atlantic_ftp, pacific_ftp)
 # remove any non-.fst files
 ftp_res <- ftp_res[endsWith(ftp_res,".fst")]
 # convert to a dataframe
-ftp_df <- strsplit(ftp_res, split="\\s+") %>% do.call(what=rbind) %>% as.data.frame()
-metadata_df <- do.call(rbind, strsplit(ftp_df$V4, split="_"))
-colnames(metadata_df) <- c("region","sensor","algorithm","year")
+ftp_df <- do.call(rbind, strsplit(ftp_res, split="\\s+")) %>% data.frame(stringsAsFactors = FALSE)
 colnames(ftp_df) <- c("date_modified","time_modified","size_mb","filename")
+metadata_df <- do.call(rbind, strsplit(ftp_df$filename, split="_")) %>% data.frame(stringsAsFactors = FALSE)
+colnames(metadata_df) <- c("region","sensor","algorithm","year")
 ftp_df <- dplyr::bind_cols(ftp_df, metadata_df)
 ftp_df <- ftp_df %>%
   dplyr::mutate(location = "ftp",
