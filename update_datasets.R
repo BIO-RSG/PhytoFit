@@ -35,8 +35,6 @@ local_res <- file.info(paste0(base_local, local_file_list))
 
 if (nrow(local_res) > 0) {
   
-  # remove any non-.fst files
-  local_res <- local_res[endsWith(rownames(local_res),".fst"),]
   # convert to a dataframe
   local_df <- data.frame(date_modified=local_res$mtime,
                          size_mb=local_res$size,
