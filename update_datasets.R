@@ -120,9 +120,14 @@ dir.create(paste0(base_local,"pacific"), showWarnings=FALSE, recursive=TRUE)
 if (length(files_to_download) > 0) {
   cat("Total download size =", sum(sizes), "mb, in the following files:\n")
   cat(paste0(files_to_download, collapse="\n"))
-  ans <- readYN("Download all? Y/N ")
-  while (is.null(ans)) {
+  cat("\n")
+  if (interactive()) {
     ans <- readYN("Download all? Y/N ")
+    while (is.null(ans)) {
+      ans <- readYN("Download all? Y/N ")
+    }
+  } else {
+    ans <- "Y"
   }
   if (ans=="Y") {
     for (i in 1:length(files_to_download)) {
