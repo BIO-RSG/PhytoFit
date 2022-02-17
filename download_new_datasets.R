@@ -132,12 +132,12 @@ if (length(ftp_sets) > 0) {
       ans <- readYN(msg)
     }
     if (ans=="Y") {
-      # for (j in 1:nrow(tmp_df)) {
-      #   filename <- tmp_df$filename[j]
-      #   cat(paste0("Downloading ", filename, "...\n"))
-      #   curl_download(url = paste0(base_ftp, filename),
-      #                 destfile = paste0(base_local, filename))
-      # }
+      for (j in 1:nrow(tmp_df)) {
+        filename <- tmp_df$filename[j]
+        cat(paste0("Downloading ", filename, "...\n"))
+        curl_download(url = paste0(base_ftp, filename),
+                      destfile = paste0(base_local, filename))
+      }
       cat("\n")
     }
     
