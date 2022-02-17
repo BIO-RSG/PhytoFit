@@ -7,8 +7,15 @@ library(dplyr)
 library(lubridate)
 library(curl)
 
-readYN <- function(pr) { 
-  n <- toupper(readline(prompt=pr))
+readYN <- function(pr) {
+  if (interactive()) {
+    n <- toupper(readline(prompt=pr))
+  } else {
+    cat(pr)
+    con <- file("stdin")
+    n <- toupper(readLines(con,1))
+    close(con)
+  }
   if(!(n=="Y" | n=="N")) {return()}
   return(n)
 }
@@ -113,7 +120,7 @@ if (length(ftp_sets) > 0) {
   
   cat("Datasets to download:\n")
   print(tmp_df)
-  cat("\n")
+  cat("\n\n")
   
   for (i in 1:length(ftp_sets)) {
     current_set <- ftp_sets[i]
@@ -125,12 +132,12 @@ if (length(ftp_sets) > 0) {
       ans <- readYN(msg)
     }
     if (ans=="Y") {
-      for (j in 1:nrow(tmp_df)) {
-        filename <- tmp_df$filename[j]
-        cat(paste0("Downloading ", filename, "...\n"))
-        curl_download(url = paste0(base_ftp, filename),
-                      destfile = paste0(base_local, filename))
-      }
+      # for (j in 1:nrow(tmp_df)) {
+      #   filename <- tmp_df$filename[j]
+      #   cat(paste0("Downloading ", filename, "...\n"))
+      #   curl_download(url = paste0(base_ftp, filename),
+      #                 destfile = paste0(base_local, filename))
+      # }
       cat("\n")
     }
     
