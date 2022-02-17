@@ -9,8 +9,13 @@ library(dplyr)
 library(lubridate)
 library(curl)
 
-readYN <- function(pr) { 
-  n <- toupper(readline(prompt=pr))
+readYN <- function(pr) {
+  if (interactive()) {
+    n <- toupper(readline(prompt=pr))
+  } else {
+    cat(pr)
+    n <- toupper(readLines(file("stdin"),1))
+  }
   if(!(n=="Y" | n=="N")) {return()}
   return(n)
 }
@@ -118,16 +123,12 @@ dir.create(paste0(base_local,"atlantic"), showWarnings=FALSE, recursive=TRUE)
 dir.create(paste0(base_local,"pacific"), showWarnings=FALSE, recursive=TRUE)
 
 if (length(files_to_download) > 0) {
-  cat("Total download size =", sum(sizes), "mb, in the following files:\n")
+  cat("List of files to download:\n")
   cat(paste0(files_to_download, collapse="\n"))
-  cat("\n")
-  if (interactive()) {
+  cat("\n\nTotal download size =", sum(sizes), "mb\n")
+  ans <- readYN("Download all? Y/N ")
+  while (is.null(ans)) {
     ans <- readYN("Download all? Y/N ")
-    while (is.null(ans)) {
-      ans <- readYN("Download all? Y/N ")
-    }
-  } else {
-    ans <- "Y"
   }
   if (ans=="Y") {
     for (i in 1:length(files_to_download)) {
