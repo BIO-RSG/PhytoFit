@@ -21,7 +21,7 @@ In publications, please include acknowledgements to [NASA OBPG](https://oceancol
 
 2. Install the necessary libraries:
 ```r
-install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "leafem", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "geometry", "raster", "proj4", "curl"))
+install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "leafem", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "tidyr", "geometry", "raster", "proj4", "curl"))
 ```
 
 3. Install a necessary fix for the leaflet.extras package, and a custom package (oceancolouR):
