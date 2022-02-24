@@ -9,6 +9,9 @@ library(dplyr)
 library(lubridate)
 library(curl)
 
+# should the script ask before downloading updates?
+ask_user <- FALSE
+
 readYN <- function(pr) {
   if (interactive()) {
     n <- toupper(readline(prompt=pr))
@@ -128,9 +131,13 @@ if (length(files_to_download) > 0) {
   cat("List of files to download:\n")
   cat(paste0(files_to_download, collapse="\n"))
   cat("\n\nTotal download size =", sum(sizes), "mb\n")
-  ans <- readYN("Download all? Y/N ")
-  while (is.null(ans)) {
+  if (ask_user) {
     ans <- readYN("Download all? Y/N ")
+    while (is.null(ans)) {
+      ans <- readYN("Download all? Y/N ")
+    }
+  } else {
+    ans <- "Y"
   }
   if (ans=="Y") {
     for (i in 1:length(files_to_download)) {
