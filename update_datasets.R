@@ -30,9 +30,9 @@ conv_factor_dir <- 1/1024/1024/1024 # gigabytes, for directory sizes
 conv_factor_file <- 1/1024/1024 # megabytes, for file sizes
 
 # subdirectory in the phytofit repository, where the data is stored
-base_local <- "data/"
-
-
+base_local <- paste0(getwd(),"/data/")
+print(base_local)
+stop()
 #*******************************************************************************
 # GET LOCAL DATA ####
 
