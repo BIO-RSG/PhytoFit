@@ -49,7 +49,7 @@ if (nrow(local_res) > 0) {
   # convert to a dataframe
   local_df <- data.frame(date_modified=local_res$mtime,
                          size_mb=local_res$size,
-                         filename=as.character(gsub("data/","",local_file_list)),
+                         filename=as.character(gsub(base_local,"",local_file_list)),
                          stringsAsFactors = FALSE)
   tz(local_df$date_modified) <- Sys.timezone()
   metadata_df <- data.frame(do.call(rbind, strsplit(local_df$filename, split="_")), stringsAsFactors = FALSE)

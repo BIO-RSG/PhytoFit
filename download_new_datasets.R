@@ -41,7 +41,7 @@ local_file_list <- local_file_list[endsWith(local_file_list,".fst")]
 if (length(local_file_list) > 0) {
   
   # convert to a dataframe
-  local_df <- data.frame(do.call(rbind, strsplit(gsub("data/","",local_file_list), split="_")),
+  local_df <- data.frame(do.call(rbind, strsplit(gsub(base_local,"",local_file_list), split="_")),
                          stringsAsFactors = FALSE)
   colnames(local_df) <- c("region","sensor","algorithm","year")
   local_df <- local_df %>%
