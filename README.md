@@ -33,12 +33,15 @@ remotes::install_github("BIO-RSG/oceancolouR")
 
 4. Restart R after the packages and fix have been installed.
 
-5. Download this repository one of two ways:  
+
+## Getting started
+
+1. Download this repository one of two ways:  
 
 - Code --> Download ZIP  
 - Using git (this will make it easier to download updates in the future, by simply using the `git pull` command): Open git bash terminal, navigate to the folder where you want to download the repository, and type: `git clone https://github.com/BIO-RSG/PhytoFit.git`  
 
-6. Download the datasets of your choice, in one of two ways:  
+2. Download the datasets of your choice, in one of two ways:  
 
 - Manually download from the ftp server where they're stored: `ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit_datasets/`  
 - **Navigate to the PhytoFit repo on your local copy**, then run `download_new_datasets.R` and follow the prompts to download a dataset from the ftp server, or run `update_datasets.R` to update the datasets you have already downloaded with the most recent copies (and download any years of data missing from your local directory).  
