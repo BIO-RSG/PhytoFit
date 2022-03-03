@@ -798,7 +798,7 @@ server <- function(input, output, session) {
     state$data_loaded <- FALSE
     state$satellite <- "modis"
     state$algorithm <- "ocx"
-    state$year <- 2020
+    state$year <- as.numeric(format(Sys.Date(),"%Y"))
     state$interval <- "daily"
     state$log_chla <- TRUE
     state$doy_vec <- 1:365
