@@ -6,6 +6,8 @@
 The pre-built PhytoFit Docker image is available on Docker hub here:
 https://hub.docker.com/r/cioosatlantic/phytofit
 
+It is based on an existing `rocker/shiny` image for running the Shiny server.
+
 ## Building the Docker image
 
 Building the Docker image should only need to be done rarely. Enabling newly developed app features will require pulling in the changes, rebuilding the Docker image, and pushing the new image to Docker hub. In Linux this looks like the following.
@@ -24,6 +26,7 @@ Setting up the pre built Docker image on a new host using Docker compose can be 
 ```
 cd /path/to/PhytoFit
 git pull
+cp .env.template .env
 docker-compose up -d
 ```
 

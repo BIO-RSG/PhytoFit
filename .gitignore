@@ -38,3 +38,7 @@ data_filesize_speed_tests/
 # 2022-01-02 change - ignore the dataset folder, they should be treated separately and not tracked
 data/atlantic/*
 data/pacific/*
+
+# 2022-03-30 change - ignore the Docker .env file as it is host-specific
+.env
+
