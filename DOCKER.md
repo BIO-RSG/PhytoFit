@@ -28,3 +28,7 @@ docker-compose up -d
 ```
 
 You should then be able to view the application locally at http://127.0.0.1:7520.
+
+## Data downloads
+
+The `PhytoFit/data` subdirectory is mounted to the Docker image. On first running docker-compose up, the contents of this folder will be brought in and then all new FST files will be downloaded. The directory is bind mounted in Docker, so new files will appear in the `PhytoFit/data` directory as well.
