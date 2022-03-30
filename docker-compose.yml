@@ -1,0 +1,14 @@
+version: "3"
+services: 
+  phytofit:
+    container_name: "phytofit"
+    image: cioosatlantic/phytofit
+    restart: unless-stopped
+    ports: 
+     - "0.0.0.0:7520:7520"
+    volumes:
+     - "${PWD}/data:/data"
+    entrypoint: bash /PhytoFit/phytofit-entrypoint.sh
+
+
+
