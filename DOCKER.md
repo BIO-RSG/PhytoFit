@@ -15,7 +15,7 @@ Building the Docker image should only need to be done rarely. Enabling newly dev
 ```
 cd /path/to/Phytofit
 git pull
-docker build -t cioosatlantic/PhytoFit .
+docker build -t cioosatlantic/phytofit .
 docker push cioosatlantic/phytofit
 ```
 
@@ -26,6 +26,7 @@ Setting up the pre built Docker image on a new host using Docker compose can be 
 ```
 cd /path/to/PhytoFit
 git pull
+docker pull cioosatlantic/phytofit
 docker-compose up -d
 ```
 
