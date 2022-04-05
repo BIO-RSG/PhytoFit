@@ -39,6 +39,7 @@ data_filesize_speed_tests/
 data/atlantic/*
 data/pacific/*
 
-# 2022-03-30 change - ignore the Docker .env file as it is host-specific
-.env
+# 2022-04-05 ignore volumes that are mounted by Docker
+data/
+shiny_logs/
 

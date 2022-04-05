@@ -1,3 +1,4 @@
 
-# Ignore the data directory.
+# Ignore the data and shiny_logs directories.
 data
+shiny_logs
