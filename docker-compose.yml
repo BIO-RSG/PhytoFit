@@ -1,0 +1,51 @@
+# Modified copy of the rocker/shiny compose template:
+# https://github.com/rocker-org/shiny/blob/master/docker-compose.yml
+
+version: "3.0"
+
+services:
+  phytofit:
+    container_name: phytofit
+    # To build the image locally, comment out "image" below, and uncomment
+    # "build" and the lines indented under it.
+    # image: rocker/shiny
+    image: cioosatlantic/phytofit
+    # build:
+    #  context: .
+    #  dockerfile: Dockerfile
+    restart: always
+    # Setting this to something other than 'root' will cause shiny apps not to
+    # run on the localhost:80 "Welcome to Shiny" diagnostics page mentioned
+    # below.
+    user: 'root'
+    # Uncomment the lines below to disable application logs STDOUT output
+    # environment:
+    #   - APPLICATION_LOGS_TO_STDOUT=false
+    ports:
+    #  - '80:3838'
+      - 0.0.0.0:3838:3838
+    #   - "0.0.0.0:7520:7520"
+    volumes:
+      - "./shiny_logs:/var/log/shiny-server"
+      # - "./data:/data"
+      - "./data:/srv/shiny-server/phytofit/data"
+      # Comment the line below out for initial testing. With it commented out,
+      # going to localhost:80 in one's web browser will show a "Welcome to
+      # Shiny Server!" diagnostics page.
+      # - './mountpoints/apps:/srv/shiny-server'
+
+  data_download:
+    depends_on:
+      - phytofit
+    image: cioosatlantic/phytofit
+    command: >
+      /bin/sh -c '
+      cd /srv/shiny-server/phytofit && yes | Rscript download_new_datasets.R
+      '
+    volumes:
+      - "./data:/srv/shiny-server/phytofit/data"
+
+volumes:
+  shiny_logs:
+  data:
+  
