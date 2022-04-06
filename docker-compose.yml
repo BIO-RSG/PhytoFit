@@ -48,3 +48,4 @@ services:
 volumes:
   shiny_logs:
   data:
+  
