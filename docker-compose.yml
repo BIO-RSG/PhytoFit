@@ -1,3 +1,6 @@
+# Modified copy of the rocker/shiny compose template:
+# https://github.com/rocker-org/shiny/blob/master/docker-compose.yml
+
 version: "3.0"
 
 services:
@@ -30,13 +33,11 @@ services:
       # going to localhost:80 in one's web browser will show a "Welcome to
       # Shiny Server!" diagnostics page.
       # - './mountpoints/apps:/srv/shiny-server'
-    # entrypoint: bash /srv/shiny-server/phytofit/phytofit-entrypoint.sh
 
   data_download:
     depends_on:
       - phytofit
     image: cioosatlantic/phytofit
-    # user: xfs
     command: >
       /bin/sh -c '
       cd /srv/shiny-server/phytofit && yes | Rscript download_new_datasets.R
