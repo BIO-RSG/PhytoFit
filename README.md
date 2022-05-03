@@ -38,16 +38,23 @@ remotes::install_github("BIO-RSG/oceancolouR")
 
 1. Download this repository one of two ways:  
 
-- Code --> Download ZIP  
-- Using git (this will make it easier to download updates in the future, by simply using the `git pull` command): Open git bash terminal, navigate to the folder where you want to download the repository, and type: `git clone https://github.com/BIO-RSG/PhytoFit.git`  
+- Option 1: Code --> Download ZIP  
 
-2. Download the datasets of your choice, in one of two ways:  
+- Option 2: Using git (this will make it easier to download updates in the future, by simply using the `git pull` command): Open git bash terminal, navigate to the folder where you want to download the repository, and type: `git clone https://github.com/BIO-RSG/PhytoFit.git`  
 
-- Manually download from the ftp server where they're stored: `ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit_datasets/`  
-- **Navigate to the PhytoFit repo on your local copy**, then run `download_new_datasets.R` and follow the prompts to download a dataset from the ftp server, or run `update_datasets.R` to update the datasets you have already downloaded with the most recent copies (and download any years of data missing from your local directory).  
+2. Open the PhytoFit repository in RStudio:  
+
+- File --> Open Project --> Navigate to the PhytoFit folder and open "PhytoFit.Rproj"  
+
+3. Download the datasets of your choice, in one of two ways:  
+
+- Option 1: Manually download from the ftp server where they're stored: `ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit_datasets/`  
+Note: The files you download must be stored in the `data/atlantic/` or `data/pacific/` subfolders of the PhytoFit folder, depending on whether the filename starts with *atlantic_* or *pacific_*. If those subfolders don't exist yet, you can create them manually.  
+
+- Option 2: Open and run `download_new_datasets.R` from the PhytoFit folder and follow the prompts in the RStudio console to download a dataset from the ftp server, or run `update_datasets.R` to update the datasets you have already downloaded with the most recent copies (and download any years of data missing from your local directory).  
 
 **WARNINGS:**  
-- Data files will be downloaded to `data/atlantic` or `data/pacific` subfolders of the PhytoFit repository - Do NOT move them from there or the app will not be able to read them.  
+- Data files will be downloaded to `data/atlantic/` or `data/pacific/` subfolders of the PhytoFit repository - Do NOT move them from there or the app will not be able to read them.  
 - If possible, please keep the data files if you intend to use them in the future, rather than re-downloading them later, to avoid excessive traffic on the ftp server.  
 
 
