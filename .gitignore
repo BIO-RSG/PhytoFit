@@ -38,3 +38,8 @@ data_filesize_speed_tests/
 # 2022-01-02 change - ignore the dataset folder, they should be treated separately and not tracked
 data/atlantic/*
 data/pacific/*
+
+# 2022-04-05 ignore volumes that are mounted by Docker
+data/
+shiny_logs/
+
