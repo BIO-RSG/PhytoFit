@@ -14,6 +14,15 @@ In publications, please include acknowledgements to [NASA OBPG](https://oceancol
 
 *Stephanie Clay, Chantelle Layton, & Emmanuel Devred. (2021). BIO-RSG/PhytoFit: First release (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.4770754*  
 
+BibTeX format:  
+
+    @misc{clay21,
+      author       = {Clay, Stephanie and Layton, Chantelle and Devred, Emmanuel},
+      title        = "PhytoFit",
+      howpublished = "\url{https://github.com/BIO-RSG/PhytoFit}",
+      year         = 2021
+    }
+
 
 ## Prerequisites
 
