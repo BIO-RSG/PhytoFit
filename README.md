@@ -37,7 +37,7 @@ install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "html
 ```r
 # install.packages("remotes")
 remotes::install_github("bhaskarvk/leaflet.extras", ref = remotes::github_pull("184"))
-remotes::install_github("BIO-RSG/oceancolouR")
+remotes::install_github("BIO-RSG/oceancolouR", build_vignettes = TRUE)
 ```
 
 4. Restart R after the packages and fix have been installed.
