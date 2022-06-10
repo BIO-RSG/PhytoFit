@@ -831,6 +831,7 @@ server <- function(input, output, session) {
     state$num_sfile_no_main_change <- 0 # number of settings files loaded that changed the main inputs
     state$max_area <- 500
     state$loess_smooth <- NA
+    state$map_resolution <- c(0.065,0.04333333)
     
     
     # START SCREEN POPUP ####
@@ -1580,20 +1581,20 @@ server <- function(input, output, session) {
         
         # Load full map data
         if (grepl("1km", state$satellite)) {
-            ssbin <- coord_list[["gosl_1km"]]$bin
             sslat <- coord_list[["gosl_1km"]]$lat
             sslon <- coord_list[["gosl_1km"]]$lon
             state$max_area <- 50
+            state$map_resolution <- c(0.03,0.02)
         } else if (state$algorithm=="eof") {
-            ssbin <- coord_list[["gosl_4km"]]$bin
             sslat <- coord_list[["gosl_4km"]]$lat
             sslon <- coord_list[["gosl_4km"]]$lon
             state$max_area <- 500
+            state$map_resolution <- c(0.065,0.04333333)
         } else {
-            ssbin <- coord_list[[state$region]]$bin
             sslat <- coord_list[[state$region]]$lat
             sslon <- coord_list[[state$region]]$lon
             state$max_area <- 500
+            state$map_resolution <- c(0.065,0.04333333)
         }
         all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
                              state$yearday, state$interval, state$log_chla, length(sslat),
@@ -1697,7 +1698,6 @@ server <- function(input, output, session) {
         gc()
         
         return(list(sschla=sschla,
-                    ssbin=ssbin,
                     sslon=sslon,
                     sslat=sslat))
         
@@ -1759,7 +1759,6 @@ server <- function(input, output, session) {
         # Get the selected annual dataset
         ssfull <- full_data()
         sschla <- ssfull$sschla
-        ssbin <- ssfull$ssbin
         sslat <- ssfull$sslat
         sslon <- ssfull$sslon
         
@@ -1807,20 +1806,14 @@ server <- function(input, output, session) {
             } else {
                 
                 # 1km resolution is too high to use var_to_rast()
-                if (grepl("1km", isolate(state$satellite))) {
-                    pts <- data.frame(lon = sslon[chla_ind],
-                                      lat = sslat[chla_ind],
-                                      chl = sschla[chla_ind,time_ind],
-                                      stringsAsFactors = FALSE)
-                    # state$pts <- pts
-                    coordinates(pts) = ~lon+lat
-                    tr <- raster(ext=extent(pts), resolution = c(0.03,0.02))
-                    tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = TRUE)
-                } else {
-                    tr <- var_to_rast(data.frame(bin=ssbin[chla_ind],
-                                                 chl=sschla[chla_ind,time_ind]),
-                                      ext=c(range(sslon[chla_ind]), range(sslat[chla_ind])))
-                }
+                pts <- data.frame(lon = sslon[chla_ind],
+                                  lat = sslat[chla_ind],
+                                  chl = sschla[chla_ind,time_ind],
+                                  stringsAsFactors = FALSE)
+                # state$pts <- pts
+                coordinates(pts) = ~lon+lat
+                tr <- raster(ext=extent(pts), resolution = state$map_resolution)
+                tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = TRUE)
                 
                 # state$tr <- tr # only used for input$fullmap_click, currently disabled
                 
