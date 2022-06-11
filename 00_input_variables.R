@@ -1,21 +1,17 @@
 # Variable options in the sidebar
-# Note that the regions and polygons are created using 00_create_new_region.R, 
-# and stored in reginfo.rds
+# Note: Regions and polygons are created using 00_create_new_region.R, and stored in reginfo.rds
 
 #*******************************************************************************
 # VARIABLES THAT CAN BE CHANGED
 
-# First sensor in the list will be used as the default
-# Values must match the "sensor" part of the fst data filename
-sensors <- c("MODIS" = "modis",
-             "VIIRS" = "viirs",
-             "SeaWiFS" = "seawifs")
-
-# Years with available data for each sensor listed above
-# Names must be the same as the values in "sensors"
-years <- list("modis" = 2003:2022,
-              "viirs" = 2012:2022,
-              "seawifs" = 1997:2010)
+# Sensors, with their full name and years of available data.
+# List element names (i.e. modis, seawifs, viirs) must match the sensor in the fst data filename
+sensors <- list("modis" = list(name = "MODIS-Aqua",
+                               years = 2003:2022),
+                "seawifs" = list(name = "SeaWiFS",
+                                 years = 1997:2010),
+                "viirs" = list(name = "VIIRS-SNPP",
+                               years = 2012:2022))
 
 # Values must match the "variable" part of the fst data filename
 algorithms <- c("OCx (global, band ratio)" = "ocx",

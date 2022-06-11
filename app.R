@@ -16,7 +16,7 @@ library(leaflet.extras) # for custom polygon drawings on map
 library(leafem)         # mouse coordinates at top of map
 library(quantreg)       # used in the fitting models
 library(minpack.lm)     # to use nlsLM for asymmetric gaussian fit
-library(rgdal)          # needed for some other packages
+# library(rgdal)          # needed for some other packages
 library(sp)             # to use point.in.polygon to extract points within lat/lon boundaries
 library(ggplot2)        # for the density plot and bloom fit plots
 library(grid)           # for formatting tableGrobs overlaid on ggplots
@@ -24,7 +24,7 @@ library(gridExtra)      # for creating tableGrobs overlaid on ggplots
 library(dplyr)          # for formatting data tables
 library(geometry)       # to check if user-entered lat/lons make a polygon with area too large (degrees^2)
 library(raster)         # to use rasters on the map instead of binned points (faster, less accurate)
-library(proj4)          # to use custom projection with the map
+# library(proj4)          # to use custom projection with the map
 library(oceancolouR)
 library(compiler)
 # library(htmlTable)      # for making tables in popups
@@ -35,10 +35,9 @@ library(compiler)
 source("rateOfChange.R")    # rate of change (ROC) function for bloom fit
 source("threshold.R")       # threshold function for bloom fit
 source("gaussFit.R")        # gaussian function for bloom fit
-source("00_regionBoxes.R")  # contains coordinates of boxes/polygons
 source("full_run.R")        # contains function to run full time series with current settings
 source("functions.R")       # extra functions
-source("input_variables.R") # variable options in the sidebar
+source("00_input_variables.R") # variable options in the sidebar
 
 # Compile functions - in some cases, this might help speed it up
 get_time_vars <- cmpfun(get_time_vars)
@@ -62,6 +61,14 @@ full_run <- cmpfun(full_run)
 #*******************************************************************************
 # EXTRA VARIABLES ####
 
+# extract the years of data for each sensor
+years <- lapply(sensors, "[[", "years")
+years <- lapply(years, function(x) {names(x) <- x; x})
+
+# extract sensor names
+sensors <- lapply(sensors, "[[", "name")
+sensors <- setNames(names(sensors), sensors)
+
 # variables for using weekly data rather than daily
 doy_week_start <- as.integer(8*(0:45)+1) # note: this is the same for leap years, using NASA's system
 doy_week_end <- c(doy_week_start[2:length(doy_week_start)] - 1, 365)
@@ -72,8 +79,27 @@ data_last_updated <- file.info(list.files("data", pattern=".fst", full.names = T
 most_recent <- which.max(as.numeric(data_last_updated))
 data_last_updated <- data_last_updated[most_recent]
 
-# Load coordinates
-coord_list <- readRDS("coords.rds")
+# Load region data (name, existing polygons, lat/lon vectors, resolution)
+reginfo <- readRDS("reginfo.rds")
+regions <- names(reginfo)
+names(regions) <- sapply(reginfo, "[[", "name")
+polygonChoices <- lapply(reginfo, function(x) {v = c("custom",x$poly_ID); names(v) = c("Custom",x$poly_names); v})
+names(polygonChoices) <- regions
+multiPolygonChoices <- lapply(reginfo, function(x) {v = c("custom",x$poly_ID); names(v) = c("Custom",x$poly_ID); v})
+names(multiPolygonChoices) <- regions
+
+# variables from the original 00_regionBoxes.R, for easier transition to new code
+all_regions <- lapply(reginfo, "[[", "poly")
+full_names <- lapply(reginfo, "[[", "poly_names")
+poly_ID <- lapply(reginfo, "[[", "poly_ID")
+abbrev <- lapply(reginfo, "[[", "poly_abbrev")
+names(all_regions) <- names(full_names) <- names(poly_ID) <- names(abbrev) <- regions
+
+# set up defaults
+default_sensor <- sensors[1]
+default_years <- years[[default_sensor]]
+default_algorithm <- algorithms[1]
+default_region <- regions[1]
 
 
 #*******************************************************************************
@@ -199,6 +225,7 @@ ui <- fluidPage(
             selectInput(inputId = "satellite",
                         label = NULL,
                         choices = sensors,
+                        selected = default_sensor,
                         width = widget_width),
             helpText("**1km-resolution data only exists in a box encompassing the Gulf of Saint Lawrence (41-53 N, 49-75 W), using the EOF algorithm",
                      width = widget_width,
@@ -209,6 +236,7 @@ ui <- fluidPage(
             selectInput(inputId = "region",
                         label = NULL,
                         choices = regions,
+                        selected = default_region,
                         width = widget_width),
             helpText("Chlorophyll algorithm",
                      width = widget_width,
@@ -216,6 +244,7 @@ ui <- fluidPage(
             selectInput(inputId = "algorithm",
                         label = NULL,
                         choices = algorithms,
+                        selected = default_algorithm,
                         width = widget_width),
             helpText("**EOF data only exists in a box encompassing the Gulf of Saint Lawrence (41-53 N, 49-75 W)",
                      width = widget_width,
@@ -796,8 +825,8 @@ server <- function(input, output, session) {
     state$latlon_toolarge <- FALSE # used to prevent custom polygons that are too large
     state$num_invalid_polygons_drawn <- 0
     state$data_loaded <- FALSE
-    state$satellite <- "modis"
-    state$algorithm <- "ocx"
+    state$satellite <- default_sensor
+    state$algorithm <- default_algorithm
     state$year <- as.numeric(format(Sys.Date(),"%Y"))
     state$interval <- "daily"
     state$log_chla <- TRUE
@@ -829,9 +858,9 @@ server <- function(input, output, session) {
     state$applyname_programmatically <- FALSE
     state$current_years <- default_years
     state$num_sfile_no_main_change <- 0 # number of settings files loaded that changed the main inputs
-    state$max_area <- 500
+    state$max_area <- reginfo[[default_region]]$max_area
     state$loess_smooth <- NA
-    state$map_resolution <- c(0.065,0.04333333)
+    state$map_resolution <- reginfo[[default_region]]$map_resolution
     
     
     # START SCREEN POPUP ####
@@ -1070,17 +1099,6 @@ server <- function(input, output, session) {
         reg <- input$region
         state$region <- reg
         
-        if (reg=="atlantic") {
-            state$center_lon <- -55
-            state$center_lat <- 53
-            state$zoom_level <- 5
-        } else if (reg=="pacific") {
-            state$center_lon <- -132.5
-            state$center_lat <- 51.5
-            state$zoom_level <- 6
-        }
-        
-        
         poly_coord_list <- all_regions[[reg]]
         
         
@@ -1112,15 +1130,18 @@ server <- function(input, output, session) {
         # }
         # names(poly_coord_list) <- poly_coord_list_names
         
-        
-        # Make polygons for existing boxes, to add to base leaflet map
-        original_polys <- lapply(1:length(poly_coord_list), function(k) {
-            Polygon(coords=cbind(poly_coord_list[[k]]$lon, poly_coord_list[[k]]$lat), hole=TRUE)
-        })
-        original_polyIDs <- lapply(1:length(original_polys), function(k) {
-            Polygons(list(original_polys[[k]]), toupper(poly_ID[[isolate(state$region)]][k]))
-        })
-        state$original_polylist <- SpatialPolygons(original_polyIDs, 1:length(poly_coord_list))
+        if (length(poly_coord_list) > 0) {
+            # Make polygons for existing boxes, to add to base leaflet map
+            original_polys <- lapply(1:length(poly_coord_list), function(k) {
+                Polygon(coords=cbind(poly_coord_list[[k]]$lon, poly_coord_list[[k]]$lat), hole=TRUE)
+            })
+            original_polyIDs <- lapply(1:length(original_polys), function(k) {
+                Polygons(list(original_polys[[k]]), toupper(poly_ID[[isolate(state$region)]][k]))
+            })
+            state$original_polylist <- SpatialPolygons(original_polyIDs, 1:length(poly_coord_list))
+        } else {
+            state$original_polylist <- NULL
+        }
         
         # Update polygon dropdown menu and fullrunboxes choices
         updateSelectInput(session, inputId = "box", choices = polygonChoices[[reg]], selected = "custom")
@@ -1580,22 +1601,11 @@ server <- function(input, output, session) {
         enable("savesettings")
         
         # Load full map data
-        if (grepl("1km", state$satellite)) {
-            sslat <- coord_list[["gosl_1km"]]$lat
-            sslon <- coord_list[["gosl_1km"]]$lon
-            state$max_area <- 50
-            state$map_resolution <- c(0.03,0.02)
-        } else if (state$algorithm=="eof") {
-            sslat <- coord_list[["gosl_4km"]]$lat
-            sslon <- coord_list[["gosl_4km"]]$lon
-            state$max_area <- 500
-            state$map_resolution <- c(0.065,0.04333333)
-        } else {
-            sslat <- coord_list[[state$region]]$lat
-            sslon <- coord_list[[state$region]]$lon
-            state$max_area <- 500
-            state$map_resolution <- c(0.065,0.04333333)
-        }
+        sslat <- reginfo[[state$region]]$lat
+        sslon <- reginfo[[state$region]]$lon
+        state$max_area <- reginfo[[state$region]]$max_area
+        state$map_resolution <- reginfo[[state$region]]$map_resolution
+        
         all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
                              state$yearday, state$interval, state$log_chla, length(sslat),
                              doys_per_week, doy_week_start, doy_week_end,
@@ -1605,7 +1615,6 @@ server <- function(input, output, session) {
         state$doy_vec <- all_data$doy_vec # days of the year, whether you're using daily or weekly data
         state$day_label <- all_data$day_label
         state$time_ind <- all_data$time_ind
-        
         
         secondary_settings <- state$secondary_settings
         
@@ -1712,36 +1721,20 @@ server <- function(input, output, session) {
     
         # Use leaflet() here, and only include aspects of the map that won't need
         # to change dynamically unless the entire map is torn down and recreated.
-        leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
+        lf <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
             addProviderTiles("Esri.WorldGrayCanvas",
                              options = providerTileOptions(minZoom = 4,
                                                            maxZoom = 10,
                                                            updateWhenZooming = FALSE,  # map won't update tiles until zoom is done
                                                            updateWhenIdle = TRUE)) %>% # map won't load new tiles when panning
-            setView(lng = state$center_lon,
-                    lat = state$center_lat,
-                    zoom = state$zoom_level) %>%
+            setView(lng = reginfo[[isolate(state$region)]]$center_lon,
+                    lat = reginfo[[isolate(state$region)]]$center_lat,
+                    zoom = reginfo[[isolate(state$region)]]$zoom_level) %>%
             # Add mouse coordinates to top of map
             # Note: need to "remove" first, otherwise it gets stuck if you try
             # to reload the base map (for example, switching from Atlantic to Pacific)
             removeMouseCoordinates() %>%
             addMouseCoordinates() %>%
-            # Add boxes based on the current AZMP statistic boxes
-            addPolygons(group = "Stats boxes",
-                        data = state$original_polylist,
-                        stroke = TRUE,
-                        color = "darkgrey",
-                        weight = 2,
-                        opacity = 1,
-                        fill = FALSE,
-                        label = abbrev[[isolate(state$region)]],
-                        labelOptions = labelOptions(noHide = TRUE,
-                                                    textOnly = TRUE,
-                                                    textsize = '13px',
-                                                    direction = "center",
-                                                    style = list(
-                                                        'color'='white',
-                                                        'text-shadow' = '0px 0px 4px #000000'))) %>%
             # Add gridlines
             addSimpleGraticule(group = "Gridlines",
                                interval = 5,
@@ -1749,6 +1742,27 @@ server <- function(input, output, session) {
             # Add option to remove the gridlines or existing statistic boxes
             addLayersControl(overlayGroups = c("Gridlines", "Stats boxes"),
                              options = layersControlOptions(collapsed = FALSE))
+        # Add predefined polygons to the map
+        if (!is.null(state$original_polylist)) {
+            lf <- lf %>%
+                addPolygons(group = "Stats boxes",
+                            data = state$original_polylist,
+                            stroke = TRUE,
+                            color = "darkgrey",
+                            weight = 2,
+                            opacity = 1,
+                            fill = FALSE,
+                            label = abbrev[[isolate(state$region)]],
+                            labelOptions = labelOptions(noHide = TRUE,
+                                                        textOnly = TRUE,
+                                                        textsize = '13px',
+                                                        direction = "center",
+                                                        style = list(
+                                                            'color'='white',
+                                                            'text-shadow' = '0px 0px 4px #000000')))
+        }
+        
+        lf
         
     })
     
@@ -1805,7 +1819,6 @@ server <- function(input, output, session) {
                 
             } else {
                 
-                # 1km resolution is too high to use var_to_rast()
                 pts <- data.frame(lon = sslon[chla_ind],
                                   lat = sslat[chla_ind],
                                   chl = sschla[chla_ind,time_ind],
@@ -1814,7 +1827,6 @@ server <- function(input, output, session) {
                 coordinates(pts) = ~lon+lat
                 tr <- raster(ext=extent(pts), resolution = state$map_resolution)
                 tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = TRUE)
-                
                 # state$tr <- tr # only used for input$fullmap_click, currently disabled
                 
                 # Get colour scale for leaflet map
@@ -1828,7 +1840,8 @@ server <- function(input, output, session) {
                 state$leg_title <- leg_title
                 
                 cm <- colorNumeric(
-                    palette = colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F", "yellow", "#FF7F00", "red", "#7F0000"))(100),
+                    palette = colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F",
+                                                 "yellow", "#FF7F00", "red", "#7F0000"))(100),
                     domain = zlim,
                     na.color = "#00000000"# transparent
                 )
@@ -2795,16 +2808,8 @@ server <- function(input, output, session) {
         total_params_df <- data.frame(matrix(nrow=(length(year_list)*length(polygon_list$full_names)), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
         colnames(total_params_df) <- c("Region", "Year", pnames)
         
-        if (grepl("1km", satellite)) {
-            sslat <- coord_list[["gosl_1km"]]$lat
-            sslon <- coord_list[["gosl_1km"]]$lon
-        } else if (algorithm=="eof") {
-            sslat <- coord_list[["gosl_4km"]]$lat
-            sslon <- coord_list[["gosl_4km"]]$lon
-        } else {
-            sslat <- coord_list[[region]]$lat
-            sslon <- coord_list[[region]]$lon
-        }
+        sslat <- reginfo[[region]]$lat
+        sslon <- reginfo[[region]]$lon
         
         for (x in 1:length(year_list)) {
             
