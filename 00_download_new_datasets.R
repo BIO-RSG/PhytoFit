@@ -33,50 +33,58 @@ base_local <- paste0(getwd(),"/data/")
 
 cat("Retrieving list of files in local directory...\n")
 
-local_file_list <- c(Sys.glob(paste0(base_local,"atlantic/*.fst")),
-                     Sys.glob(paste0(base_local,"pacific/*.fst")))
-# remove any non-.fst files
-local_file_list <- local_file_list[endsWith(local_file_list,".fst")]
+local_df <- data.frame(location=character(),
+                       reg_sens_alg=character(),
+                       region=character(),
+                       sensor=character(),
+                       algorithm=character(),
+                       stringsAsFactors = FALSE)
 
-if (length(local_file_list) > 0) {
+local_regions <- list.files(base_local)
+
+if (length(local_regions) > 0) {
   
-  # convert to a dataframe
-  local_df <- data.frame(do.call(rbind, strsplit(gsub(base_local,"",local_file_list), split="_")),
-                         stringsAsFactors = FALSE)
-  colnames(local_df) <- c("region","sensor","algorithm","year")
-  local_df <- local_df %>%
-    dplyr::mutate(location = "local",
-                  region = sapply(strsplit(region, split="/"), "[[", 2)) %>%
-    dplyr::select(location, region, sensor, algorithm) %>%
-    tidyr::unite(col="reg_sens_alg", region, sensor, algorithm, remove=FALSE) %>%
-    dplyr::distinct()
+  local_file_list <- lapply(local_regions, function(x) Sys.glob(paste0(base_local,x,"/*.fst"))) %>% do.call(what=c)
+  local_file_list <- local_file_list[endsWith(local_file_list,".fst")]
   
-} else {
-  
-  local_df <- data.frame(location=character(),
-                         reg_sens_alg=character(),
-                         region=character(),
-                         sensor=character(),
-                         algorithm=character(),
-                         stringsAsFactors = FALSE)
+  if (length(local_file_list) > 0) {
+    
+    # convert to a dataframe
+    local_df <- data.frame(do.call(rbind, strsplit(gsub(base_local,"",local_file_list), split="_")),
+                           stringsAsFactors = FALSE)
+    colnames(local_df) <- c("region","sensor","algorithm","year")
+    local_df <- local_df %>%
+      dplyr::mutate(location = "local",
+                    region = sapply(strsplit(region, split="/"), "[[", 2)) %>%
+      dplyr::select(location, region, sensor, algorithm) %>%
+      tidyr::unite(col="reg_sens_alg", region, sensor, algorithm, remove=FALSE) %>%
+      dplyr::distinct()
+    
+  }
   
 }
 
 
 #*******************************************************************************
-# GET FTP DATA ####
+# GET LIST OF FTP SERVER DATASETS ####
 
 base_ftp <- "ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit_datasets/"
 
 cat("Retrieving list of files from",base_ftp,"...\n")
 
-con <- curl(paste0(base_ftp, "atlantic/"))
-atlantic_ftp <- readLines(con)
+# get list of regions
+con <- curl(base_ftp)
+ftp_reg_list <- readLines(con)
 close(con)
-con <- curl(paste0(base_ftp, "pacific/"))
-pacific_ftp <- readLines(con)
-close(con)
-ftp_res <- c(atlantic_ftp, pacific_ftp)
+ftp_reg_list <- sapply(strsplit(ftp_reg_list, split="\\s+"), "[[", 4)
+
+# get list of datasets/files from each region
+ftp_res <- lapply(ftp_reg_list, function(x) {
+  con <- curl(paste0(base_ftp, x, "/"))
+  ftp_file_list <- readLines(con)
+  close(con)
+  return(ftp_file_list)
+}) %>% do.call(what=c)
 # remove any non-.fst files
 ftp_res <- ftp_res[endsWith(ftp_res,".fst")]
 # convert to a dataframe
@@ -105,9 +113,6 @@ ftp_sets <- sort(unique(ftp_df$reg_sens_alg))
 #*******************************************************************************
 # DOWNLOAD FILES ####
 
-dir.create(paste0(base_local,"atlantic"), showWarnings=FALSE, recursive=TRUE)
-dir.create(paste0(base_local,"pacific"), showWarnings=FALSE, recursive=TRUE)
-
 if (length(ftp_sets) > 0) {
   
   tmp_df <- ftp_df %>%
@@ -132,6 +137,10 @@ if (length(ftp_sets) > 0) {
       ans <- readYN(msg)
     }
     if (ans=="Y") {
+      # create output directory for the region, if necessary
+      current_region <- strsplit(current_set,"_")[[1]][1]
+      dir.create(paste0(base_local,current_region), showWarnings=FALSE, recursive=TRUE)
+      # download each file for the region and dataset
       for (j in 1:nrow(tmp_df)) {
         filename <- tmp_df$filename[j]
         cat(paste0("Downloading ", filename, "...\n"))

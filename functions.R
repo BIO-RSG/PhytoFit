@@ -465,10 +465,9 @@ output_str <- function(satellite, region, algorithm, year, interval, log_chla,
                                                paste0(proper(cell_size_model2), "-mod2"))))
   
   if (satellite=="merged") {
-    satellite_name <- "Merged4"
+    satellite_name <- "Merged"
   } else {
     satellite_name <- paste0(toupper(substr(gsub("recalibrated","",satellite),1,1)),
-                             ifelse(grepl("1km",satellite),"1","4"),
                              ifelse(grepl("recalibrated",satellite),"recal",""))
   }
   

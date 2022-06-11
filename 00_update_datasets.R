@@ -38,30 +38,38 @@ base_local <- paste0(getwd(),"/data/")
 
 cat("Retrieving list of files in local directory...\n")
 
-local_file_list <- c(Sys.glob(paste0(base_local,"atlantic/*.fst")),
-                     Sys.glob(paste0(base_local,"pacific/*.fst")))
-# remove any non-.fst files
-local_file_list <- local_file_list[endsWith(local_file_list,".fst")]
-local_res <- file.info(local_file_list)
+local_regions <- list.files(base_local)
 
-if (nrow(local_res) > 0) {
+if (length(local_regions)) {
   
-  # convert to a dataframe
-  local_df <- data.frame(date_modified=local_res$mtime,
-                         size_mb=local_res$size,
-                         filename=as.character(gsub(base_local,"",local_file_list)),
-                         stringsAsFactors = FALSE)
-  tz(local_df$date_modified) <- Sys.timezone()
-  metadata_df <- data.frame(do.call(rbind, strsplit(local_df$filename, split="_")), stringsAsFactors = FALSE)
-  colnames(metadata_df) <- c("region","sensor","algorithm","year")
-  local_df <- dplyr::bind_cols(local_df, metadata_df)
-  local_df <- local_df %>%
-    dplyr::mutate(location = "local",
-                  region = sapply(strsplit(region, split="/"), "[[", 2),
-                  year = as.numeric(gsub(".fst","",year)),
-                  size_mb = round(as.numeric(size_mb) * conv_factor_file, 2)) %>%
-    dplyr::select(location, filename, date_modified, size_mb, region, sensor, algorithm, year) %>%
-    tidyr::unite(col="reg_sens_alg", region, sensor, algorithm, remove=FALSE)
+  local_file_list <- lapply(local_regions, function(x) Sys.glob(paste0(base_local,x,"/*.fst"))) %>% do.call(what=c)
+  local_file_list <- local_file_list[endsWith(local_file_list,".fst")]
+  local_res <- file.info(local_file_list)
+  
+  if (nrow(local_res) > 0) {
+    
+    # convert to a dataframe
+    local_df <- data.frame(date_modified=local_res$mtime,
+                           size_mb=local_res$size,
+                           filename=as.character(gsub(base_local,"",local_file_list)),
+                           stringsAsFactors = FALSE)
+    tz(local_df$date_modified) <- Sys.timezone()
+    metadata_df <- data.frame(do.call(rbind, strsplit(local_df$filename, split="_")), stringsAsFactors = FALSE)
+    colnames(metadata_df) <- c("region","sensor","algorithm","year")
+    local_df <- dplyr::bind_cols(local_df, metadata_df)
+    local_df <- local_df %>%
+      dplyr::mutate(location = "local",
+                    region = sapply(strsplit(region, split="/"), "[[", 2),
+                    year = as.numeric(gsub(".fst","",year)),
+                    size_mb = round(as.numeric(size_mb) * conv_factor_file, 2)) %>%
+      dplyr::select(location, filename, date_modified, size_mb, region, sensor, algorithm, year) %>%
+      tidyr::unite(col="reg_sens_alg", region, sensor, algorithm, remove=FALSE)
+    
+  } else {
+    
+    stop("YOU HAVE NO DATASETS IN STORAGE!\nPlease run download_new_datasets.R")
+    
+  }
   
 } else {
   
@@ -77,13 +85,19 @@ base_ftp <- "ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit_datasets/"
 
 cat("Retrieving list of files from",base_ftp,"...\n")
 
-con <- curl(paste0(base_ftp, "atlantic/"))
-atlantic_ftp <- readLines(con)
+# get list of regions
+con <- curl(base_ftp)
+ftp_reg_list <- readLines(con)
 close(con)
-con <- curl(paste0(base_ftp, "pacific/"))
-pacific_ftp <- readLines(con)
-close(con)
-ftp_res <- c(atlantic_ftp, pacific_ftp)
+ftp_reg_list <- sapply(strsplit(ftp_reg_list, split="\\s+"), "[[", 4)
+
+# get list of datasets/files from each region
+ftp_res <- lapply(ftp_reg_list, function(x) {
+  con <- curl(paste0(base_ftp, x, "/"))
+  ftp_file_list <- readLines(con)
+  close(con)
+  return(ftp_file_list)
+}) %>% do.call(what=c)
 # remove any non-.fst files
 ftp_res <- ftp_res[endsWith(ftp_res,".fst")]
 # convert to a dataframe
@@ -123,9 +137,6 @@ sizes <- c(diff_times$size_mb.x, missing_files$size_mb)
 
 #*******************************************************************************
 # DOWNLOAD FILES ####
-
-dir.create(paste0(base_local,"atlantic"), showWarnings=FALSE, recursive=TRUE)
-dir.create(paste0(base_local,"pacific"), showWarnings=FALSE, recursive=TRUE)
 
 if (length(files_to_download) > 0) {
   cat("List of files to download:\n")

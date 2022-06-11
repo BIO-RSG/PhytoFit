@@ -1,22 +1,31 @@
-# variable options in the sidebar
+# Variable options in the sidebar
+# Note that the regions and polygons are created using 00_create_new_region.R, 
+# and stored in reginfo.rds
 
-sensors <- c("MODIS 4km" = "modis",
-             "VIIRS 4km" = "viirs",
-             "SeaWiFS 4km" = "seawifs",
-             "MODIS 1km" = "modis1km",
-             "VIIRS 1km" = "viirs1km",
-             "SeaWiFS 1km" = "seawifs1km")#,
-             #"SeaWiFS recalibrated 4km" = "recalibratedseawifs",
-             #"VIIRS recalibrated 4km" = "recalibratedviirs",
-             #"Merged 4km" = "merged")
+#*******************************************************************************
+# VARIABLES THAT CAN BE CHANGED
 
-regions <- c("Atlantic"="atlantic",
-             "Pacific"="pacific")
+# First sensor in the list will be used as the default
+# Values must match the "sensor" part of the fst data filename
+sensors <- c("MODIS" = "modis",
+             "VIIRS" = "viirs",
+             "SeaWiFS" = "seawifs")
 
-algorithms <- c("OCx (global, band ratio)"="ocx",
-                "POLY4 (regional, band ratio)"="poly4",
-                "GSM_GS (regional, semi-analytical)"="gsmgs",
-                "EOF (regional, empirical)"="eof")
+# Years with available data for each sensor listed above
+# Names must be the same as the values in "sensors"
+years <- list("modis" = 2003:2022,
+              "viirs" = 2012:2022,
+              "seawifs" = 1997:2010)
+
+# Values must match the "variable" part of the fst data filename
+algorithms <- c("OCx (global, band ratio)" = "ocx",
+                "POLY4 (regional, band ratio)" = "poly4",
+                "GSM_GS (regional, semi-analytical)" = "gsmgs",
+                "EOF (regional, empirical)" = "eof")
+
+
+#*******************************************************************************
+# VARIABLES THAT DON'T CHANGE
 
 concentration_types <- list("Full chlorophyll-a concentration"="full",
                             "Small/Large cell concentrations"="model1",
@@ -27,26 +36,8 @@ cell_sizes_model2 <- list("Small"="small",
                           "Medium"="medium",
                           "Large"="large")
 
-# years with available data for each sensor
-years <- list("modis"=2003:2022,
-              "viirs"=2012:2022,
-              "seawifs"=1997:2010,
-              "modis1km"=2003:2020,
-              "viirs1km"=2012:2020,
-              "seawifs1km"=1997:2010)#,
-              #"recalibratedseawifs"=1997:2010,
-              #"recalibratedviirs"=2012:2021,
-              #"merged"=1997:2021)
-for (i in 1:length(years)) {names(years[[i]]) <- years[[i]]}
-default_years <- years[["modis"]]
-
 intervals <- c("Daily"="daily",
                "Weekly (8day)"="weekly")
-
-polygonChoices <- list("atlantic"=c("custom", poly_ID[["atlantic"]]),
-                       "pacific"=c("custom", poly_ID[["pacific"]]))
-names(polygonChoices[["atlantic"]]) <- c("Custom polygon", full_names[["atlantic"]])
-names(polygonChoices[["pacific"]]) <- c("Custom polygon", full_names[["pacific"]])
 
 latlon_methods <- c("Draw polygon on map" = "drawPoly",
                     "Type coordinates" = "typeCoords",
@@ -72,11 +63,6 @@ smoothMethods <- c("No smoothing" = "nofit",
 
 ti_threshold_types <- c("20% amplitude" = "percent_thresh",
                         "Constant threshold" = "constant_thresh")
-
-multiPolygonChoices <- list("atlantic"=c("custom", poly_ID[["atlantic"]]),
-                            "pacific"=c("custom", poly_ID[["pacific"]]))
-names(multiPolygonChoices[["atlantic"]]) <- c("Custom", poly_ID[["atlantic"]])
-names(multiPolygonChoices[["pacific"]]) <- c("Custom", poly_ID[["pacific"]])
 
 # bloom fit table parameter names, depending on fitmethod, bloomShape, beta (code \u03B2 to get the symbol)
 pnlist <- list("gauss"=list("symmetric"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
@@ -115,7 +101,7 @@ input_ids_variable_type <- c(2,2,2,2,2,2,1,2,3,1,1,2,2,2,2,2,2,2,1,1,1,1,2,1,3,3
 input_ids_widget_type <- c(1,1,1,5,9,9,1,1,7,2,3,1,1,4,4,1,1,1,3,2,2,2,5,3,7,7,7,6,4,4,4,4,3,6,6,2,8,1,0,0,0)
 
 # longer description of each inputId
-input_ids_description <- c("Sensor", "Region (NW Atlantic or NE Pacific)", "Chlorophyll-a Algorithm",
+input_ids_description <- c("Sensor", "Region", "Chlorophyll-a Algorithm",
                            "Full chl-a concentration or subset based on cell size using one of two models",
                            "Cell size using model 1", "Cell size using model 2",
                            "Year", "Temporal binning", "Chlorophyll-a logged",
