@@ -101,6 +101,9 @@ default_years <- years[[default_sensor]]
 default_algorithm <- algorithms[1]
 default_region <- regions[1]
 
+map_palette <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F",
+                                  "yellow", "#FF7F00", "red", "#7F0000"))(100)
+
 
 #*******************************************************************************
 # STYLING ####
@@ -185,7 +188,7 @@ ui <- fluidPage(
     # old polygon removal code
     tags$div(remove_custom_poly),
     
-    chooseSliderSkin("Modern"),
+    chooseSliderSkin("Flat", color="#00cc00"),
     
     # App title
     titlePanel("Satellite Chlorophyll Data Visualization"),
@@ -323,35 +326,8 @@ ui <- fluidPage(
                              label="Apply",
                              style=button_style)),
             
-            
-            # UI YEAR DAY ####
-            
-            helpText(HTML(paste0("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">Choose day of year</font></br>",
-                                 "Enter the day of year and click \"Go\", or drag the slider to view the map for that day. ",
-                                 "Use the \"play/pause\" button on the slider to move through a sequence of daily/weekly chlorophyll maps automatically.<br>",
-                                 "NOTE: If you are viewing weekly (8-day) data, the day of year will reset to the first day of the selected week.")),
-                     width = widget_width,
-                     style = help_text_style),
-            # Enter numerically
-            div(style="display: inline-block; vertical-align:top; align:center; width: 80px;",
-                numericInput(inputId = "yearday_num",
-                             label = NULL,
-                             min = 1,
-                             max = 365,
-                             value = 1)),
-            div(style="display: inline-block;vertical-align:top; width: 50px;",
-                actionButton(inputId="daygo",
-                             label="Go",
-                             style=button_style)),
-            # Slider input
-            sliderInput(inputId = "yearday_slide",
-                        label = NULL,
-                        min = 1,
-                        max = 365,
-                        value = 1,
-                        animate = animationOptions(interval=4000),
-                        ticks = FALSE),
-            
+            br(),
+            br(),
             
             # UI POLYGON ####
             
@@ -776,6 +752,19 @@ ui <- fluidPage(
         # UI DISPLAY ####
         
         mainPanel(width = 9,
+                  
+              # UI YEAR DAY ####
+              
+              sliderInput(inputId = "yearday_slide",
+                          label = NULL,
+                          min = 1,
+                          max = 365,
+                          value = 1,
+                          animate = animationOptions(interval=4000),
+                          ticks = TRUE,
+                          width = '100%'),
+                  
+                  
                leafletOutput(outputId = 'fullmap',
                              height = '800px'),
                disabled(downloadButton(outputId = "savemap",
@@ -1240,54 +1229,6 @@ server <- function(input, output, session) {
                                         doys_per_week=doys_per_week)
         state$day_label <- time_variables$day_label
         state$time_ind <- time_variables$time_ind
-        
-    })
-    
-    observeEvent(input$daygo, {
-        
-        # Get the day entered manually
-        yearday_num <- input$yearday_num
-        
-        # Check if it's numeric
-        isnum <- is.numeric(yearday_num)
-
-        if (!isnum) {
-            
-            if (is.null(state$yearday)) {numinputday <- 1
-            } else {numinputday <- state$yearday}
-            updateNumericInput(session, inputId = 'yearday_num', value = numinputday)
-
-        } else {
-
-            # Check if it's an integer
-            isint <- yearday_num%%1==0
-            if (!isint) {yearday_num <- floor(yearday_num)}
-            
-            # Check if it's within range
-            if (yearday_num < 1) {yearday_num <- 1
-            } else if (yearday_num > 365) {yearday_num <- 365}
-            
-            # If using weekly data, set yearday_num to start day of the week
-            if (state$interval=="weekly") {
-                yearday_num <- doy_week_start[tail(which(doy_week_start <= yearday_num),1)]
-            }
-            
-            # Assign it to state reactiveValues
-            state$yearday <- yearday_num
-            
-            # Get some time variables for later use
-            time_variables <- get_time_vars(interval=state$interval,
-                                            year=state$year,
-                                            yearday=yearday_num,
-                                            doys_per_week=doys_per_week)
-            state$day_label <- time_variables$day_label
-            state$time_ind <- time_variables$time_ind
-            
-            # Update the input widgets with the final value
-            updateNumericInput(session, inputId = "yearday_num", value = yearday_num)
-            updateSliderInput(session, inputId = 'yearday_slide', value = yearday_num)
-            
-        }
         
     })
     
@@ -1788,7 +1729,8 @@ server <- function(input, output, session) {
             lfp <- leafletProxy("fullmap", session) %>%
                 clearPopups() %>%
                 clearControls() %>%
-                clearImages() %>%
+                # clearImages() %>%
+                clearGroup("georaster") %>%
                 # Label map with current year and day of year
                 addControl(tags$div(tag.map.title, HTML(paste0(day_label, "<br>NO DATA AVAILABLE YET"))),
                            position = "topleft",
@@ -1808,7 +1750,8 @@ server <- function(input, output, session) {
                 lfp <- leafletProxy("fullmap", session) %>%
                     clearPopups() %>%
                     clearControls() %>%
-                    clearImages() %>%
+                    # clearImages() %>%
+                    clearGroup("georaster") %>%
                     # Label map with current year and day of year
                     addControl(tags$div(tag.map.title, HTML(paste0(day_label, "<br>NO DATA"))),
                                position = "topleft",
@@ -1827,7 +1770,7 @@ server <- function(input, output, session) {
                 coordinates(pts) = ~lon+lat
                 tr <- raster(ext=extent(pts), resolution = state$map_resolution)
                 tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = TRUE)
-                # state$tr <- tr # only used for input$fullmap_click, currently disabled
+                state$tr <- tr # used for input$fullmap_click, currently disabled
                 
                 # Get colour scale for leaflet map
                 zlim <- c(state$zlim1, state$zlim2)
@@ -1839,26 +1782,22 @@ server <- function(input, output, session) {
                                     "mg m<sup>-3</sup> ]</center>")
                 state$leg_title <- leg_title
                 
-                cm <- colorNumeric(
-                    palette = colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F",
-                                                 "yellow", "#FF7F00", "red", "#7F0000"))(100),
-                    domain = zlim,
-                    na.color = "#00000000"# transparent
-                )
-                state$cm <- cm
-                
-                # Use a raster with values above/below the color scale set to the limits.
-                tr_coloradj <- calc(tr, function(x) ifelse(x <= zlim[1], zlim[1]+(1e-10), ifelse(x >= zlim[2], zlim[2]-(1e-10), x)))
-                state$tr_coloradj <- tr_coloradj
-                
                 # Update map based on choices of year day
                 lfp <- leafletProxy("fullmap", session) %>%
                     clearPopups() %>%
                     clearControls() %>%
-                    clearImages() %>%
-                    addRasterImage(x = tr_coloradj, colors = cm) %>%
+                    # clearImages() %>%
+                    clearGroup("georaster") %>%
+                    addGeoRaster(x = tr,
+                                 group = "georaster",
+                                 colorOptions = colorOptions(
+                                     palette = map_palette,
+                                     domain = zlim,
+                                     na.color = "#00000000"),
+                                 autozoom = FALSE) %>%
+                    # addRasterImage(x = tr_coloradj, colors = cm) %>%
                     addLegend(position = 'topright',
-                              pal = cm,
+                              pal = colorNumeric(palette=map_palette, domain=zlim, na.color="#00000000"),
                               values = zlim,#c(getValues(tr_coloradj),zlim),
                               title = leg_title,
                               bins = 10,
@@ -2709,7 +2648,6 @@ server <- function(input, output, session) {
                                  xvar = "x",
                                  yvar = "y")$x
             updateSliderInput(session, inputId = 'yearday_slide', value = npyday)
-            updateNumericInput(session, inputId = "yearday_num", value = npyday)
             
         }
         
@@ -2977,18 +2915,25 @@ server <- function(input, output, session) {
             },
         content <- function(file) {
             isolate({
-                pc <- state$tr_coloradj
-                cm <- state$cm
+                pc <- state$tr
                 lt <- state$leg_title
                 dl <- state$day_label
                 zl <- state$zlim
             })
             saveWidget(widget = map_reactive() %>%
                            clearControls() %>%
-                           clearImages() %>%
-                           addRasterImage(x = pc, colors = cm) %>%
+                           # clearImages() %>%
+                           clearGroup("georaster") %>%
+                           addGeoRaster(x = tr,
+                                        group = "georaster",
+                                        colorOptions = colorOptions(
+                                            palette = map_palette,
+                                            domain = zl,
+                                            na.color = "#00000000"),
+                                        autozoom = FALSE) %>%
+                           # addRasterImage(x = pc, colors = cm) %>%
                            addLegend(position = 'topright',
-                                     pal = cm,
+                                     pal = colorNumeric(palette=map_palette, domain=zl, na.color="#00000000"),
                                      values = c(getValues(pc), zl),
                                      title = lt,
                                      bins = 10,
