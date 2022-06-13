@@ -5,7 +5,7 @@
 # VARIABLES THAT CAN BE CHANGED
 
 # Sensors, with their full name and years of available data.
-# List element names (i.e. modis, seawifs, viirs) must match the sensor in the fst data filename
+# List element names (i.e. modis, seawifs, viirs) must match the "sensor" in the fst data filename
 sensors <- list("modis" = list(name = "MODIS-Aqua",
                                years = 2003:2022),
                 "seawifs" = list(name = "SeaWiFS",
@@ -13,7 +13,7 @@ sensors <- list("modis" = list(name = "MODIS-Aqua",
                 "viirs" = list(name = "VIIRS-SNPP",
                                years = 2012:2022))
 
-# Values must match the "variable" part of the fst data filename
+# Values (e.g. ocx, poly4...) must match the "variable" part of the fst data filename.
 algorithms <- c("OCx (global, band ratio)" = "ocx",
                 "POLY4 (regional, band ratio)" = "poly4",
                 "GSM_GS (regional, semi-analytical)" = "gsmgs",
