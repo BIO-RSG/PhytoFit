@@ -1761,10 +1761,10 @@ server <- function(input, output, session) {
                                   stringsAsFactors = FALSE)
                 # state$pts <- pts
                 coordinates(pts) = ~lon+lat
-                # tr <- raster(ext=extent(pts), resolution = state$map_resolution)
+                # tr <- raster(ext=extent(pts), resolution = c(0.065,0.04333333))
                 tr <- raster(ext=extent(pts))
                 tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = TRUE)
-                # tr <- sparkle_fill(tr,min_sides=3,fun="bilinear")
+                tr <- sparkle_fill(tr,min_sides=3,fun="bilinear")
                 state$tr <- tr # used for input$fullmap_click, currently disabled
                 
                 # Get colour scale for leaflet map
@@ -2914,19 +2914,15 @@ server <- function(input, output, session) {
                 dl <- state$day_label
                 zl <- state$zlim
             })
+            tr_coloradj <- calc(pc, function(x) ifelse(x <= zl[1], zl[1]+(1e-10), ifelse(x >= zl[2], zl[2]-(1e-10), x)))
+            cm <- colorNumeric(palette=map_palette, domain=zl, na.color="#00000000")
             saveWidget(widget = map_reactive() %>%
                            clearControls() %>%
                            clearGroup("georaster") %>%
-                           addGeoRaster(x = pc,
-                                        group = "georaster",
-                                        colorOptions = colorOptions(
-                                            palette = map_palette,
-                                            domain = zl,
-                                            na.color = "#00000000"),
-                                        autozoom = FALSE) %>%
+                           addRasterImage(x = tr_coloradj, colors = cm) %>%
                            addLegend(position = 'topright',
-                                     pal = colorNumeric(palette=map_palette, domain=zl, na.color="#00000000"),
-                                     values = c(getValues(pc), zl),
+                                     pal = cm,
+                                     values = zl,
                                      title = lt,
                                      bins = 10,
                                      opacity = 1) %>%
