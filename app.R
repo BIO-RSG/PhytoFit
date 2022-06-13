@@ -3,8 +3,6 @@ gc()
 
 # LIBRARIES ####
 
-# suppress some repetitive warnings when using addRasterImage in leafletProxy
-options("rgdal_show_exportToProj4_warnings"="none")
 library(fst)            # for speedier data file loading
 library(shiny)
 library(shinyWidgets)   # for updating buttons
@@ -13,31 +11,27 @@ library(shinybusy)      # to show progress when processing a full time series
 library(htmlwidgets)    # to use saveWidget to save the map
 library(leaflet)        # for creating map
 library(leaflet.extras) # for custom polygon drawings on map
-library(leafem)         # mouse coordinates at top of map
+library(leafem)         # to add raster to map, and mouse coordinates at top of map
 library(quantreg)       # used in the fitting models
 library(minpack.lm)     # to use nlsLM for asymmetric gaussian fit
-# library(rgdal)          # needed for some other packages
 library(sp)             # to use point.in.polygon to extract points within lat/lon boundaries
 library(ggplot2)        # for the density plot and bloom fit plots
 library(grid)           # for formatting tableGrobs overlaid on ggplots
 library(gridExtra)      # for creating tableGrobs overlaid on ggplots
 library(dplyr)          # for formatting data tables
 library(geometry)       # to check if user-entered lat/lons make a polygon with area too large (degrees^2)
-library(raster)         # to use rasters on the map instead of binned points (faster, less accurate)
-# library(proj4)          # to use custom projection with the map
-library(oceancolouR)
-library(compiler)
+library(raster)         # to use rasters on the map instead of binned points (faster, but less accurate)
+library(oceancolouR)    # for shifted_gaussian() and sparkle_fill()
+library(compiler)       # to compile functions ahead of time in hopes that it speeds things up...
 # library(htmlTable)      # for making tables in popups
 # library(geosphere)      # for calculating accurate distances between single point click and data point plotted on the map
-# library(RSQLite)        # for reading satellite data from databases instead of .rda files
-# library(dbplyr)         # also for databases
 
-source("rateOfChange.R")    # rate of change (ROC) function for bloom fit
-source("threshold.R")       # threshold function for bloom fit
-source("gaussFit.R")        # gaussian function for bloom fit
-source("full_run.R")        # contains function to run full time series with current settings
-source("functions.R")       # extra functions
-source("00_input_variables.R") # variable options in the sidebar
+source("rateOfChange.R")        # rate of change (ROC) function for bloom fit
+source("threshold.R")           # threshold function for bloom fit
+source("gaussFit.R")            # gaussian function for bloom fit
+source("full_run.R")            # contains function to run full time series with current settings
+source("functions.R")           # extra functions
+source("00_input_variables.R")  # variable options in the sidebar
 
 # Compile functions - in some cases, this might help speed it up
 get_time_vars <- cmpfun(get_time_vars)
@@ -101,12 +95,13 @@ default_years <- years[[default_sensor]]
 default_algorithm <- algorithms[1]
 default_region <- regions[1]
 
+# colors used in the map
 map_palette <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F",
                                   "yellow", "#FF7F00", "red", "#7F0000"))(100)
 
 
 #*******************************************************************************
-# STYLING ####
+# HTML STYLING ####
 
 # Default sidebar widget width in pixels
 widget_width <- NULL#"180px"
@@ -188,6 +183,7 @@ ui <- fluidPage(
     # old polygon removal code
     tags$div(remove_custom_poly),
     
+    # color and style for day/year sliders
     chooseSliderSkin("Flat", color="#00cc00"),
     
     # App title
@@ -763,8 +759,7 @@ ui <- fluidPage(
                           animate = animationOptions(interval=4000),
                           ticks = TRUE,
                           width = '100%'),
-                  
-                  
+                
                leafletOutput(outputId = 'fullmap',
                              height = '800px'),
                disabled(downloadButton(outputId = "savemap",
@@ -1729,7 +1724,6 @@ server <- function(input, output, session) {
             lfp <- leafletProxy("fullmap", session) %>%
                 clearPopups() %>%
                 clearControls() %>%
-                # clearImages() %>%
                 clearGroup("georaster") %>%
                 # Label map with current year and day of year
                 addControl(tags$div(tag.map.title, HTML(paste0(day_label, "<br>NO DATA AVAILABLE YET"))),
@@ -1750,7 +1744,6 @@ server <- function(input, output, session) {
                 lfp <- leafletProxy("fullmap", session) %>%
                     clearPopups() %>%
                     clearControls() %>%
-                    # clearImages() %>%
                     clearGroup("georaster") %>%
                     # Label map with current year and day of year
                     addControl(tags$div(tag.map.title, HTML(paste0(day_label, "<br>NO DATA"))),
@@ -1768,8 +1761,10 @@ server <- function(input, output, session) {
                                   stringsAsFactors = FALSE)
                 # state$pts <- pts
                 coordinates(pts) = ~lon+lat
-                tr <- raster(ext=extent(pts), resolution = state$map_resolution)
+                # tr <- raster(ext=extent(pts), resolution = state$map_resolution)
+                tr <- raster(ext=extent(pts))
                 tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = TRUE)
+                # tr <- sparkle_fill(tr,min_sides=3,fun="bilinear")
                 state$tr <- tr # used for input$fullmap_click, currently disabled
                 
                 # Get colour scale for leaflet map
@@ -1786,7 +1781,6 @@ server <- function(input, output, session) {
                 lfp <- leafletProxy("fullmap", session) %>%
                     clearPopups() %>%
                     clearControls() %>%
-                    # clearImages() %>%
                     clearGroup("georaster") %>%
                     addGeoRaster(x = tr,
                                  group = "georaster",
@@ -1794,8 +1788,8 @@ server <- function(input, output, session) {
                                      palette = map_palette,
                                      domain = zlim,
                                      na.color = "#00000000"),
-                                 autozoom = FALSE) %>%
-                    # addRasterImage(x = tr_coloradj, colors = cm) %>%
+                                 autozoom = FALSE,
+                                 project = TRUE) %>%
                     addLegend(position = 'topright',
                               pal = colorNumeric(palette=map_palette, domain=zlim, na.color="#00000000"),
                               values = zlim,#c(getValues(tr_coloradj),zlim),
@@ -2922,16 +2916,14 @@ server <- function(input, output, session) {
             })
             saveWidget(widget = map_reactive() %>%
                            clearControls() %>%
-                           # clearImages() %>%
                            clearGroup("georaster") %>%
-                           addGeoRaster(x = tr,
+                           addGeoRaster(x = pc,
                                         group = "georaster",
                                         colorOptions = colorOptions(
                                             palette = map_palette,
                                             domain = zl,
                                             na.color = "#00000000"),
                                         autozoom = FALSE) %>%
-                           # addRasterImage(x = pc, colors = cm) %>%
                            addLegend(position = 'topright',
                                      pal = colorNumeric(palette=map_palette, domain=zl, na.color="#00000000"),
                                      values = c(getValues(pc), zl),
