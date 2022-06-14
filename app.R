@@ -87,37 +87,52 @@ map_palette <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F
                                   "yellow", "#FF7F00", "red", "#7F0000"))(100)
 
 # Get a list of data files in your "data" folder and extract region/sensor/variable/year info from them
-datasets <- data.frame(filename = list.files("data", recursive=TRUE) %>% basename(), stringsAsFactors = FALSE) %>%
-    dplyr::filter(endsWith(filename,".fst")) %>%
-    tidyr::separate(col=filename, into=c("region","sensor","variable","year"), sep="_") %>%
-    dplyr::mutate(year = as.numeric(gsub(".fst","",year)),
-                  region_name = str_replace_all(region, sapply(reginfo, "[[", "name")),
-                  sensor_name = str_replace_all(sensor, sensor_names),
-                  variable_name = str_replace_all(variable, variable_names))
+datasets <- data.frame(filename = list.files("data", recursive=TRUE) %>% basename(), stringsAsFactors = FALSE)
 
-sensors <- sort(unique(datasets$sensor))
-sensors <- sensors[match(names(sensor_names), sensors)]
-sensors <- lapply(sensors, function(x) {
-    tmp <- datasets %>% dplyr::filter(sensor==x) %>% dplyr::distinct(sensor, year, sensor_name)
-    list(name = tmp$sensor_name[1], years = sort(unique(tmp$year)))
-}) %>% setNames(sensors)
-
-algorithms <- datasets %>% dplyr::distinct(variable,variable_name)
-algorithms <- algorithms$variable %>% setNames(algorithms$variable_name)
-algorithms <- algorithms[match(names(variable_names), algorithms)]
-
-# extract the years of data for each sensor
-years <- lapply(sensors, "[[", "years")
-years <- lapply(years, function(x) {names(x) <- x; x})
-# extract sensor names
-sensors <- lapply(sensors, "[[", "name")
-sensors <- setNames(names(sensors), sensors)
+# user has no datasets to view
+if (nrow(datasets)==0) {
+    
+    sensors <- c(" " = "")
+    algorithms <- c(" " = "")
+    years <- list(" " = "")
+    
+} else {
+    
+    datasets <- datasets %>%
+        dplyr::filter(endsWith(filename,".fst")) %>%
+        tidyr::separate(col=filename, into=c("region","sensor","variable","year"), sep="_") %>%
+        tidyr::drop_na() %>% # remove rows with missing values
+        dplyr::filter(region %in% regions & sensor %in% names(sensor_names) & variable %in% names(variable_names)) %>%
+        dplyr::mutate(year = as.numeric(gsub(".fst","",year)),
+                      region_name = str_replace_all(region, sapply(reginfo, "[[", "name")),
+                      sensor_name = str_replace_all(sensor, sensor_names),
+                      variable_name = str_replace_all(variable, variable_names))
+    
+    sensors <- sort(unique(datasets$sensor))
+    sensors <- sensors[match(names(sensor_names), sensors)]
+    sensors <- lapply(sensors, function(x) {
+        tmp <- datasets %>% dplyr::filter(sensor==x) %>% dplyr::distinct(sensor, year, sensor_name)
+        list(name = tmp$sensor_name[1], years = sort(unique(tmp$year)))
+    }) %>% setNames(sensors)
+    
+    algorithms <- datasets %>% dplyr::distinct(variable,variable_name)
+    algorithms <- algorithms$variable %>% setNames(algorithms$variable_name)
+    algorithms <- algorithms[match(names(variable_names), algorithms)]
+    
+    # extract the years of data for each sensor
+    years <- lapply(sensors, "[[", "years")
+    years <- lapply(years, function(x) {names(x) <- x; x})
+    # extract sensor names
+    sensors <- lapply(sensors, "[[", "name")
+    sensors <- setNames(names(sensors), sensors)
+    
+}
 
 # set up defaults
-default_sensor <- sensors[1]
-default_years <- years[[default_sensor]]
-default_algorithm <- algorithms[1]
 default_region <- regions[1]
+default_sensor <- sensors[1]
+default_algorithm <- algorithms[1]
+default_years <- years[[default_sensor]]
 
 
 #*******************************************************************************
@@ -238,7 +253,15 @@ ui <- fluidPage(
                      style = label_text_style_main_options),
             br(),
             br(),
-            helpText("Satellite / spatial resolution",
+            helpText("Region",
+                     width = widget_width,
+                     style = label_text_style_main_options),
+            selectInput(inputId = "region",
+                        label = NULL,
+                        choices = regions,
+                        selected = default_region,
+                        width = widget_width),
+            helpText("Satellite",
                      width = widget_width,
                      style = label_text_style_main_options),
             selectInput(inputId = "satellite",
@@ -249,14 +272,6 @@ ui <- fluidPage(
             helpText("**1km-resolution data only exists in a box encompassing the Gulf of Saint Lawrence (41-53 N, 49-75 W), using the EOF algorithm",
                      width = widget_width,
                      style = paste(help_text_style, "margin-bottom: 20px; margin-top: -15px;")),
-            helpText("Region",
-                     width = widget_width,
-                     style = label_text_style_main_options),
-            selectInput(inputId = "region",
-                        label = NULL,
-                        choices = regions,
-                        selected = default_region,
-                        width = widget_width),
             helpText("Chlorophyll algorithm",
                      width = widget_width,
                      style = label_text_style_main_options),
