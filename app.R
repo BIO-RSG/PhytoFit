@@ -68,18 +68,19 @@ data_last_updated <- data_last_updated[most_recent]
 
 # Load region data (name, existing polygons, lat/lon vectors, resolution)
 reginfo <- readRDS("reginfo.rds")
+
+# Extract region and polygon info
 regions <- names(reginfo)
 names(regions) <- sapply(reginfo, "[[", "name")
-polygonChoices <- lapply(reginfo, function(x) {v = c("custom",x$poly_ID); names(v) = c("Custom",x$poly_names); v})
-names(polygonChoices) <- regions
-multiPolygonChoices <- lapply(reginfo, function(x) {v = c("custom",x$poly_ID); names(v) = c("Custom",x$poly_ID); v})
-names(multiPolygonChoices) <- regions
+poly_choices <- lapply(reginfo, function(x) {v=c("custom",names(x$poly)); names(v)=c("Custom",sapply(x$poly,"[[","name")); v})
+multipoly_choices <- lapply(reginfo, function(x) {v=c("custom",names(x$poly)); names(v)=c("Custom",names(x$poly)); v})
+names(poly_choices) <- names(multipoly_choices) <- regions
 
 # variables from the original 00_regionBoxes.R, for easier transition to new code
-all_regions <- lapply(reginfo, "[[", "poly")
-full_names <- lapply(reginfo, "[[", "poly_names")
-poly_ID <- lapply(reginfo, "[[", "poly_ID")
-abbrev <- lapply(reginfo, "[[", "poly_abbrev")
+all_regions <- lapply(reginfo, function(x) lapply(x$poly, function(y) y[c("lat","lon")]))
+full_names <- lapply(reginfo, function(x) lapply(x$poly, "[[", "name"))
+poly_ID <- lapply(reginfo, function(x) names(x$poly))
+abbrev <- lapply(reginfo, function(x) lapply(x$poly, "[[", "label"))
 names(all_regions) <- names(full_names) <- names(poly_ID) <- names(abbrev) <- regions
 
 # colors used in the map
@@ -374,7 +375,7 @@ ui <- fluidPage(
             br(),
             selectInput(inputId = 'box',
                         label = HTML("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">Choose a polygon</font>"),
-                        choices = polygonChoices[["atlantic"]],
+                        choices = poly_choices[["atlantic"]],
                         selected = 'custom',
                         width = widget_width),
             # If custom polygon selected, enter a name for the polygon (optional),
@@ -756,7 +757,7 @@ ui <- fluidPage(
                         sep = ""),
             pickerInput(inputId = "fullrunboxes",
                         label = "Select your polygons",
-                        choices = multiPolygonChoices[["atlantic"]],
+                        choices = multipoly_choices[["atlantic"]],
                         selected = "input.box",
                         options = list(
                             `actions-box` = TRUE,
@@ -1163,8 +1164,8 @@ server <- function(input, output, session) {
         }
         
         # Update polygon dropdown menu and fullrunboxes choices
-        updateSelectInput(session, inputId = "box", choices = polygonChoices[[reg]], selected = "custom")
-        updatePickerInput(session, inputId = "fullrunboxes", choices = multiPolygonChoices[[reg]], selected = "custom")
+        updateSelectInput(session, inputId = "box", choices = poly_choices[[reg]], selected = "custom")
+        updatePickerInput(session, inputId = "fullrunboxes", choices = multipoly_choices[[reg]], selected = "custom")
         
     })
     
@@ -1647,7 +1648,7 @@ server <- function(input, output, session) {
             lapply(1:sum(tmp_widgets==8), function(i) updatePickerInput(session, inputId = tmp_ids[tmp_widgets==8][i], selected = tmp_values[tmp_widgets==8][[i]]))
             
             # now update the box input
-            updateSelectInput(session, inputId = "box", choices = polygonChoices[[isolate(input$region)]], selected=predefined_polygon)
+            updateSelectInput(session, inputId = "box", choices = poly_choices[[isolate(input$region)]], selected=predefined_polygon)
             # if it's a custom box, update lat/lon input and add it to the map and stats using the "typeCoords" method
             if (predefined_polygon=="custom" & !is.na(predefined_custom_lats) & !is.na(predefined_custom_lons)) {
                 updateRadioButtons(session, inputId="latlon_method", selected="typeCoords")
@@ -1752,7 +1753,7 @@ server <- function(input, output, session) {
         day_label <- state$day_label
         time_ind <- state$time_ind
         
-        map_update_nodata <- function(session, day_label, message) {
+        map_update_nodata <- function(session, tag.map.title, day_label, message) {
             disable("savemap")
             disable("savedensplot")
             leafletProxy("fullmap", session) %>%
@@ -1767,7 +1768,7 @@ server <- function(input, output, session) {
         # check if data is available in the file for the selected day
         if (yearday > isolate(state$available_days)) {
             
-            lfp <- map_update_nodata(session, day_label, "NO DATA AVAILABLE YET")
+            lfp <- map_update_nodata(session, tag.map.title, day_label, "NO DATA AVAILABLE YET")
             
         } else {
             
@@ -1776,7 +1777,7 @@ server <- function(input, output, session) {
             
             if (sum(chla_ind)==0) {
                 
-                lfp <- map_update_nodata(session, day_label, "NO DATA")
+                lfp <- map_update_nodata(session, tag.map.title, day_label, "NO DATA")
                 
             } else {
                 
@@ -1822,7 +1823,7 @@ server <- function(input, output, session) {
                     addControl(tags$div(tag.map.title, HTML(day_label)),
                                position = "topleft",
                                className = "map-title")
-                # }))
+                
                 # now that data has been loaded, make the download button visible
                 enable("savemap")
                 
@@ -1831,6 +1832,7 @@ server <- function(input, output, session) {
         }
         
         if (state$draw_toolbar) {
+            shape_options <- drawShapeOptions(color="yellow", fill=FALSE, weight=2.5)
             lfp <- lfp %>%
                 addDrawToolbar(
                     # remove options to draw lines, circles, or single markers
@@ -1841,13 +1843,12 @@ server <- function(input, output, session) {
                     # only one custom polygon at a time
                     singleFeature=TRUE,
                     # adjust custom polygon colors
-                    polygonOptions=drawPolygonOptions(shapeOptions = drawShapeOptions(color="yellow", fill=FALSE, weight=2.5)),
-                    rectangleOptions=drawRectangleOptions(shapeOptions = drawShapeOptions(color="yellow", fill=FALSE, weight=2.5)),
+                    polygonOptions=drawPolygonOptions(shapeOptions = shape_options),
+                    rectangleOptions=drawRectangleOptions(shapeOptions = shape_options),
                     # custom polygons can be edited
                     editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions()))
         } else {
-            lfp <- lfp %>%
-                removeDrawToolbar(clearFeatures = TRUE)
+            lfp <- lfp %>% removeDrawToolbar(clearFeatures = TRUE)
         }
         
         gc()
@@ -2025,8 +2026,6 @@ server <- function(input, output, session) {
     # showing the latitude, longitude, and chlorophyll value at that point.
     # THE PROBLEM: it pops up whenever you're clicking on the map to draw/edit
     # a polygon and gets in the way.
-    # My stackoverflow post for help that no one has noticed :(
-    # https://stackoverflow.com/questions/60840223/r-shiny-leaflet-map-single-point-click-popup-interferes-when-drawing-or-editi
     
     # # Add a popup with latitude, longitude, and chla data (if available at that
     # # point) if a user clicks a single point on the map.

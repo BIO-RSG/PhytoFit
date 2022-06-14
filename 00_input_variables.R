@@ -2,9 +2,8 @@
 # Note: Regions and polygons are created using 00_create_new_region.R, and stored in reginfo.rds
 
 #*******************************************************************************
-# VARIABLES THAT CAN BE CHANGED
+# VARIABLES THAT CAN BE CHANGED - vectors of potential sensors and variables
 
-# Vectors of potential sensors and variables.
 # The vector names (i.e. modis, seawifs, ocx, poly4...) must match the "sensor" and "variable"
 # in the fst filenames.
 # The vector values (i.e. MODIS-Aqua, OCx chl-a...) are the full names of the sensor and variable,
