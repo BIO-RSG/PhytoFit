@@ -23,6 +23,7 @@ library(geometry)       # to check if user-entered lat/lons make a polygon with 
 library(raster)         # to use rasters on the map instead of binned points (faster, but less accurate)
 library(oceancolouR)    # for shifted_gaussian() and sparkle_fill()
 library(compiler)       # to compile functions ahead of time in hopes that it speeds things up...
+library(stringr)        # for reading and formatting dataset lists
 # library(htmlTable)      # for making tables in popups
 # library(geosphere)      # for calculating accurate distances between single point click and data point plotted on the map
 
@@ -55,14 +56,6 @@ full_run <- cmpfun(full_run)
 #*******************************************************************************
 # EXTRA VARIABLES ####
 
-# extract the years of data for each sensor
-years <- lapply(sensors, "[[", "years")
-years <- lapply(years, function(x) {names(x) <- x; x})
-
-# extract sensor names
-sensors <- lapply(sensors, "[[", "name")
-sensors <- setNames(names(sensors), sensors)
-
 # variables for using weekly data rather than daily
 doy_week_start <- as.integer(8*(0:45)+1) # note: this is the same for leap years, using NASA's system
 doy_week_end <- c(doy_week_start[2:length(doy_week_start)] - 1, 365)
@@ -89,15 +82,42 @@ poly_ID <- lapply(reginfo, "[[", "poly_ID")
 abbrev <- lapply(reginfo, "[[", "poly_abbrev")
 names(all_regions) <- names(full_names) <- names(poly_ID) <- names(abbrev) <- regions
 
+# colors used in the map
+map_palette <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F",
+                                  "yellow", "#FF7F00", "red", "#7F0000"))(100)
+
+# Get a list of data files in your "data" folder and extract region/sensor/variable/year info from them
+datasets <- data.frame(filename = list.files("data", recursive=TRUE) %>% basename(), stringsAsFactors = FALSE) %>%
+    dplyr::filter(endsWith(filename,".fst")) %>%
+    tidyr::separate(col=filename, into=c("region","sensor","variable","year"), sep="_") %>%
+    dplyr::mutate(year = as.numeric(gsub(".fst","",year)),
+                  region_name = str_replace_all(region, sapply(reginfo, "[[", "name")),
+                  sensor_name = str_replace_all(sensor, sensor_names),
+                  variable_name = str_replace_all(variable, variable_names))
+
+sensors <- sort(unique(datasets$sensor))
+sensors <- sensors[match(names(sensor_names), sensors)]
+sensors <- lapply(sensors, function(x) {
+    tmp <- datasets %>% dplyr::filter(sensor==x) %>% dplyr::distinct(sensor, year, sensor_name)
+    list(name = tmp$sensor_name[1], years = sort(unique(tmp$year)))
+}) %>% setNames(sensors)
+
+algorithms <- datasets %>% dplyr::distinct(variable,variable_name)
+algorithms <- algorithms$variable %>% setNames(algorithms$variable_name)
+algorithms <- algorithms[match(names(variable_names), algorithms)]
+
+# extract the years of data for each sensor
+years <- lapply(sensors, "[[", "years")
+years <- lapply(years, function(x) {names(x) <- x; x})
+# extract sensor names
+sensors <- lapply(sensors, "[[", "name")
+sensors <- setNames(names(sensors), sensors)
+
 # set up defaults
 default_sensor <- sensors[1]
 default_years <- years[[default_sensor]]
 default_algorithm <- algorithms[1]
 default_region <- regions[1]
-
-# colors used in the map
-map_palette <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F",
-                                  "yellow", "#FF7F00", "red", "#7F0000"))(100)
 
 
 #*******************************************************************************
@@ -1764,7 +1784,7 @@ server <- function(input, output, session) {
                 # tr <- raster(ext=extent(pts), resolution = c(0.065,0.04333333))
                 tr <- raster(ext=extent(pts))
                 tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = TRUE)
-                tr <- sparkle_fill(tr,min_sides=3,fun="bilinear")
+                tr <- sparkle_fill(tr,min_sides=2,fun="bilinear")
                 state$tr <- tr # used for input$fullmap_click, currently disabled
                 
                 # Get colour scale for leaflet map
