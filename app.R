@@ -1752,21 +1752,22 @@ server <- function(input, output, session) {
         day_label <- state$day_label
         time_ind <- state$time_ind
         
-        # check if data is available in the file for the selected day
-        if (yearday > isolate(state$available_days)) {
-            
-            # Update map based on choices of year day
-            lfp <- leafletProxy("fullmap", session) %>%
+        map_update_nodata <- function(session, day_label, message) {
+            disable("savemap")
+            disable("savedensplot")
+            leafletProxy("fullmap", session) %>%
                 clearPopups() %>%
                 clearControls() %>%
                 clearGroup("georaster") %>%
-                # Label map with current year and day of year
-                addControl(tags$div(tag.map.title, HTML(paste0(day_label, "<br>NO DATA AVAILABLE YET"))),
+                addControl(tags$div(tag.map.title, HTML(paste0(day_label, "<br>", message))),
                            position = "topleft",
                            className = "map-title")
+        }
+        
+        # check if data is available in the file for the selected day
+        if (yearday > isolate(state$available_days)) {
             
-            disable("savemap")
-            disable("savedensplot")
+            lfp <- map_update_nodata(session, day_label, "NO DATA AVAILABLE YET")
             
         } else {
             
@@ -1775,18 +1776,7 @@ server <- function(input, output, session) {
             
             if (sum(chla_ind)==0) {
                 
-                # Update map based on choices of year day
-                lfp <- leafletProxy("fullmap", session) %>%
-                    clearPopups() %>%
-                    clearControls() %>%
-                    clearGroup("georaster") %>%
-                    # Label map with current year and day of year
-                    addControl(tags$div(tag.map.title, HTML(paste0(day_label, "<br>NO DATA"))),
-                               position = "topleft",
-                               className = "map-title")
-                
-                disable("savemap")
-                disable("savedensplot")
+                lfp <- map_update_nodata(session, day_label, "NO DATA")
                 
             } else {
                 
@@ -1819,15 +1809,12 @@ server <- function(input, output, session) {
                     clearGroup("georaster") %>%
                     addGeoRaster(x = tr,
                                  group = "georaster",
-                                 colorOptions = colorOptions(
-                                     palette = map_palette,
-                                     domain = zlim,
-                                     na.color = "#00000000"),
+                                 colorOptions = colorOptions(palette=map_palette, domain=zlim, na.color="#00000000"),
                                  autozoom = FALSE,
                                  project = TRUE) %>%
                     addLegend(position = 'topright',
                               pal = colorNumeric(palette=map_palette, domain=zlim, na.color="#00000000"),
-                              values = zlim,#c(getValues(tr_coloradj),zlim),
+                              values = zlim,
                               title = leg_title,
                               bins = 10,
                               opacity = 1) %>%
