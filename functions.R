@@ -299,11 +299,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     ggtitle(plot_title) +
     labs(x='Day number') +
     scale_x_continuous(limits=c(0,365), breaks=seq(0,365,by=50)) +
-    scale_size_continuous(name = "Percent coverage",
-                          breaks = c(25, 50, 75, 100),
-                          limits = c(10, 100),
-                          labels = c(25, 50, 75, 100),
-                          range = c(1, 6)) +
+    scale_size_area(minor_breaks=c(25, 50, 75, 100), limits=c(0, 100), max_size=10) +
     theme(legend.position="bottom",
           legend.title=element_text(size=12),
           axis.title.y=element_text(size=10),
@@ -396,9 +392,8 @@ format_settings_to_save <- function(all_inputs, custom_name, polylon, polylat) {
   
   # create a vector of expanded descriptions/names of current values
   # (note this is not yet in the same order as all_inputs - this will be reordered and attached later)
-  val_desc <- c(names(sensors)[sensors==all_inputs$satellite],
-                names(regions)[regions==all_inputs$region],
-                names(algorithms)[algorithms==all_inputs$algorithm],
+  val_desc <- c(names(regions)[regions==all_inputs$region],
+                names(sat_algs[[all_inputs$region]])[sat_algs[[all_inputs$region]]==all_inputs$sat_alg],
                 names(concentration_types)[concentration_types==all_inputs$concentration_type],
                 names(cell_sizes_model1)[cell_sizes_model1==all_inputs$cell_size_model1],
                 names(cell_sizes_model2)[cell_sizes_model2==all_inputs$cell_size_model2],
@@ -464,14 +459,7 @@ output_str <- function(satellite, region, algorithm, year, interval, log_chla,
                                         ifelse(concentration_type=="model1", paste0(proper(cell_size_model1), "-mod1"),
                                                paste0(proper(cell_size_model2), "-mod2"))))
   
-  if (satellite=="merged") {
-    satellite_name <- "Merged"
-  } else {
-    satellite_name <- paste0(toupper(substr(gsub("recalibrated","",satellite),1,1)),
-                             ifelse(grepl("recalibrated",satellite),"recal",""))
-  }
-  
-  output_name <- paste(c(satellite_name, region, polygon, interval, year, day_label, cellSize,
+  output_name <- paste(c(satellite, region, polygon, interval, year, day_label, cellSize,
                          ifelse(log_chla, paste0("log", proper(algorithm), "Chla"), paste0(proper(algorithm), "Chla")),
                          fitmethod, paste0("created", format(Sys.time(),"%Y-%m-%d-%H%M%S")), custom_end),
                        collapse="_")
