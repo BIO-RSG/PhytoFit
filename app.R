@@ -22,7 +22,6 @@ library(dplyr)          # for formatting data tables
 library(geometry)       # to check if user-entered lat/lons make a polygon with area too large (degrees^2)
 library(raster)         # to use rasters on the map instead of binned points (faster, but less accurate)
 library(oceancolouR)    # for shifted_gaussian() and sparkle_fill()
-library(compiler)       # to compile functions ahead of time in hopes that it speeds things up...
 library(stringr)        # for reading and formatting dataset lists
 # library(htmlTable)      # for making tables in popups
 # library(geosphere)      # for calculating accurate distances between single point click and data point plotted on the map
@@ -34,37 +33,18 @@ source("full_run.R")            # contains function to run full time series with
 source("functions.R")           # extra functions
 source("00_input_variables.R")  # variable options in the sidebar
 
-# Compile functions - in some cases, this might help speed it up
-get_time_vars <- cmpfun(get_time_vars)
-get_data <- cmpfun(get_data)
-get_stats <- cmpfun(get_stats)
-get_bloom_fit_data <- cmpfun(get_bloom_fit_data)
-format_settings_to_save <- cmpfun(format_settings_to_save)
-output_str <- cmpfun(output_str)
-get_polygon_details <- cmpfun(get_polygon_details)
-format_settings_to_load <- cmpfun(format_settings_to_load)
-asymm_gaussian <- cmpfun(asymm_gaussian)
-get_asymm_bkrnd <- cmpfun(get_asymm_bkrnd)
-flag_check <- cmpfun(flag_check)
-get_failure_msg <- cmpfun(get_failure_msg)
-gaussFit <- cmpfun(gaussFit)
-rateOfChange <- cmpfun(rateOfChange)
-threshold <- cmpfun(threshold)
-full_run <- cmpfun(full_run)
-
 
 #*******************************************************************************
 # EXTRA VARIABLES ####
+
+# colors used in the map
+map_cols <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F",
+                               "yellow", "#FF7F00", "red", "#7F0000"))(100)
 
 # variables for using weekly data rather than daily
 doy_week_start <- as.integer(8*(0:45)+1) # note: this is the same for leap years, using NASA's system
 doy_week_end <- c(doy_week_start[2:length(doy_week_start)] - 1, 365)
 doys_per_week <- lapply(1:length(doy_week_start), function(i) {doy_week_start[i]:doy_week_end[i]})
-
-# get the date that the data was last updated
-data_last_updated <- file.info(list.files("data", pattern=".fst", full.names = TRUE, recursive = TRUE))$mtime
-most_recent <- which.max(as.numeric(data_last_updated))
-data_last_updated <- data_last_updated[most_recent]
 
 # Load region data (name, existing polygons, lat/lon vectors, resolution)
 reginfo <- readRDS("reginfo.rds")
@@ -78,62 +58,93 @@ names(poly_choices) <- names(multipoly_choices) <- regions
 
 # variables from the original 00_regionBoxes.R, for easier transition to new code
 all_regions <- lapply(reginfo, function(x) lapply(x$poly, function(y) y[c("lat","lon")]))
-full_names <- lapply(reginfo, function(x) lapply(x$poly, "[[", "name"))
+full_names <- lapply(reginfo, function(x) sapply(x$poly, "[[", "name"))
 poly_ID <- lapply(reginfo, function(x) names(x$poly))
-abbrev <- lapply(reginfo, function(x) lapply(x$poly, "[[", "label"))
+abbrev <- lapply(reginfo, function(x) sapply(x$poly, "[[", "label"))
 names(all_regions) <- names(full_names) <- names(poly_ID) <- names(abbrev) <- regions
 
-# colors used in the map
-map_palette <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F",
-                                  "yellow", "#FF7F00", "red", "#7F0000"))(100)
+# Make polygon objects to plot on the leaflet map for each region
+original_polylist <- lapply(regions, function(reg) {
+    poly_coord_list <- all_regions[[reg]]
+    if (length(poly_coord_list) > 0) {
+        original_polys <- lapply(1:length(poly_coord_list), function(k) {
+            Polygon(coords=cbind(poly_coord_list[[k]]$lon, poly_coord_list[[k]]$lat), hole=TRUE)
+        })
+        original_polyIDs <- lapply(1:length(original_polys), function(k) {
+            Polygons(list(original_polys[[k]]), toupper(poly_ID[[reg]][k]))
+        })
+        return(SpatialPolygons(original_polyIDs, 1:length(poly_coord_list)))
+    } else {
+        return(NULL)
+    }
+}) %>% setNames(regions)
 
 # Get a list of data files in your "data" folder and extract region/sensor/variable/year info from them
-datasets <- data.frame(filename = list.files("data", recursive=TRUE) %>% basename(), stringsAsFactors = FALSE)
+datasets <- data.frame(filename = list.files("data", recursive=TRUE, full.names=TRUE), stringsAsFactors = FALSE) %>%
+    dplyr::mutate(basename = basename(filename)) %>%
+    dplyr::filter(endsWith(filename,".fst")) %>%
+    tidyr::separate(col=basename, into=c("region","sensor","variable","year"), sep="_") %>%
+    tidyr::drop_na() %>% # remove rows with missing values
+    dplyr::filter(region %in% regions & sensor %in% names(sensor_names) & variable %in% names(variable_names))
 
-# user has no datasets to view
 if (nrow(datasets)==0) {
     
-    sensors <- c(" " = "")
-    algorithms <- c(" " = "")
+    # user has no datasets to view
+    sat_algs <- c(" " = "")
     years <- list(" " = "")
+    data_last_updated <- "NEVER"
     
 } else {
     
+    # get the date that the data was last updated
+    data_last_updated <- file.info(datasets$filename)$mtime
+    most_recent <- which.max(as.numeric(data_last_updated))
+    data_last_updated <- data_last_updated[most_recent]
+    
+    # for ordering sensor and variable names
+    sensor_num <- 1:length(sensor_names) %>% pad0(len=3) %>% setNames(names(sensor_names))
+    variable_num <- 1:length(variable_names) %>% pad0(len=3) %>% setNames(names(variable_names))
     datasets <- datasets %>%
-        dplyr::filter(endsWith(filename,".fst")) %>%
-        tidyr::separate(col=filename, into=c("region","sensor","variable","year"), sep="_") %>%
-        tidyr::drop_na() %>% # remove rows with missing values
-        dplyr::filter(region %in% regions & sensor %in% names(sensor_names) & variable %in% names(variable_names)) %>%
         dplyr::mutate(year = as.numeric(gsub(".fst","",year)),
                       region_name = str_replace_all(region, sapply(reginfo, "[[", "name")),
                       sensor_name = str_replace_all(sensor, sensor_names),
-                      variable_name = str_replace_all(variable, variable_names))
+                      variable_name = str_replace_all(variable, variable_names),
+                      sensor_num = str_replace_all(sensor, sensor_num),
+                      variable_num = str_replace_all(variable, variable_num)) %>%
+        tidyr::unite(col="sat_alg", sensor, variable, sep="_", remove=FALSE) %>%
+        tidyr::unite(col="sat_alg_name", sensor_name, variable_name, sep=", ", remove=FALSE)
     
-    sensors <- sort(unique(datasets$sensor))
-    sensors <- sensors[match(names(sensor_names), sensors)]
-    sensors <- lapply(sensors, function(x) {
-        tmp <- datasets %>% dplyr::filter(sensor==x) %>% dplyr::distinct(sensor, year, sensor_name)
-        list(name = tmp$sensor_name[1], years = sort(unique(tmp$year)))
-    }) %>% setNames(sensors)
+    # extract the sensor/variables for each region
+    sat_algs <- lapply(regions, function(x) {
+        tmp <- datasets %>%
+            dplyr::filter(region==x) %>%
+            dplyr::arrange(sensor_num, variable_num) %>%
+            dplyr::distinct(sat_alg, sat_alg_name)
+        tmpv <- tmp$sat_alg
+        names(tmpv) <- tmp$sat_alg_name
+        return(tmpv)
+    }) %>% setNames(regions)
     
-    algorithms <- datasets %>% dplyr::distinct(variable,variable_name)
-    algorithms <- algorithms$variable %>% setNames(algorithms$variable_name)
-    algorithms <- algorithms[match(names(variable_names), algorithms)]
-    
-    # extract the years of data for each sensor
-    years <- lapply(sensors, "[[", "years")
-    years <- lapply(years, function(x) {names(x) <- x; x})
-    # extract sensor names
-    sensors <- lapply(sensors, "[[", "name")
-    sensors <- setNames(names(sensors), sensors)
+    # extract the years of data for each region/sensor/variable combination
+    years <- lapply(regions, function(x) {
+        tmp_sat_algs <- sat_algs[[x]]
+        tmpx <- datasets %>% dplyr::filter(region==x) %>% dplyr::arrange(sensor_num, variable_num)
+        tmpv <- lapply(tmp_sat_algs, function(y) {
+            tmpy <- tmpx %>% dplyr::filter(sat_alg==y) %>% dplyr::distinct(year)
+            ys <- sort(as.numeric(tmpy$year))
+            names(ys) <- as.character(ys)
+            return(ys)
+        }) %>% setNames(tmp_sat_algs)
+    }) %>% setNames(regions)
     
 }
 
 # set up defaults
 default_region <- regions[1]
-default_sensor <- sensors[1]
-default_algorithm <- algorithms[1]
-default_years <- years[[default_sensor]]
+default_sat_algs <- sat_algs[[default_region]]
+default_sensor <- strsplit(default_sat_algs[1], split="_")[[1]][1]
+default_algorithm <- strsplit(default_sat_algs[1], split="_")[[1]][2]
+default_years <- years[[default_region]][[default_sat_algs[1]]]
 
 
 #*******************************************************************************
@@ -262,28 +273,14 @@ ui <- fluidPage(
                         choices = regions,
                         selected = default_region,
                         width = widget_width),
-            helpText("Satellite",
+            helpText("Satellite and variable",
                      width = widget_width,
                      style = label_text_style_main_options),
-            selectInput(inputId = "satellite",
+            selectInput(inputId = "sat_alg",
                         label = NULL,
-                        choices = sensors,
-                        selected = default_sensor,
+                        choices = default_sat_algs,
+                        selected = default_sat_algs[1],
                         width = widget_width),
-            helpText("**1km-resolution data only exists in a box encompassing the Gulf of Saint Lawrence (41-53 N, 49-75 W), using the EOF algorithm",
-                     width = widget_width,
-                     style = paste(help_text_style, "margin-bottom: 20px; margin-top: -15px;")),
-            helpText("Chlorophyll algorithm",
-                     width = widget_width,
-                     style = label_text_style_main_options),
-            selectInput(inputId = "algorithm",
-                        label = NULL,
-                        choices = algorithms,
-                        selected = default_algorithm,
-                        width = widget_width),
-            helpText("**EOF data only exists in a box encompassing the Gulf of Saint Lawrence (41-53 N, 49-75 W)",
-                     width = widget_width,
-                     style = paste(help_text_style, "margin-bottom: 20px; margin-top: -15px;")),
             helpText("View full satellite [chla], or use one of two models to separate satellite [chla] into concentrations of different phytoplankton cell sizes, and choose the cell size to view:",
                      width = widget_width,
                      style = paste(label_text_style_main_options, "margin-bottom: 20px;")),
@@ -375,7 +372,7 @@ ui <- fluidPage(
             br(),
             selectInput(inputId = 'box',
                         label = HTML("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">Choose a polygon</font>"),
-                        choices = poly_choices[["atlantic"]],
+                        choices = poly_choices[[default_region]],
                         selected = 'custom',
                         width = widget_width),
             # If custom polygon selected, enter a name for the polygon (optional),
@@ -580,27 +577,6 @@ ui <- fluidPage(
                         value = c(60,151),
                         ticks = FALSE),
             conditionalPanel(condition = "input.fitmethod == 'gauss'",
-                             # helpText(HTML("Set the threshold for defining the start of the bloom (percentage of the amplitude of the curve).</br>Possible values: 1 - 50"),
-                             #          width = widget_width,
-                             #          style = help_text_style),
-                             # numericInput(inputId = 'ti_threshold',
-                             #              label = NULL,
-                             #              value = 20,
-                             #              min = 1,
-                             #              max = 50,
-                             #              step = 1,
-                             #              width = widget_width),
-                             # conditionalPanel(condition = "input.bloomShape == 'asymmetric'",
-                             #                  helpText(HTML("Similarly, set the threshold for defining the end of the bloom."),
-                             #                           width = widget_width,
-                             #                           style = help_text_style),
-                             #                  numericInput(inputId = 'tt_threshold',
-                             #                               label = NULL,
-                             #                               value = 20,
-                             #                               min = 1,
-                             #                               max = 50,
-                             #                               step = 1,
-                             #                               width = widget_width)),
                              helpText(HTML("Select the method used to calculate t<sub>start</sub> :<br>Either 20% of the curve amplitude (peak minus background), or a constant threshold between 0.05 and 1 (difference between the fitted curve and background chla, calculated in linear space)."),
                                       width = widget_width,
                                       style = help_text_style),
@@ -707,15 +683,9 @@ ui <- fluidPage(
             
             br(),
             br(),
-            br(),
+            hr(),
             
             # UI SAVE OPTIONS ####
-            
-            disabled(downloadButton(outputId = "savesettings",
-                                    label = "Save settings (.csv)",
-                                    style = button_style)),
-            
-            hr(),
             
             helpText(HTML(paste0("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">Time series</font></br>",
                                  "Select a series of years and the polygons you would like to process using the current settings, ",
@@ -757,7 +727,7 @@ ui <- fluidPage(
                         sep = ""),
             pickerInput(inputId = "fullrunboxes",
                         label = "Select your polygons",
-                        choices = multipoly_choices[["atlantic"]],
+                        choices = multipoly_choices[[default_region]],
                         selected = "input.box",
                         options = list(
                             `actions-box` = TRUE,
@@ -775,7 +745,11 @@ ui <- fluidPage(
             disabled(downloadButton(outputId = "fullrun_download",
                                     label = "Download results (.zip)",
                                     style = button_style)),
-            br()
+            br(),
+            br(),
+            disabled(downloadButton(outputId = "savesettings",
+                                    label = "Save settings (.csv)",
+                                    style = button_style))
             
             ))
             
@@ -845,6 +819,7 @@ server <- function(input, output, session) {
     state$latlon_toolarge <- FALSE # used to prevent custom polygons that are too large
     state$num_invalid_polygons_drawn <- 0
     state$data_loaded <- FALSE
+    state$sat_alg <- default_sat_algs[1]
     state$satellite <- default_sensor
     state$algorithm <- default_algorithm
     state$year <- as.numeric(format(Sys.Date(),"%Y"))
@@ -876,11 +851,16 @@ server <- function(input, output, session) {
     state$secondary_settings <- NULL
     state$draw_programmatically <- FALSE
     state$applyname_programmatically <- FALSE
-    state$current_years <- default_years
     state$num_sfile_no_main_change <- 0 # number of settings files loaded that changed the main inputs
     state$max_area <- reginfo[[default_region]]$max_area
     state$loess_smooth <- NA
-    state$map_resolution <- reginfo[[default_region]]$map_resolution
+    
+    # These are used to check which specific inputs have been updated in the code block
+    # below that hides the left panel if any of the main inputs have changed.
+    # years are dependant on sat_algs, which is dependent on region
+    state$current_region <- default_region
+    state$current_sat_algs <- default_sat_algs
+    state$current_years <- default_years
     
     
     # START SCREEN POPUP ####
@@ -943,7 +923,7 @@ server <- function(input, output, session) {
                                                    "value_description", "setting_id_variable_type",
                                                    "setting_id_widget_type"))) {
                     help_settings_file_txt <- ""
-                    main_ids <- c("satellite", "region", "algorithm", "concentration_type",
+                    main_ids <- c("region", "sat_alg", "concentration_type",
                                   "cell_size_model1", "cell_size_model2", "year", "interval", "log_chla")
                     main_inds <- file_contents$setting_id %in% main_ids
                     primary_settings <- file_contents[main_inds,]
@@ -966,13 +946,12 @@ server <- function(input, output, session) {
                     } else {
                         updateSelectInput(session, inputId = tmp_ids[1], selected = tmp_values[[1]])
                         updateSelectInput(session, inputId = tmp_ids[2], selected = tmp_values[[2]])
-                        updateSelectInput(session, inputId = tmp_ids[3], selected = tmp_values[[3]])
-                        updateRadioButtons(session, inputId = tmp_ids[4], selected = tmp_values[[4]])
+                        updateRadioButtons(session, inputId = tmp_ids[3], selected = tmp_values[[3]])
+                        updateRadioGroupButtons(session, inputId = tmp_ids[4], selected = tmp_values[[4]])
                         updateRadioGroupButtons(session, inputId = tmp_ids[5], selected = tmp_values[[5]])
-                        updateRadioGroupButtons(session, inputId = tmp_ids[6], selected = tmp_values[[6]])
-                        updateSelectInput(session, inputId = tmp_ids[7], selected = tmp_values[[7]], choices = rev(years[[tmp_values[[1]]]]))
-                        updateSelectInput(session, inputId = tmp_ids[8], selected = tmp_values[[8]])
-                        updateSwitchInput(session, inputId = tmp_ids[9], value = tmp_values[[9]])
+                        updateSelectInput(session, inputId = tmp_ids[6], selected = tmp_values[[6]], choices = rev(years[[tmp_values[[1]]]]))
+                        updateSelectInput(session, inputId = tmp_ids[7], selected = tmp_values[[7]])
+                        updateSwitchInput(session, inputId = tmp_ids[8], value = tmp_values[[8]])
                     }
                 } else {
                     help_settings_file_txt <- "Invalid file contents."
@@ -1031,9 +1010,8 @@ server <- function(input, output, session) {
     
     # Hide the settings panel if main options have changed but "load" has not been clicked yet.
     observeEvent({
-        input$satellite
         input$region
-        input$algorithm
+        input$sat_alg
         input$concentration_type
         input$cell_size_model1
         input$cell_size_model2
@@ -1054,9 +1032,22 @@ server <- function(input, output, session) {
         if (is.null(state$secondary_settings)) {
             
             # if the satellite has changed, and not as a result of loading a settings file,
-            # update the year dropdown menu
-            # if it doesn't need to be updated, then continue checking if data exists
-            new_years <- years[[input$satellite]]
+            # update the sat_alg and year dropdown menus
+            # if they don't need to be updated, then continue checking if data exists
+            new_sat_algs <- sat_algs[[input$region]]
+            if (!identical(new_sat_algs, state$current_sat_algs)) {
+                if (state$sat_alg %in% new_sat_algs) {
+                    selected_sat_alg <- state$sat_alg
+                } else {
+                    selected_sat_alg <- new_sat_algs[1]
+                }
+                updateSelectInput(session, inputId = "sat_alg", choices = new_sat_algs, selected = selected_sat_alg)
+                state$current_sat_algs <- new_sat_algs
+                sat_alg_file <- selected_sat_alg
+            } else {
+                sat_alg_file <- input$sat_alg
+            }
+            new_years <- years[[input$region]][[sat_alg_file]]
             if (!identical(new_years, state$current_years)) {
                 if (state$year %in% new_years) {
                     selected_year <- state$year
@@ -1065,10 +1056,15 @@ server <- function(input, output, session) {
                 }
                 updateSelectInput(session, inputId = "year", choices = rev(new_years), selected = selected_year)
                 state$current_years <- new_years
+                year_file <- selected_year
+            } else {
+                year_file <- input$year
             }
+            
             # enable/disable load button depending on whether or not data exists for these settings
             state$data_loaded <- FALSE
-            data_exists <- file.exists(paste0("./data/", input$region, "/", input$region, "_", input$satellite, "_", input$algorithm, "_", input$year, ".fst"))
+            data_exists <- file.exists(paste0("./data/", input$region, "/", input$region, "_", sat_alg_file, "_", year_file, ".fst"))
+            
             if (data_exists) {
                 enable("load")
                 state$help_load_txt <- ""
@@ -1080,15 +1076,21 @@ server <- function(input, output, session) {
         # FOR APPLYING A SETTINGS FILE
         } else {
             
-            # reset the "current_year" variable so it knows to change if you manually select a satellite with different years
-            new_years <- years[[input$satellite]]
+            # reset the "current_sat_algs", and "current_years" variables so they know to change
+            # if you manually select a satellite with different sat_algs / years
+            new_sat_algs <- sat_algs[[input$region]]
+            if (!identical(new_sat_algs, state$current_sat_algs)) {
+                state$current_sat_algs <- new_sat_algs
+            }
+            new_years <- years[[input$region]][[input$sat_alg]]
             if (!identical(new_years, state$current_years)) {
                 state$current_years <- new_years
             }
             
             # enable/disable load button depending on whether or not data exists for these settings
             state$data_loaded <- FALSE
-            data_exists <- file.exists(paste0("./data/", input$region, "/", input$region, "_", input$satellite, "_", input$algorithm, "_", input$year, ".fst"))
+            data_exists <- file.exists(paste0("./data/", input$region, "/", input$region, "_", input$sat_alg, "_", input$year, ".fst"))
+            
             if (data_exists) {
                 enable("load")
                 state$help_load_txt <- ""
@@ -1115,58 +1117,11 @@ server <- function(input, output, session) {
     # Get newly-selected region and set the lat/lon ranges, and create the list
     # of polygon objects for the leaflet map
     observeEvent(input$region, {
-        
-        reg <- input$region
-        state$region <- reg
-        
-        poly_coord_list <- all_regions[[reg]]
-        
-        
-        # # split a disjoint polygon into separate polygons, each with the same label
-        # reg_list <- all_regions[[reg]]
-        # poly_coord_list <- list()
-        # poly_coord_list_names <- c()
-        # for (i in 1:length(reg_list)) {
-        #     if (anyNA(reg_list[[i]]$lat)) {
-        # 
-        #         tmp_lats <- reg_list[[i]]$lat
-        #         tmp_lons <- reg_list[[i]]$lon
-        # 
-        #         NA_inds <- c(0, which(is.na(tmp_lats)))
-        # 
-        #         for (j in 1:(length(NA_inds)-1)) {
-        #             coord_inds <- (NA_inds[j]+1):(NA_inds[j+1]-1)
-        #             tmp_box <- list(lat=reg_list[[i]]$lat[coord_inds],
-        #                             lon=reg_list[[i]]$lon[coord_inds])
-        #             poly_coord_list <- c(poly_coord_list, list(tmp_box))
-        #             poly_coord_list_names <- c(poly_coord_list_names, paste0(names(reg_list)[i], j))
-        # 
-        #         }
-        # 
-        #     } else {
-        #         poly_coord_list <- c(poly_coord_list, list(reg_list[[i]]))
-        #         poly_coord_list_names <- c(poly_coord_list_names, names(reg_list)[i])
-        #     }
-        # }
-        # names(poly_coord_list) <- poly_coord_list_names
-        
-        if (length(poly_coord_list) > 0) {
-            # Make polygons for existing boxes, to add to base leaflet map
-            original_polys <- lapply(1:length(poly_coord_list), function(k) {
-                Polygon(coords=cbind(poly_coord_list[[k]]$lon, poly_coord_list[[k]]$lat), hole=TRUE)
-            })
-            original_polyIDs <- lapply(1:length(original_polys), function(k) {
-                Polygons(list(original_polys[[k]]), toupper(poly_ID[[isolate(state$region)]][k]))
-            })
-            state$original_polylist <- SpatialPolygons(original_polyIDs, 1:length(poly_coord_list))
-        } else {
-            state$original_polylist <- NULL
-        }
-        
+        state$region <- input$region
+        state$original_polylist <- original_polylist[[state$region]]
         # Update polygon dropdown menu and fullrunboxes choices
-        updateSelectInput(session, inputId = "box", choices = poly_choices[[reg]], selected = "custom")
-        updatePickerInput(session, inputId = "fullrunboxes", choices = multipoly_choices[[reg]], selected = "custom")
-        
+        updateSelectInput(session, inputId = "box", choices = poly_choices[[state$region]], selected = "custom")
+        updatePickerInput(session, inputId = "fullrunboxes", choices = multipoly_choices[[state$region]], selected = "custom")
     })
     
     
@@ -1219,9 +1174,10 @@ server <- function(input, output, session) {
     })
     
     observe({
+        reg <- isolate(state$region)
         state$poly_name <- ifelse(state$box=='custom',
                                   ifelse(nchar(state$custom_name)==0, "Custom polygon", state$custom_name),
-                                  paste0(full_names[[isolate(state$region)]][which(state$box==poly_ID[[isolate(state$region)]])]))
+                                  paste0(full_names[[reg]][which(state$box==poly_ID[[reg]])]))
     })
     
     
@@ -1249,18 +1205,13 @@ server <- function(input, output, session) {
     # GET YEAR DAY ####
     
     observeEvent(input$yearday_slide, {
-        
         # Get the day entered on the slider
         state$yearday <- input$yearday_slide
-        
         # Get some time variables for later use
-        time_variables <- get_time_vars(interval=state$interval,
-                                        year=state$year,
-                                        yearday=state$yearday,
-                                        doys_per_week=doys_per_week)
+        time_variables <- get_time_vars(interval=state$interval, year=state$year,
+                                        yearday=state$yearday, doys_per_week=doys_per_week)
         state$day_label <- time_variables$day_label
         state$time_ind <- time_variables$time_ind
-        
     })
     
     
@@ -1305,36 +1256,6 @@ server <- function(input, output, session) {
     observeEvent(input$threshcoef, {
         state$threshcoef <- input$threshcoef
     })
-    
-    # GAUSS METHOD SPECIFICALLY
-    # observeEvent(input$ti_threshold,{
-    #     # Check if value is valid and within the 0-50 range,
-    #     # and if so, apply it to the reactive state variable
-    #     ti_threshold <- input$ti_threshold
-    #     if (!is.finite(ti_threshold)) {
-    #         updateNumericInput(session, inputId = "ti_threshold", value = (state$ti_threshold * 100))
-    #     } else if (ti_threshold < 1) {
-    #         updateNumericInput(session, inputId = "ti_threshold", value = 1)
-    #     } else if (ti_threshold > 50) {
-    #         updateNumericInput(session, inputId = "ti_threshold", value = 50)
-    #     } else {
-    #         state$ti_threshold <- ti_threshold/100
-    #     }
-    # })
-    # observeEvent(input$tt_threshold,{
-    #     # Check if value is valid and within the 0-50 range,
-    #     # and if so, apply it to the reactive state variable
-    #     tt_threshold <- input$tt_threshold
-    #     if (!is.finite(tt_threshold)) {
-    #         updateNumericInput(session, inputId = "tt_threshold", value = (state$tt_threshold * 100))
-    #     } else if (tt_threshold < 1) {
-    #         updateNumericInput(session, inputId = "tt_threshold", value = 1)
-    #     } else if (tt_threshold > 50) {
-    #         updateNumericInput(session, inputId = "tt_threshold", value = 50)
-    #     } else {
-    #         state$tt_threshold <- tt_threshold/100
-    #     }
-    # })
     observeEvent(input$ti_threshold_type,{
         state$ti_threshold_type <- input$ti_threshold_type
     })
@@ -1418,7 +1339,6 @@ server <- function(input, output, session) {
         
         tr1 <- input$t_range[1]
         tr2 <- input$t_range[2]
-        
         update_t_range <- FALSE
         
         # make sure the range of days used in the fit is > the theoretical minimum
@@ -1450,10 +1370,8 @@ server <- function(input, output, session) {
         
         tr1 <- state$t_range[1]
         tr2 <- state$t_range[2]
-        
         tm1 <- input$tm_limits[1]
         tm2 <- input$tm_limits[2]
-        
         update_tm_limits <- FALSE
         
         if (tm2 >= tr2) {
@@ -1484,13 +1402,10 @@ server <- function(input, output, session) {
         
         tr1 <- state$t_range[1]
         tr2 <- state$t_range[2]
-        
         tm1 <- state$tm_limits[1]
         tm2 <- state$tm_limits[2]
-        
         ti1 <- input$ti_limits[1]
         ti2 <- input$ti_limits[2]
-        
         update_ti_limits <- FALSE
         
         if (ti1 >= tm1) {
@@ -1544,15 +1459,12 @@ server <- function(input, output, session) {
         if (state$log_chla != input$log_chla) {
             new_zlim1 <- 0.05
             new_zlim2 <- 20
-            
             if (input$log_chla) {
                 new_zlim1 <- round(log10(new_zlim1),2)
                 new_zlim2 <- round(log10(new_zlim2),2)
             }
-            
             updateTextInput(session, inputId="zlim1", value = new_zlim1)
             updateTextInput(session, inputId="zlim2", value = new_zlim2)
-            
             state$zlim1 <- new_zlim1
             state$zlim2 <- new_zlim2
         }
@@ -1561,14 +1473,18 @@ server <- function(input, output, session) {
         # check to see if the values should be logged, and then assign the new
         # year to the reactive values that will be used in the date label on the
         # map, and other output
-        state$satellite <- input$satellite
-        state$algorithm <- input$algorithm
+        state$sat_alg <- input$sat_alg
+        state$satellite <- strsplit(state$sat_alg, split="_")[[1]][1]
+        state$algorithm <- strsplit(state$sat_alg, split="_")[[1]][2]
         state$concentration_type <- input$concentration_type
         state$cell_size_model1 <- input$cell_size_model1
         state$cell_size_model2 <- input$cell_size_model2
         state$year <- input$year
         state$interval <- input$interval
         state$log_chla <- input$log_chla
+        state$leg_title <- paste0("<center>Chlorophyll-a</br>[ ",
+                                  ifelse(state$log_chla, "log<sub>10</sub> ", ""),
+                                  "mg m<sup>-3</sup> ]</center>")
         
         enable("savesettings")
         
@@ -1576,7 +1492,6 @@ server <- function(input, output, session) {
         sslat <- reginfo[[state$region]]$lat
         sslon <- reginfo[[state$region]]$lon
         state$max_area <- reginfo[[state$region]]$max_area
-        state$map_resolution <- reginfo[[state$region]]$map_resolution
         
         all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
                              state$yearday, state$interval, state$log_chla, length(sslat),
@@ -1604,7 +1519,7 @@ server <- function(input, output, session) {
             }
             
             # Update full_run slider input
-            tmp_years <- as.numeric(years[[input$satellite]])
+            tmp_years <- as.numeric(years[[state$region]][[state$sat_alg]])
             updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years), max = max(tmp_years), value = range(tmp_years))
             
         } else {
@@ -1627,7 +1542,7 @@ server <- function(input, output, session) {
             }
             
             # update full_run slider input with proper choices and selection
-            tmp_years <- as.numeric(years[[input$satellite]])
+            tmp_years <- as.numeric(years[[state$region]][[state$sat_alg]])
             fullrunyears_value <- trimws(extra_df$value[extra_df$setting_id=="fullrunyears"])
             fullrunyears_value <- as.numeric(strsplit(fullrunyears_value, split=",")[[1]])
             updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years), max = max(tmp_years), value = fullrunyears_value)
@@ -1690,48 +1605,38 @@ server <- function(input, output, session) {
     
     # Raster data will be overlaid after this
     map_reactive <- reactive({
-    
+        
+        reg <- isolate(state$region)
         # Use leaflet() here, and only include aspects of the map that won't need
         # to change dynamically unless the entire map is torn down and recreated.
         lf <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
             addProviderTiles("Esri.WorldGrayCanvas",
-                             options = providerTileOptions(minZoom = 4,
-                                                           maxZoom = 10,
-                                                           updateWhenZooming = FALSE,  # map won't update tiles until zoom is done
-                                                           updateWhenIdle = TRUE)) %>% # map won't load new tiles when panning
-            setView(lng = reginfo[[isolate(state$region)]]$center_lon,
-                    lat = reginfo[[isolate(state$region)]]$center_lat,
-                    zoom = reginfo[[isolate(state$region)]]$zoom_level) %>%
+                             options = providerTileOptions(
+                                 minZoom = 4, maxZoom = 10,
+                                 updateWhenZooming=FALSE,  # don't update tiles until zoom is done
+                                 updateWhenIdle=TRUE)) %>% # don't load new tiles when panning
+            setView(lng = reginfo[[reg]]$center_lon,
+                    lat = reginfo[[reg]]$center_lat,
+                    zoom = reginfo[[reg]]$zoom_level) %>%
             # Add mouse coordinates to top of map
             # Note: need to "remove" first, otherwise it gets stuck if you try
             # to reload the base map (for example, switching from Atlantic to Pacific)
             removeMouseCoordinates() %>%
             addMouseCoordinates() %>%
             # Add gridlines
-            addSimpleGraticule(group = "Gridlines",
-                               interval = 5,
-                               showOriginLabel = FALSE) %>%
+            addSimpleGraticule(group = "Gridlines", interval = 5, showOriginLabel = FALSE) %>%
             # Add option to remove the gridlines or existing statistic boxes
             addLayersControl(overlayGroups = c("Gridlines", "Stats boxes"),
                              options = layersControlOptions(collapsed = FALSE))
         # Add predefined polygons to the map
         if (!is.null(state$original_polylist)) {
             lf <- lf %>%
-                addPolygons(group = "Stats boxes",
-                            data = state$original_polylist,
-                            stroke = TRUE,
-                            color = "darkgrey",
-                            weight = 2,
-                            opacity = 1,
-                            fill = FALSE,
-                            label = abbrev[[isolate(state$region)]],
-                            labelOptions = labelOptions(noHide = TRUE,
-                                                        textOnly = TRUE,
-                                                        textsize = '13px',
-                                                        direction = "center",
-                                                        style = list(
-                                                            'color'='white',
-                                                            'text-shadow' = '0px 0px 4px #000000')))
+                addPolygons(group = "Stats boxes", data = state$original_polylist,
+                            stroke = TRUE, color = "darkgrey", weight = 2, opacity = 1, fill = FALSE,
+                            label = abbrev[[reg]],
+                            labelOptions = labelOptions(
+                                noHide=TRUE, textOnly=TRUE, textsize='13px', direction="center",
+                                style=list('color'='white', 'text-shadow' = '0px 0px 4px #000000')))
         }
         
         lf
@@ -1757,12 +1662,9 @@ server <- function(input, output, session) {
             disable("savemap")
             disable("savedensplot")
             leafletProxy("fullmap", session) %>%
-                clearPopups() %>%
-                clearControls() %>%
-                clearGroup("georaster") %>%
+                clearPopups() %>% clearControls() %>% clearGroup("georaster") %>%
                 addControl(tags$div(tag.map.title, HTML(paste0(day_label, "<br>", message))),
-                           position = "topleft",
-                           className = "map-title")
+                           position = "topleft", className = "map-title")
         }
         
         # check if data is available in the file for the selected day
@@ -1773,7 +1675,7 @@ server <- function(input, output, session) {
         } else {
             
             # Subset chla, lat, lon by day, and remove NA cells
-            chla_ind <- !is.na(sschla[,time_ind])
+            chla_ind <- !is.na(sschla[,time_ind]) & is.finite(sschla[,time_ind])
             
             if (sum(chla_ind)==0) {
                 
@@ -1781,48 +1683,30 @@ server <- function(input, output, session) {
                 
             } else {
                 
+                # Make raster for leaflet map
                 pts <- data.frame(lon = sslon[chla_ind],
                                   lat = sslat[chla_ind],
                                   chl = sschla[chla_ind,time_ind],
                                   stringsAsFactors = FALSE)
-                # state$pts <- pts
-                coordinates(pts) = ~lon+lat
-                # tr <- raster(ext=extent(pts), resolution = c(0.065,0.04333333))
-                tr <- raster(ext=extent(pts))
-                tr <- rasterize(pts, tr, pts$chl, fun = mean, na.rm = TRUE)
-                tr <- sparkle_fill(tr,min_sides=2,fun="bilinear")
+                tr <- rasterFromXYZ(pts, res=reginfo[[state$region]]$map_resolution, digits=0)
+                crs(tr) <- "+proj=longlat +datum=WGS84 +no_defs"
                 state$tr <- tr # used for input$fullmap_click, currently disabled
                 
                 # Get colour scale for leaflet map
                 zlim <- c(state$zlim1, state$zlim2)
-                state$zlim <- zlim
-                
-                # Get legend title
-                leg_title <- paste0("<center>Chlorophyll-a</br>[ ",
-                                    ifelse(isolate(state$log_chla), "log<sub>10</sub> ", ""),
-                                    "mg m<sup>-3</sup> ]</center>")
-                state$leg_title <- leg_title
                 
                 # Update map based on choices of year day
                 lfp <- leafletProxy("fullmap", session) %>%
-                    clearPopups() %>%
-                    clearControls() %>%
-                    clearGroup("georaster") %>%
-                    addGeoRaster(x = tr,
-                                 group = "georaster",
-                                 colorOptions = colorOptions(palette=map_palette, domain=zlim, na.color="#00000000"),
-                                 autozoom = FALSE,
-                                 project = TRUE) %>%
+                    clearPopups() %>% clearControls() %>% clearGroup("georaster") %>%
+                    addGeoRaster(x = tr, group = "georaster",
+                                 colorOptions = colorOptions(palette=map_cols, domain=zlim, na.color="#00000000"),
+                                 autozoom = FALSE, project = FALSE) %>%
                     addLegend(position = 'topright',
-                              pal = colorNumeric(palette=map_palette, domain=zlim, na.color="#00000000"),
-                              values = zlim,
-                              title = leg_title,
-                              bins = 10,
-                              opacity = 1) %>%
+                              pal = colorNumeric(palette=map_cols, domain=zlim, na.color="#00000000"),
+                              values = zlim, title = state$leg_title, bins = 10, opacity = 1) %>%
                     # Label map with current year and day of year
                     addControl(tags$div(tag.map.title, HTML(day_label)),
-                               position = "topleft",
-                               className = "map-title")
+                               position = "topleft", className = "map-title")
                 
                 # now that data has been loaded, make the download button visible
                 enable("savemap")
@@ -1836,10 +1720,7 @@ server <- function(input, output, session) {
             lfp <- lfp %>%
                 addDrawToolbar(
                     # remove options to draw lines, circles, or single markers
-                    polylineOptions=FALSE,
-                    circleOptions=FALSE,
-                    markerOptions=FALSE,
-                    circleMarkerOptions=FALSE,
+                    polylineOptions=FALSE, circleOptions=FALSE, markerOptions=FALSE, circleMarkerOptions=FALSE,
                     # only one custom polygon at a time
                     singleFeature=TRUE,
                     # adjust custom polygon colors
@@ -1858,9 +1739,7 @@ server <- function(input, output, session) {
     
     # RENDER MAP (print to screen)
     output$fullmap <- renderLeaflet({
-        
         map_reactive()
-        
     })
     
     
@@ -2015,106 +1894,19 @@ server <- function(input, output, session) {
     })
     
     
-    # THE COMMENTED BLOCK OF CODE BELOW WAS WORKING WHEN IT WAS WRITTEN (~ EARLY 2020)
-    # BUT HAS SOME FRUSTRATING CONSEQUENCES
-    # Note: if uncommented, you must also uncomment the following lines at the
-    # top of the script:
-    #library(htmlTable)      # for making tables in popups
-    #library(geosphere)      # for calculating accurate distances between single point click and data point plotted on the map
-    
-    # This allows the user to click on any point on the map and get a popup
-    # showing the latitude, longitude, and chlorophyll value at that point.
-    # THE PROBLEM: it pops up whenever you're clicking on the map to draw/edit
-    # a polygon and gets in the way.
-    
-    # # Add a popup with latitude, longitude, and chla data (if available at that
-    # # point) if a user clicks a single point on the map.
-    # observeEvent(input$fullmap_click, {
-    # 
-    #     # Get the coordinates of a single clicked point
-    #     pt_coords <- input$fullmap_click
-    #     ptlat <- pt_coords$lat
-    #     ptlon <- pt_coords$lng
-    # 
-    #     df <- data.frame("Latitude"=round(pt_coords$lat, 3),
-    #                      "Longitude"=round(pt_coords$lng, 3),
-    #                      "Chlorophyll.a"=NA,
-    #                      "Rasterized.Chlorophyll.a"=NA)
-    # 
-    #     # GET CLOSEST BINNED VALUES
-    #     #*****************
-    #     # Get binned values
-    #     pts <- state$pts
-    # 
-    #     if (!is.null(pts)) {
-    # 
-    #         # Reduce the size of the points dataset to check for matches
-    #         lat_diff <- abs(pts$lat - ptlat)
-    #         lon_diff <- abs(pts$lon - ptlon)
-    #         hypotenuse <- sqrt(lat_diff^2 + lon_diff^2)
-    #         closest <- which(hypotenuse < 0.5)
-    # 
-    #         # Check if any chl values are < 0.5 degrees from the click
-    #         if (length(closest) > 0) {
-    # 
-    #             # Get the accurate distance between those points and the point click
-    #             distGeo_pts <- as.numeric(sapply(1:length(closest),function(i) {distGeo(c(ptlon, ptlat),c(pts[closest[i],"lon"],pts[closest[i],"lat"]))}))
-    # 
-    #             # Check again if any chl values are < 2.3km of the click (i.e. the
-    #             # radius of the circle markers)
-    #             min_distGeo <- min(distGeo_pts, na.rm=TRUE)
-    # 
-    #             if (min_distGeo <= 2300) {
-    #                 ind <- which.min(distGeo_pts)
-    #                 df[1,"Chlorophyll.a"] <- round(pts[closest[ind],"chl"], 3)
-    #             }
-    # 
-    #         }
-    # 
-    #         # GET CLOSEST RASTER VALUES
-    #         #*****************
-    #         # For comparison, get rasterized chla
-    #         tr <- state$tr
-    #         pt_extent <- extent(ptlon-0.2,ptlon+0.2,ptlat-0.2,ptlat+0.2)
-    #         # Check if the small box around the point overlaps the raster plotted on the map
-    #         ext_check <- raster::intersect(extent(tr),pt_extent)
-    #         if (!is.null(ext_check)) {
-    #             tr_cropped <- crop(tr, pt_extent)
-    #             tr_values <- rasterToPoints(tr_cropped)
-    #             if (nrow(tr_values) > 0) {
-    #                 distGeo_rast <- as.numeric(sapply(1:nrow(tr_values),function(i) {distGeo(c(ptlon, ptlat),as.numeric(tr_values[i,1:2]))}))
-    #                 min_distGeo <- which.min(distGeo_rast)
-    #                 df[1,"Rasterized.Chlorophyll.a"] <- round(tr_values[min_distGeo,3], 3)
-    #             }
-    #         }
-    # 
-    #     }
-    # 
-    #     df <- t(df)
-    # 
-    #     # Add a popup to the map to display lat, lon, and chla data
-    #     leafletProxy("fullmap", session) %>%
-    #         clearPopups() %>%
-    #         addPopups(lng=pt_coords$lng,
-    #                   lat=pt_coords$lat,
-    #                   htmlTable(df, align=c("l","r")))
-    # 
-    # })
-    
-    
     # POLYGON TITLE PANEL
     output$poly_title <- renderUI({
         
         if (state$data_loaded) {
-            str1 <- paste0(state$year, " ", ifelse(state$region=="atlantic", "Atlantic", "Pacific"), ", ", state$poly_name)
+            str1 <- paste0(state$year, " ", names(regions)[state$region==regions], ", ", state$poly_name)
             if (is.null(state$polylat)) {
                 str2 <- ""
                 str3 <- ""
             } else {
                 if (length(state$polylat) > 20) {
-                    num_hidden_coords <- length(state$polylat) - 20
-                    str2 <- paste0(paste0(round(state$polylat,6)[1:20], collapse=", "), "... <i>[truncated, ", num_hidden_coords, " remaining]</i>")
-                    str3 <- paste0(paste0(round(state$polylon,6)[1:20], collapse=", "), "... <i>[truncated, ", num_hidden_coords, " remaining]</i>")
+                    extra_coords <- paste0("... <i>[truncated, ", length(state$polylat)-20, " remaining]</i>")
+                    str2 <- paste0(paste0(round(state$polylat,6)[1:20], collapse=", "), extra_coords)
+                    str3 <- paste0(paste0(round(state$polylon,6)[1:20], collapse=", "), extra_coords)
                 } else {
                     str2 <- paste0(round(state$polylat,6), collapse=", ")
                     str3 <- paste0(round(state$polylon,6), collapse=", ")
@@ -2136,14 +1928,13 @@ server <- function(input, output, session) {
         state$box
         state$latlon_method
         state$num_invalid_polygons_drawn
+        state$region
     }, {
         
         # Remove popups, previously selected existing AZMP boxes, or previously
         # typed polygons
         leafletProxy("fullmap", session) %>%
-            clearPopups() %>%
-            removeShape("highlighted_box") %>%
-            removeShape("typedpoly")
+            clearPopups() %>% removeShape("highlighted_box") %>% removeShape("typedpoly")
         
         snp <- isolate(state$newpoly)
         sep <- isolate(state$editedpoly)
@@ -2297,7 +2088,7 @@ server <- function(input, output, session) {
     
     
     #***************************************************************************
-    # DAILY/WEEKLY STATS, DENSITY PLOT ####
+    # DENSITY PLOT, DAILY/WEEKLY STATS ####
     
     make_density_plot <- reactive({
         
@@ -2463,9 +2254,7 @@ server <- function(input, output, session) {
     
     # RENDER DENSITY PLOT (print to screen)
     output$chla_hist <- renderPlot({
-        
         make_density_plot()
-        
     })
     
     
@@ -2645,29 +2434,18 @@ server <- function(input, output, session) {
     
     # RENDER BLOOM FIT PLOT (print to screen)
     output$bloomfit <- renderPlot({
-        
         make_bloom_fit()
-        
     })
     
     
     # BLOOMFIT POINT CLICK ####
     observeEvent(input$bloomfit_click, {
-        
         if (!is.null(state$dfbloomparms)) {
-            
             state$bloomfit_click <- input$bloomfit_click
-            
-            npyday <- nearPoints(state$dfbloomparms,
-                                 coordinfo = state$bloomfit_click,
-                                 xvar = "x",
-                                 yvar = "y")$x
+            npyday <- nearPoints(state$dfbloomparms, coordinfo = state$bloomfit_click, xvar = "x", yvar = "y")$x
             updateSliderInput(session, inputId = 'yearday_slide', value = npyday)
-            
         }
-        
     })
-    
     
     
     # RUN FULL TIME SERIES ####
@@ -2828,10 +2606,7 @@ server <- function(input, output, session) {
         
         write.csv(total_params_df %>% dplyr::arrange(., Region, Year),
                   file=file.path(output_dir, "bloom_fit_params.csv"),
-                  quote=FALSE,
-                  na=" ",
-                  row.names=FALSE)
-        
+                  quote=FALSE, na=" ", row.names=FALSE)
         
         # SAVE SETTINGS
         if (isolate(state$box)=="custom") {
@@ -2843,7 +2618,9 @@ server <- function(input, output, session) {
         info <- format_settings_to_save(all_inputs=reactiveValuesToList(isolate(input)),
                                         custom_name=isolate(state$custom_name),
                                         polylon=plons,
-                                        polylat=plats)
+                                        polylat=plats,
+                                        regions=regions,
+                                        sat_algs=sat_algs)
         write.table(info, file=file.path(output_dir, "settings.csv"), row.names=FALSE, na=" ", sep="\\")
         
         gc()
@@ -2901,17 +2678,10 @@ server <- function(input, output, session) {
     
     #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
     # DOWNLOAD OUTPUT ####
-    #
-    # map:                              .html
-    # density plot, bloom fit plot:     .png
-    # annual stats, bloom parameters:   .csv
-    # info/current settings:            .txt
-    #
-    # Each has a shiny download button that will download the objects to the
-    # browser's default downloads folder.
+    # Map, density plot, bloom fit plot, annual stats, bloom parameters, and settings.
+    # Downloads to browser's default downloads folder.
     
-    
-    # SAVE MAP
+    # SAVE MAP (.html)
     output$savemap <- downloadHandler(
         filename <- function() {
             output_str(satellite=isolate(state$satellite),
@@ -2933,20 +2703,15 @@ server <- function(input, output, session) {
                 pc <- state$tr
                 lt <- state$leg_title
                 dl <- state$day_label
-                zl <- state$zlim
+                zl <- c(state$zlim1, state$zlim2)
             })
             tr_coloradj <- calc(pc, function(x) ifelse(x <= zl[1], zl[1]+(1e-10), ifelse(x >= zl[2], zl[2]-(1e-10), x)))
-            cm <- colorNumeric(palette=map_palette, domain=zl, na.color="#00000000")
+            cm <- colorNumeric(palette=map_cols, domain=zl, na.color="#00000000")
             saveWidget(widget = map_reactive() %>%
-                           clearControls() %>%
-                           clearGroup("georaster") %>%
+                           clearControls() %>% clearGroup("georaster") %>%
                            addRasterImage(x = tr_coloradj, colors = cm) %>%
-                           addLegend(position = 'topright',
-                                     pal = cm,
-                                     values = zl,
-                                     title = lt,
-                                     bins = 10,
-                                     opacity = 1) %>%
+                           addLegend(position = 'topright', pal = cm, values = zl,
+                                     title = lt, bins = 10, opacity = 1) %>%
                            # Label map with current year and day of year
                            addControl(tags$div(tag.map.title, HTML(dl)),
                                       position = "topleft",
@@ -2956,7 +2721,7 @@ server <- function(input, output, session) {
     )
     
     
-    # SAVE DENSITY PLOT
+    # SAVE DENSITY PLOT (.png)
     output$savedensplot <- downloadHandler(
         filename <- function() {
             output_str(satellite=isolate(state$satellite),
@@ -2974,16 +2739,12 @@ server <- function(input, output, session) {
                        cell_size_model2=isolate(state$cell_size_model2))
             },
         content <- function(file) {
-            ggsave(file=file,
-                   plot=isolate(make_density_plot()),
-                   width=12,
-                   height=5,
-                   units="in")
+            ggsave(file=file, plot=isolate(make_density_plot()), width=12, height=5, units="in")
         }
     )
     
     
-    # SAVE BLOOM FIT PLOT
+    # SAVE BLOOM FIT PLOT (.png)
     output$savebloomfit <- downloadHandler(
         filename <- function() {
             output_str(satellite=isolate(state$satellite),
@@ -3000,16 +2761,12 @@ server <- function(input, output, session) {
                        cell_size_model2=isolate(state$cell_size_model2))
             },
         content <- function(file) {
-            ggsave(file=file,
-                   plot=isolate(make_bloom_fit()),
-                   width=12,
-                   height=5,
-                   units="in")
+            ggsave(file=file, plot=isolate(make_bloom_fit()), width=12, height=5, units="in")
         }
     )
     
     
-    # SAVE ANNUAL STATS
+    # SAVE ANNUAL STATS (.csv)
     output$saveannualstats <- downloadHandler(
         filename <- function() {
             output_str(satellite=isolate(state$satellite),
@@ -3036,14 +2793,11 @@ server <- function(input, output, session) {
                                  percent_coverage=isolate(state$percent_coverage),
                                  loess_smooth=isolate(state$loess_smooth),
                                  stringsAsFactors=FALSE),
-                      file=file,
-                      quote=FALSE,
-                      na=" ",
-                      row.names=FALSE)
+                      file=file, quote=FALSE, na=" ", row.names=FALSE)
         }
     )
     
-    # SAVE BLOOM FIT PARAMETERS
+    # SAVE BLOOM FIT PARAMETERS (.csv)
     output$savebloomparams <- downloadHandler(
         filename <- function() {
             output_str(satellite=isolate(state$satellite),
@@ -3060,15 +2814,11 @@ server <- function(input, output, session) {
                        cell_size_model2=isolate(state$cell_size_model2))
             },
         content <- function(file) {
-            write.csv(isolate(state$fitparams),
-                      file=file,
-                      quote=FALSE,
-                      na=" ",
-                      row.names=FALSE)
+            write.csv(isolate(state$fitparams), file=file, quote=FALSE, na=" ", row.names=FALSE)
         }
     )
     
-    # SAVE CURRENT INFO/SETTINGS (if annual data has been loaded)
+    # SAVE CURRENT INFO/SETTINGS (if annual data has been loaded) (.csv)
     output$savesettings <- downloadHandler(
         filename <- function() {
             output_str(satellite=isolate(state$satellite),
@@ -3095,7 +2845,9 @@ server <- function(input, output, session) {
             info <- format_settings_to_save(all_inputs=reactiveValuesToList(isolate(input)),
                                             custom_name=isolate(state$custom_name),
                                             polylon=plons,
-                                            polylat=plats)
+                                            polylat=plats,
+                                            regions=regions,
+                                            sat_algs=sat_algs)
             write.table(info, file=file, row.names=FALSE, na=" ", sep="\\")
         }
     )
