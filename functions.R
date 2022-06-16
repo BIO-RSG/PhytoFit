@@ -379,7 +379,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
 }
 
 # Format current input settings to write to csv
-format_settings_to_save <- function(all_inputs, custom_name, polylon, polylat) {
+format_settings_to_save <- function(all_inputs, custom_name, polylon, polylat, regions, sat_algs) {
   
   all_inputs$custom_name <- custom_name
   
