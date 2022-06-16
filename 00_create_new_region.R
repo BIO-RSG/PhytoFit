@@ -69,6 +69,13 @@ library(ncdf4)        # to read 1km-resolution gosl lat/lon file (../panCan_proc
 #         lat: The numeric vector of latitudes for the region
 #         lon: The numeric vector of longitudes for the region
 #         data_resolution: Satellite data resolution, numeric value in km^2
+#         map_resolution: This is the resolution (lon,lat) for the raster image on the map.
+#                         You will need to experiment with this to get the resolution you want that does not
+#                         look too pixelated/gappy, but doesn't sacrifice too much accuracy or closeness to the original
+#                         points when they're rasterized and projected onto the map. The map_resolution will depend on your
+#                         satellite data resolution and the range of latitudes used in your region.
+#                         Note: Leaflet (the package used for the map) uses the Web Mercator Projection:
+#                               https://spatialreference.org/ref/sr-org/45/
 #         center_lon: The longitude at the center of the map when it first loads
 #         center_lat: The latitude at the center of the map when it first loads
 #         zoom_level: The zoom level of the map when it first loads
@@ -386,6 +393,7 @@ reginfo <- list(
                     lat = lat_atlantic,
                     lon = lon_atlantic,
                     data_resolution = 4.64^2,
+                    map_resolution = c(0.09,0.04167),
                     center_lon = -55,
                     center_lat = 53,
                     zoom_level = 5,
@@ -395,6 +403,7 @@ reginfo <- list(
                    lat = lat_pacific,
                    lon = lon_pacific,
                    data_resolution = 4.64^2,
+                   map_resolution = c(0.08,0.04167),
                    center_lon = -132.5,
                    center_lat = 51.5,
                    zoom_level = 6,
@@ -404,6 +413,7 @@ reginfo <- list(
                    lat = lat_gosl_1km,
                    lon = lon_gosl_1km,
                    data_resolution = 1,
+                   map_resolution = c(0.03,0.01),
                    center_lon = -62,
                    center_lat = 48,
                    zoom_level = 6,
@@ -413,6 +423,7 @@ reginfo <- list(
                    lat = lat_gosl_4km,
                    lon = lon_gosl_4km,
                    data_resolution = 4.64^2,
+                   map_resolution = c(0.07,0.04167),
                    center_lon = -62,
                    center_lat = 47,
                    zoom_level = 6,
@@ -422,6 +433,7 @@ reginfo <- list(
                 lat = lat_baffin,
                 lon = lon_baffin,
                 data_resolution = 4.64^2,
+                map_resolution = c(0.2,0.04167),
                 center_lon = -68,
                 center_lat = 72,
                 zoom_level = 5,
@@ -440,7 +452,7 @@ if (any(latlens != lonlens)) {
   stop("Latitude and longitude vectors must be the same length.")
 }
 if (any(latlens > 300000)) {
-  warning("Data > 300,000 pixels requires a lot of memory and might crash the app.")
+  warning("A region with > 300,000 pixels requires a lot of memory to load and might crash the app.")
 }
 
 # Add max_area to list elements (maximum area allowed for a custom polygon, in degrees^2, to prevent app from crashing, based on user-supplied data resolution and center latitude of region)
