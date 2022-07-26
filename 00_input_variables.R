@@ -15,7 +15,9 @@ sensor_names <- c("modis" = "MODIS-Aqua",
                   "seawifs" = "SeaWiFS",
                   "viirs" = "VIIRS-SNPP",
                   "olcia" = "OLCI-A",
-                  "olcib" = "OLCI-B")
+                  "olcib" = "OLCI-B",
+                  "recalibratedseawifs" = "SeaWiFS-modelled MODIS",
+                  "recalibratedviirs-snpp" = "VIIRS-modelled MODIS")
 
 variable_names <- c("ocx" = "OCx chl-a (global, band ratio)",
                     "poly4" = "POLY4 chl-a (regional, band ratio)",

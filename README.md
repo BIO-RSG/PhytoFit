@@ -30,7 +30,7 @@ BibTeX format:
 
 2. Install the necessary libraries:
 ```r
-install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "leafem", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "tidyr", "geometry", "raster", "proj4", "curl"))
+install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "leafem", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "tidyr", "geometry", "raster", "proj4", "curl", "stringr"))
 ```
 
 3. Install a necessary fix for the leaflet.extras package, and a custom package (oceancolouR):

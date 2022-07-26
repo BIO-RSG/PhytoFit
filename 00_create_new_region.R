@@ -1,151 +1,116 @@
 # Stephanie.Clay@dfo-mpo.gc.ca
 # 2022-06-10
 
-# Use this to create reginfo.rds, containing the info on the regions you want to use in PhytoFit. See below for details,
-# and instructions how to create the corresponding data files for the region.
+# Use this to create reginfo.rds, containing the info on the regions you want to use in PhytoFit.
+# See 00_create_new_region_tutorial.html for details and examples.
 
 # remotes::install_github("BIO-RSG/oceancolouR", build_vignettes = TRUE)
-library(oceancolouR)  # to get 4km-resolution lat/lon vectors of the atlantic/pacific regions
+library(oceancolouR)  # to get 4km-resolution lat/lon vectors of the atlantic/pacific/gosl4km/baffin regions
 library(ncdf4)        # to read 1km-resolution gosl lat/lon file (../panCan_processing/data/gsl_1km.nc)
 
-
-#*******************************************************************************
-# INSTRUCTIONS ####
-
-
-###########################
-# STEP 1: Use this script to add the necessary info for the region so it can be read into PhytoFit.
-###########################
-#
-# NOTE: To exclude a region (if you're missing the latitude/longitude vectors or simply want to leave it out),
-#       for example "atlantic", just comment out the code used to create the lat/lon/poly elements for that region
-#       in the "LAT/LON/POLYGON INFO" section, and the list item for that region in the "ADD TO LIST" section.
-#
-# WARNING: It's recommended your region be < 300,000 pixels so it doesn't overload your computer memory when you
-#          load the data in the app, but this can be adjusted depending on your situation.
-#
-#
-# In the "LAT/LON/POLYGON" section:
-#
-#     a. Create numeric latitude and longitude vectors for your region.
-#        They must be the same length, in the same order (so each pixel gets a lat/lon pair).
-#        Values are in decimal degrees, and west/south longitudes/latitudes should be negative.
-#     b. Define polygons to draw on the map.
-#         To skip this step, just create an empty list, like this: poly_regionname = list()
-#         Otherwise, fill in the list in this format:
-#         poly_regionname = list(poly_ID1 = list(name = poly_name1,
-#                                                label = poly_label1,
-#                                                lat = numeric_vector_of_latitudes_of_polygon_vertices1,
-#                                                lon = numeric_vector_of_longitudes_of_polygon_vertices1),
-#                                poly_ID2 = list(name = poly_name2,
-#                                                label = poly_label2,
-#                                                lat = numeric_vector_of_latitudes_of_polygon_vertices2,
-#                                                lon = numeric_vector_of_longitudes_of_polygon_vertices2))
-#         "poly_ID" must be unique to each polygon. If there are multiple versions of a polygon, use something
-#         like poly_v01, poly_v02.
-#         "name" is the full name of the polygon, which appears in the polygon drop-down menu.
-#         "label" is the label that appears next to the polygon on the map. Set to NA for no label. If you have
-#         multiple overlapping versions of a polygon, you could set the label on the first one and set the others to NA.
-#         "lat" and "lon" vectors must be the same length, and the first and last values must be the same (to close the polygon).
-#         WARNING: NA values are not allowed in the lat/lon vectors (i.e. polygons must be continuous, not split into multiple polys).
-#
-# EXAMPLE:
-#   poly_atlantic = list("AC"=list(name = "Avalon Channel (AC)",
-#                                  label = "AC",
-#                                  lat = c(46, 48, 48, 46, 46),
-#                                  lon = c(-53, -53, -51.5, -51.5, -53)),
-#                        "CS_V01"=list(name = "Cabot Strait (CS) V01",
-#                                      label = "CS",
-#                                      lat = c(46.9, 48, 48, 46.9, 46.9),
-#                                      lon = c(-60.4, -60.4, -59, -59, -60.4)),
-#                        "CS_V02"=list(name = "Cabot Strait (CS) V02",
-#                                      label = NA,
-#                                      lat = c(47, 47.758, 48, 48, 47.436, 47),
-#                                      lon = c(-59.903, -60.73, -60.322, -59.783, -59.168, -59.903)))
-#
-# In the "ADD TO LIST" section:
-#     Follow the format in examples below, define elements for your region:
-#         name: The full name of the region (this appears in the drop-down menu of the app)
-#         lat: The numeric vector of latitudes for the region
-#         lon: The numeric vector of longitudes for the region
-#         data_resolution: Satellite data resolution, numeric value in km^2
-#         map_resolution: This is the resolution (lon,lat) for the raster image on the map.
-#                         You will need to experiment with this to get the resolution you want that does not
-#                         look too pixelated/gappy, but doesn't sacrifice too much accuracy or closeness to the original
-#                         points when they're rasterized and projected onto the map. The map_resolution will depend on your
-#                         satellite data resolution and the range of latitudes used in your region.
-#                         Note: Leaflet (the package used for the map) uses the Web Mercator Projection:
-#                               https://spatialreference.org/ref/sr-org/45/
-#         center_lon: The longitude at the center of the map when it first loads
-#         center_lat: The latitude at the center of the map when it first loads
-#         zoom_level: The zoom level of the map when it first loads
-#         poly: The polygons you defined in LAT/LON/POLYGON section (add this to the list even if it's empty)
-
-
-
-###########################
-# STEP 2: Create data files for the region.
-###########################
-#
-# 1. Download daily satellite data for your region. The latitude/longitude vectors that
-#    you created for your region must match (same length and order) the vector
-#    of daily satellite data.
-#
-# 2. Combine all daily data for a given year into a single numeric matrix, where row = pixel
-#    and column = day of year.
-#    IMPORTANT: Missing days should be included as a column of NA values at the appropriate column index
-#               (e.g. if you don't have data in your region on day 36, then column 36 should be all NA).
-#    Note that day 366 of a leap year is ignored/removed in the app.
-#
-# 3. Flatten the matrix into a dataframe:
-#       df = data.frame(var = as.numeric(mat), stringsAsFactors = FALSE)
-#    Note that pixels with missing data are retained here so that it can be quickly reshaped into the
-#    pixel / day of year matrix for easier and faster subsetting. The data is saved in this flattened
-#    format instead of as a matrix because the file size is smaller and faster to read.
-#
-# 4. Write the dataframe to an fst file and store it in the data/region subfolders following this filenaming scheme:
-#       filename = "data/region/region_sensor_variable_year.fst"
-#       write_fst(df, path=filename, compress=100)
-#    In the filename, replace "region", "sensor", "variable", and "year" with the appropriate values
-#    (e.g. "atlantic" for region, "modis" for sensor, "ocx" for variable, "2016" for year...).
-#    Note that this step (and the app) requires the "fst" library in R.
-#
-# # EXAMPLE:
-# # This file contains the pixel / day of year matrix, and the flattened dataframe,
-# # from the Pacific MODIS-Aqua OCx chl-a file for 2021:
-# load("example_sat_formatting.rda")
-# str(mat)
-# # num [1:48854, 1:365] NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN ...
-# str(df)
-# # 'data.frame':	17831710 obs. of  1 variable:
-# #   $ var: num  NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN ...
-# # In this case, the phytofit data file would be created like this:
-# #     write_fst(df, path="data/pacific/pacific_modis_ocx_2021.fst", compress=100)
-
-
-
-###########################
-# STEP 3: Adjust 00_input_variables.R "VARIABLES THAT CAN BE CHANGED" section, if necessary
-###########################
-
-# If you've added data files for a new sensor or variable, add their abbreviation and name 
-# to the sensor_names and variable_names at the top of the "00_input_variables.R" script
-# (see comments next to those variables for more details).
-
+# List of abbreviations of the regions to create.
+reg_list <- c("atlantic", "pacific", "gosl1km", "gosl4km", "baffin")
 
 
 #*******************************************************************************
-# LAT/LON/POLYGON INFO ####
+# SECTION 1: REGION METADATA, LATITUDE, AND LONGITUDE ####
 
-# ATLANTIC ####
+reginfo <- list()
 
-df = get_bins(region="nwa", variables=c("latitude","longitude"))
-ltbs = lat_bounds[["atlantic"]]
-lnbs = lon_bounds[["atlantic"]]
-ind <- df$latitude >= ltbs[1] & df$latitude <= ltbs[2] & df$longitude >= lnbs[1] & df$longitude <= lnbs[2]
-lat_atlantic = as.numeric(df$latitude)[ind]
-lon_atlantic = as.numeric(df$longitude)[ind]
-poly_atlantic = list("AC"=list(name = "Avalon Channel (AC)",
+# For each region, add full region name, data spatial resolution, map display
+# resolution, the center longitude, latitude, and zoom level of the map, and
+# vectors of latitude and longitude associated with each pixel.
+
+if ("atlantic" %in% reg_list) {
+  df = get_bins(region="nwa", variables=c("latitude","longitude"))
+  ltbs = lat_bounds[["atlantic"]]
+  lnbs = lon_bounds[["atlantic"]]
+  ind <- df$latitude >= ltbs[1] & df$latitude <= ltbs[2] & df$longitude >= lnbs[1] & df$longitude <= lnbs[2]
+  reginfo$atlantic = list(name = "Atlantic",
+                          lat = as.numeric(df$latitude)[ind],
+                          lon = as.numeric(df$longitude)[ind],
+                          data_resolution = 4.64^2,
+                          map_resolution = c(0.09,0.04167),
+                          center_lon = -55,
+                          center_lat = 53,
+                          zoom_level = 5)
+}
+
+if ("pacific" %in% reg_list) {
+  df = get_bins(region="nep", variables=c("latitude","longitude"))
+  ltbs = lat_bounds[["NEP"]]
+  lnbs = lon_bounds[["NEP"]]
+  ind <- df$latitude >= ltbs[1] & df$latitude <= ltbs[2] & df$longitude >= lnbs[1] & df$longitude <= lnbs[2]
+  reginfo$pacific = list(name = "Pacific",
+                         lat = as.numeric(df$latitude)[ind],
+                         lon = as.numeric(df$longitude)[ind],
+                         data_resolution = 4.64^2,
+                         map_resolution = c(0.08,0.04167),
+                         center_lon = -132.5,
+                         center_lat = 51.5,
+                         zoom_level = 6)
+}
+
+if ("gosl1km" %in% reg_list) {
+  # 1km lat/lon vectors (note that endpoints in "ind" are not inclusive here)
+  nc <- nc_open("../panCan_processing/data/gsl_1km.nc")
+  lat <- ncvar_get(nc, "lat")
+  lon <- ncvar_get(nc, "lon")
+  nc_close(nc)
+  ltbs = c(45.6, 51.8)
+  lnbs = c(-71.4, -55)
+  ind <- lat > ltbs[1] & lat < ltbs[2] & lon > lnbs[1] & lon < lnbs[2]
+  reginfo$gosl1km = list(name = "Gulf of Saint Lawrence, 1km",
+                         lat = as.numeric(lat)[ind],
+                         lon = as.numeric(lon)[ind],
+                         data_resolution = 1,
+                         map_resolution = c(0.03,0.01),
+                         center_lon = -62,
+                         center_lat = 48,
+                         zoom_level = 6)
+}
+
+if ("gosl4km" %in% reg_list) {
+  df = get_bins(region="gosl", variables=c("latitude","longitude"))
+  ltbs = lat_bounds[["GoSL"]]
+  lnbs = lon_bounds[["GoSL"]]
+  ind <- df$latitude >= ltbs[1] & df$latitude <= ltbs[2] & df$longitude >= lnbs[1] & df$longitude <= lnbs[2]
+  reginfo$gosl4km = list(name = "Gulf of Saint Lawrence, 4km",
+                         lat = as.numeric(df$latitude)[ind],
+                         lon = as.numeric(df$longitude)[ind],
+                         data_resolution = 4.64^2,
+                         map_resolution = c(0.07,0.04167),
+                         center_lon = -62,
+                         center_lat = 47,
+                         zoom_level = 6)
+}
+
+if ("baffin" %in% reg_list) {
+  df = get_bins(region="nwa", variables=c("latitude","longitude"))
+  ltbs = c(60,lat_bounds$NWA[2])
+  lnbs = lon_bounds$NWA
+  ind <- df$latitude >= ltbs[1] & df$latitude <= ltbs[2] & df$longitude >= lnbs[1] & df$longitude <= lnbs[2]
+  reginfo$baffin = list(name = "Baffin Bay",
+                        lat = as.numeric(df$latitude)[ind],
+                        lon = as.numeric(df$longitude)[ind],
+                        data_resolution = 4.64^2,
+                        map_resolution = c(0.2,0.04167),
+                        center_lon = -68,
+                        center_lat = 72,
+                        zoom_level = 5)
+}
+
+
+#*******************************************************************************
+# SECTION 2: POLYGON DEFINITIONS ####
+
+poly <- list()
+
+# Create polygon definitions below for your region (these will be drawn on the map
+# automatically when it loads). If you don't want any polygons, just assign an
+# empty list to your region variable, e.g. poly$your_region_name = list()
+
+poly$atlantic = list("AC"=list(name = "Avalon Channel (AC)",
                                label = "AC",
                                lat = c(46, 48, 48, 46, 46),
                                lon = c(-53, -53, -51.5, -51.5, -53)),
@@ -278,16 +243,7 @@ poly_atlantic = list("AC"=list(name = "Avalon Channel (AC)",
                                lat = c(42.5, 43.33, 43.33, 42.5, 42.5),
                                lon = c(-65.5, -65.5, -64.5, -64.5, -65.5)))
 
-
-# PACIFIC ####
-
-df = get_bins(region="nep", variables=c("latitude","longitude"))
-ltbs = lat_bounds[["NEP"]]
-lnbs = lon_bounds[["NEP"]]
-ind <- df$latitude >= ltbs[1] & df$latitude <= ltbs[2] & df$longitude >= lnbs[1] & df$longitude <= lnbs[2]
-lat_pacific = as.numeric(df$latitude)[ind]
-lon_pacific = as.numeric(df$longitude)[ind]
-poly_pacific = list("AOI"=list(name = "Offshore Pacific Area of Interest (AOI)",
+poly$pacific = list("AOI"=list(name = "Offshore Pacific Area of Interest (AOI)",
                                label = "AOI",
                                lat = c(49.682, 51.064, 50.770, 50.405, 50.231, 49.529,
                                        49.265, 49.000,49.069, 47.793, 46.527, 49.682), 
@@ -348,107 +304,42 @@ poly_pacific = list("AOI"=list(name = "Offshore Pacific Area of Interest (AOI)",
                                lat = c(51.41228, 51.30903, 51.24933, 51.24275, 51.29508, 51.32347, 51.41228),
                                lon = c(-128.7995, -128.6766, -128.7837, -128.9293, -129.0081, -129.0149, -128.7995)))
 
+# reuse polygons from the atlantic region in the gosl region
+poly$gosl1km <- poly$gosl4km <- poly$atlantic[names(poly$atlantic) %in% c("AC","CS_V01","CS_V02","CSS","ESS","GB","HIB","LS","MS_V01","MS_V02","NEGSL_V01","NEGSL_V02","NENS","NGB","NWGSL_V01","NWGSL_V02","SES","SAB","SPB","WSS")]
 
-# GoSL (1km and 4km) ####
-
-# 1km lat/lon vectors (note that endpoints in "ind" are not inclusive here)
-nc <- nc_open("../panCan_processing/data/gsl_1km.nc")
-lat <- ncvar_get(nc, "lat")
-lon <- ncvar_get(nc, "lon")
-nc_close(nc)
-ltbs = c(45.6, 51.8)
-lnbs = c(-71.4, -55)
-ind <- lat > ltbs[1] & lat < ltbs[2] & lon > lnbs[1] & lon < lnbs[2]
-lat_gosl_1km = as.numeric(lat)[ind]
-lon_gosl_1km = as.numeric(lon)[ind]
-
-# 4km lat/lon vectors
-df = get_bins(region="gosl", variables=c("latitude","longitude"))
-ltbs = lat_bounds[["GoSL"]]
-lnbs = lon_bounds[["GoSL"]]
-ind <- df$latitude >= ltbs[1] & df$latitude <= ltbs[2] & df$longitude >= lnbs[1] & df$longitude <= lnbs[2]
-lat_gosl_4km = as.numeric(df$latitude)[ind]
-lon_gosl_4km = as.numeric(df$longitude)[ind]
-
-poly_gosl <- poly_atlantic[names(poly_atlantic) %in% c("AC","CS_V01","CS_V02","CSS","ESS","GB","HIB","LS","MS_V01","MS_V02","NEGSL_V01","NEGSL_V02","NENS","NGB","NWGSL_V01","NWGSL_V02","SES","SAB","SPB","WSS")]
-
-
-# BAFFIN BAY ####
-
-df = get_bins(region="nwa", variables=c("latitude","longitude"))
-ltbs = c(lat_bounds$atlantic[2],lat_bounds$NWA[2])
-lnbs = lon_bounds$NWA
-ind <- df$latitude >= ltbs[1] & df$latitude <= ltbs[2] & df$longitude >= lnbs[1] & df$longitude <= lnbs[2]
-lat_baffin = as.numeric(df$latitude)[ind]
-lon_baffin = as.numeric(df$longitude)[ind]
-poly_baffin = list()
+# no polygons for baffin bay
+poly$baffin = list()
 
 
 #*******************************************************************************
-# ADD TO LIST ####
+# ERROR CHECKS, EXTRA VARIABLES, AND SAVING ####
 
-reginfo <- list(
-  
-  "atlantic" = list(name = "Atlantic",
-                    lat = lat_atlantic,
-                    lon = lon_atlantic,
-                    data_resolution = 4.64^2,
-                    map_resolution = c(0.09,0.04167),
-                    center_lon = -55,
-                    center_lat = 53,
-                    zoom_level = 5,
-                    poly = poly_atlantic),
-  
-  "pacific" = list(name = "Pacific",
-                   lat = lat_pacific,
-                   lon = lon_pacific,
-                   data_resolution = 4.64^2,
-                   map_resolution = c(0.08,0.04167),
-                   center_lon = -132.5,
-                   center_lat = 51.5,
-                   zoom_level = 6,
-                   poly = poly_pacific),
-  
-  "gosl1km" = list(name = "Gulf of Saint Lawrence, 1km",
-                   lat = lat_gosl_1km,
-                   lon = lon_gosl_1km,
-                   data_resolution = 1,
-                   map_resolution = c(0.03,0.01),
-                   center_lon = -62,
-                   center_lat = 48,
-                   zoom_level = 6,
-                   poly = poly_gosl),
-  
-  "gosl4km" = list(name = "Gulf of Saint Lawrence, 4km",
-                   lat = lat_gosl_4km,
-                   lon = lon_gosl_4km,
-                   data_resolution = 4.64^2,
-                   map_resolution = c(0.07,0.04167),
-                   center_lon = -62,
-                   center_lat = 47,
-                   zoom_level = 6,
-                   poly = poly_gosl),
-  
-  "baffin" = list(name = "Baffin Bay",
-                lat = lat_baffin,
-                lon = lon_baffin,
-                data_resolution = 4.64^2,
-                map_resolution = c(0.2,0.04167),
-                center_lon = -68,
-                center_lat = 72,
-                zoom_level = 5,
-                poly = poly_baffin)
-  
-)
+# Remove region abbreviations from reg_list that do not have metadata/lats/lons defined above
+reg_missing_metadata <- !(reg_list %in% names(reginfo))
+if (sum(reg_missing_metadata) > 0) {
+  warning("The following regions in reg_list are missing metadata, latitudes, and longitudes in SECTION 1, so they have been removed: ",
+          paste0(reg_list[reg_missing_metadata], collapse=", "))
+  reg_list <- reg_list[!reg_missing_metadata]
+}
 
+# Check if polygon list is missing for selected regions in reg_list
+reg_missing_polygons <- !(reg_list %in% names(poly))
+if (sum(reg_missing_polygons) > 0) {
+  warning("The following regions in reg_list are missing polygon definitions in SECTION 2, so an empty list has been added: ",
+          paste0(reg_list[reg_missing_polygons], collapse=", "))
+  poly_missing <- lapply(reg_list[reg_missing_polygons], function(x) list())
+  names(poly_missing) <- reg_list[reg_missing_polygons]
+  poly <- append(poly, poly_missing)
+}
 
-#*******************************************************************************
-# ERROR CHECKS AND EXTRA VARIABLES ####
+# Add polygon info to selected regions in reg_list
+reginfo <- lapply(reg_list, function(x) {reginfo[[x]]$poly <- poly[[x]]; reginfo[[x]]})
+names(reginfo) <- reg_list
 
+# Check for problems with latitude/longitude vectors
 latlens <- sapply(lapply(reginfo, "[[", "lat"), length)
 lonlens <- sapply(lapply(reginfo, "[[", "lon"), length)
 if (any(latlens != lonlens)) {
-  file.remove("reginfo.rds")
   stop("Latitude and longitude vectors must be the same length.")
 }
 if (any(latlens > 300000)) {
@@ -458,9 +349,6 @@ if (any(latlens > 300000)) {
 # Add max_area to list elements (maximum area allowed for a custom polygon, in degrees^2, to prevent app from crashing, based on user-supplied data resolution and center latitude of region)
 reginfo <- lapply(reginfo, function(x) {x$max_area <- floor(x$data_resolution/0.02 * (abs(x$center_lat)/180+1)); x})
 
-
-#*******************************************************************************
-# SAVE RDS ####
-
+# Save to rds file
 saveRDS(reginfo, file = "reginfo.rds", compress=TRUE)
 
