@@ -203,7 +203,6 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     
     if (tm) {tmp_ti_lim <- c(1,365)
     } else {tmp_ti_lim <- ti_limits}
-    
     gauss_res <- gaussFit(t = t, y = y, w = weights,
                           bloomShape = bloomShape,
                           tm = tm, beta = beta,
@@ -222,15 +221,9 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                           rm_bkrnd = rm_bkrnd,
                           ti_threshold_type = ti_threshold_type,
                           ti_threshold_constant = ti_threshold_constant)
-    
     # collect parameters from fit
     bf_results <- gauss_res$values
-    bf_results[,3:6] <- round(as.numeric(bf_results[,3:6])) # round days
-    
-    # CALCULATE RMSE AND FITTED VECTOR IF NON-NULL FIT EXISTS
-    # For the fitted vector, you use everything in the selected day range, even 
-    # though some of those points were not used in the fit because they were NA
-    # or had insufficient coverage.
+    # calculate rmse and fitted vector if non-null fit exists
     if (is.null(gauss_res$fit)) {
       bf_results$RMSE <- NA
       nofit_msg <- gauss_res$nofit_msg
@@ -241,38 +234,40 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
       yfit <- gauss_res$yfit
       ybkrnd <- gauss_res$ybkrnd
     }
+  
+  } else if (fitmethod == 'roc') {
     
-    
-  } else if (fitmethod=="roc" | fitmethod=="thresh") {
-    
-    if (fitmethod == 'roc') {
-      bf_results <- rateOfChange(y = y, t = t,
-                                 yall = chlall, tall = ydays_percov,
-                                 bloomShape = bloomShape,
-                                 tm_limits = tm_limits,
-                                 ti_limits = ti_limits)
-    } else if (fitmethod == "thresh") {
-      bf_results <- threshold(t = t, y = y, 
-                              tall = ydays_percov, yall = chlall,
-                              threshcoef = threshcoef, 
-                              bloomShape = bloomShape,
-                              tm_limits = tm_limits,
-                              ti_limits = ti_limits,
-                              log_chla = log_chla)
-    }
-    
-    # collect parameters from "rate of change" or "threshold" fit
+    bf_results <- rateOfChange(y = y, t = t,
+                               yall = chlall, tall = ydays_percov,
+                               bloomShape = bloomShape,
+                               tm_limits = tm_limits,
+                               ti_limits = ti_limits)
     nofit_msg <- bf_results$nofit_msg
     bf_results <- bf_results$values
-    bf_results[,3:6] <- round(as.numeric(bf_results[,3:6])) # round days
+    
+  } else if (fitmethod == "thresh") {
+    
+    bf_results <- threshold(t = t, y = y, 
+                            tall = ydays_percov, yall = chlall,
+                            threshcoef = threshcoef, 
+                            bloomShape = bloomShape,
+                            tm_limits = tm_limits,
+                            ti_limits = ti_limits,
+                            log_chla = log_chla)
+    nofit_msg <- bf_results$nofit_msg
+    bf_results <- bf_results$values
     
   }
+  
+  # round days
+  tvars <- c("t[start]", "t[max]", "t[end]", "t[duration]")
+  bf_results[,tvars] <- round(as.numeric(bf_results[,tvars]))
   
   # format output table for plotting
   tab_to_plot <- data.frame(parameter=sapply(1:ncol(bf_results), function(i) sub("beta", "\u03B2", colnames(bf_results)[i])),
                             value=unlist(bf_results),
                             stringsAsFactors = FALSE)
-  tab_to_plot[c(1,2,7:nrow(tab_to_plot)),"value"] <- round(tab_to_plot[c(1,2,7:nrow(tab_to_plot)),"value"], 3)
+  tab_to_plot[c(1:3,8:nrow(tab_to_plot)),"value"] <- round(tab_to_plot[c(1:3,8:nrow(tab_to_plot)),"value"], 3)
   # convert parameter table to tableGrob to overlay on ggplot
   values_df <- tableGrob(d = tab_to_plot, rows = NULL, cols = NULL,
                          # Define theme to parse plotmath expressions
@@ -295,7 +290,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   p <- p +
     geom_point(data=data.frame(x=doy_vec, y=allchl, percov=allpercov, stringsAsFactors = FALSE),
                aes(x=x, y=y, size=percov), alpha=0.6) +
-    geom_vline(xintercept=as.numeric(bf_results[,c("t[start]", "t[max]", "t[end]")]), col="black", alpha=0.6) +
+    geom_vline(xintercept=as.numeric(bf_results[,tvars[1:3]]), col="black", alpha=0.6) +
     ggtitle(plot_title) +
     labs(x='Day number') +
     scale_x_continuous(limits=c(0,365), breaks=seq(0,365,by=50)) +
@@ -466,7 +461,7 @@ output_str <- function(satellite, region, algorithm, year, interval, log_chla,
   
   # If some variables set to NULL, their space is blank but there are _ on either side.
   # Remove the extra _ here
-  output_name <- gsub("([_])\\1+","\\1", output_name)
+  output_name <- rm_dup(output_name, "_")
   
   return(output_name)
   
@@ -474,7 +469,7 @@ output_str <- function(satellite, region, algorithm, year, interval, log_chla,
 
 
 # given the selected set of boxes, collect IDs, full names, and lons/lats
-get_polygon_details <- function(regs, custom_name, region, polylat, polylon, newpoly=NULL, editedpoly=NULL, typedpoly=NULL) {
+get_polygon_details <- function(regs, custom_name, region, polylat, polylon, all_regions, full_names, poly_ID, newpoly=NULL, editedpoly=NULL, typedpoly=NULL) {
   
   polygon_list <- list()
   

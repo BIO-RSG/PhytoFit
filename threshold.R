@@ -15,8 +15,8 @@ threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm
   }
 
   # To collect output later
-  values <- data.frame(matrix(nrow=1,ncol=9), stringsAsFactors = FALSE)
-  colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]",
+  values <- data.frame(matrix(nrow=1,ncol=10), stringsAsFactors = FALSE)
+  colnames(values) <- c("Mean", "Median", "StDev", "t[start]", "t[max]", "t[end]",
                         "t[duration]", "Magnitude", "Amplitude", "Threshold")
   ti <- tm <- tt <- td <- mag <- amp <- thresh <- NA
   
@@ -25,7 +25,9 @@ threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm
   y <- y[yok]
   t <- t[yok]
   
-  values[1,1:2] <- c(mean(y, na.rm=TRUE), median(y, na.rm=TRUE))
+  values[1,1:3] <- c(mean(y, na.rm=TRUE),
+                     median(y, na.rm=TRUE),
+                     sd(y, na.rm=TRUE))
   
   # need at least 3 points
   if (length(y)<3) {return(list(values = values, nofit_msg="Unable to fit: Not enough data"))}
@@ -142,7 +144,7 @@ threshold <- function(t, y, tall, yall, threshcoef, bloomShape = 'symmetric', tm
     }
   }
   
-  values[1,3:9] <- c(ti, tm, tt, td, mag, amp, thresh)
+  values[1,4:10] <- c(ti, tm, tt, td, mag, amp, thresh)
   
   return(list(values = values, nofit_msg=NULL))
   

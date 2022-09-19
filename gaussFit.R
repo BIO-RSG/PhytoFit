@@ -99,8 +99,8 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     
     # To collect output later
     if (bloomShape=="symmetric") {
-      values <- data.frame(matrix(nrow=1,ncol=16), stringsAsFactors = FALSE)
-      colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
+      values <- data.frame(matrix(nrow=1,ncol=17), stringsAsFactors = FALSE)
+      colnames(values) <- c("Mean", "Median", "StDev", "t[start]", "t[max]", "t[end]", "t[duration]",
                             "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
                             "B0", "h", "sigma", "beta", "failure_code")
     } else if (bloomShape=="asymmetric") {
@@ -111,7 +111,9 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                             "B0[right]", "h[right]", "sigma[right]", "beta[right]", "failure_code")
     }
     
-    values[1,1:2] <- c(mean(chlorophyll, na.rm=TRUE), median(chlorophyll, na.rm=TRUE))
+    values[1,1:3] <- c(mean(chlorophyll, na.rm=TRUE),
+                       median(chlorophyll, na.rm=TRUE),
+                       sd(chlorophyll, na.rm=TRUE))
     
     
     # LIMITS & START GUESSES ####
@@ -392,7 +394,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                               tt=tt,
                               t_range=t_range)
           
-          values[1,3:14] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit, flags, B0, h, sigma)
+          values[1,4:15] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit, flags, B0, h, sigma)
           
         }
         
@@ -612,7 +614,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                               tt=tt,
                               t_range=t_range)
           
-          val_inds <- ifelse(beta, list(c(3:14,16:18)), list(3:17))
+          val_inds <- ifelse(beta, list(c(4:15,17:19)), list(4:18))
           values[1,val_inds[[1]]] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit,
                                        flags, B0L, hL, sigmaL, B0R, hR, sigmaR)
           
