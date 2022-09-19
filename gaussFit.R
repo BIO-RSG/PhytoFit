@@ -98,23 +98,14 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     nofit_code <- 0
     
     # To collect output later
+    vnames <- c("t[start]","t[max]","t[end]","t[duration]","Magnitude[real]","Magnitude[fit]","Amplitude[real]","Amplitude[fit]","Flags")
     if (bloomShape=="symmetric") {
-      values <- data.frame(matrix(nrow=1,ncol=17), stringsAsFactors = FALSE)
-      colnames(values) <- c("Mean", "Median", "StDev", "t[start]", "t[max]", "t[end]", "t[duration]",
-                            "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
-                            "B0", "h", "sigma", "beta", "failure_code")
+      values <- data.frame(matrix(nrow=1,ncol=14), stringsAsFactors = FALSE)
+      colnames(values) <- c(vnames, "B0", "h", "sigma", "beta", "failure_code")
     } else if (bloomShape=="asymmetric") {
-      values <- data.frame(matrix(nrow=1,ncol=20), stringsAsFactors = FALSE)
-      colnames(values) <- c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
-                            "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
-                            "B0[left]", "h[left]", "sigma[left]", "beta[left]",
-                            "B0[right]", "h[right]", "sigma[right]", "beta[right]", "failure_code")
+      values <- data.frame(matrix(nrow=1,ncol=18), stringsAsFactors = FALSE)
+      colnames(values) <- c(vnames, paste0(rep(c("B0","h","sigma","beta"),2),c(rep("[left]",4),rep("[right]",4))), "failure_code")
     }
-    
-    values[1,1:3] <- c(mean(chlorophyll, na.rm=TRUE),
-                       median(chlorophyll, na.rm=TRUE),
-                       sd(chlorophyll, na.rm=TRUE))
-    
     
     # LIMITS & START GUESSES ####
     
@@ -394,7 +385,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                               tt=tt,
                               t_range=t_range)
           
-          values[1,4:15] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit, flags, B0, h, sigma)
+          values[1,1:12] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit, flags, B0, h, sigma)
           
         }
         
@@ -614,7 +605,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                               tt=tt,
                               t_range=t_range)
           
-          val_inds <- ifelse(beta, list(c(4:15,17:19)), list(4:18))
+          val_inds <- ifelse(beta, list(c(1:12,14:16)), list(1:15))
           values[1,val_inds[[1]]] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit,
                                        flags, B0L, hL, sigmaL, B0R, hR, sigmaR)
           

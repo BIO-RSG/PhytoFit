@@ -263,6 +263,13 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   tvars <- c("t[start]", "t[max]", "t[end]", "t[duration]")
   bf_results[,tvars] <- round(as.numeric(bf_results[,tvars]))
   
+  # add extra stats
+  bf_result <- dplyr::bind_cols(data.frame(Mean = mean(chlorophyll, na.rm=TRUE),
+                                           Median = median(chlorophyll, na.rm=TRUE),
+                                           StDev = sd(chlorophyll, na.rm=TRUE),
+                                           stringsAsFactors = FALSE),
+                                bf_results)
+  
   # format output table for plotting
   tab_to_plot <- data.frame(parameter=sapply(1:ncol(bf_results), function(i) sub("beta", "\u03B2", colnames(bf_results)[i])),
                             value=unlist(bf_results),

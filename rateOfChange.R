@@ -21,14 +21,9 @@ rateOfChange <- function(y, yall, t, tall, bloomShape = "symmetric", tm_limits =
   t <- t[yok]
   
   # To collect output later
-  values <- data.frame(matrix(nrow=1,ncol=9), stringsAsFactors = FALSE)
-  colnames(values) <- c("Mean", "Median", "StDev", "t[start]", "t[max]", "t[end]",
-                        "t[duration]", "Magnitude", "Amplitude")
+  values <- data.frame(matrix(nrow=1,ncol=6), stringsAsFactors = FALSE)
+  colnames(values) <- c("t[start]","t[max]","t[end]","t[duration]","Magnitude","Amplitude")
   ti <- tm <- tt <- td <- mag <- amp <- NA
-  
-  values[1,1:3] <- c(mean(y, na.rm=TRUE),
-                     median(y, na.rm=TRUE),
-                     sd(y, na.rm=TRUE))
   
   # need at least 3 points
   if (length(y)<3) {return(list(values = values, nofit_msg="Unable to fit: Not enough data"))}
@@ -124,7 +119,7 @@ rateOfChange <- function(y, yall, t, tall, bloomShape = "symmetric", tm_limits =
     }
   }
   
-  values[1,4:9] <- c(ti, tm, tt, td, mag, amp)
+  values[1,] <- c(ti, tm, tt, td, mag, amp)
   return(list(values = values, nofit_msg=NULL))
   
 }
