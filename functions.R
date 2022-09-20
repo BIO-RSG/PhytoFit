@@ -170,9 +170,6 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     chlall <- chl_median[ind_percov]
   }
   
-  # Create final day/chlorophyll vectors for the fit, smoothed or not
-  t <- ydays_dayrange_percov
-  
   if (use_weights) {
     weights <- daily_percov[ind_dayrange_percov]
   } else {
@@ -185,17 +182,11 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   # use loess smooth on the real data points, if selected, and assign the results
   # to y so they will be used in the fit instead of the real chla values
   if (smoothMethod == 'loess'){
-    mod <- try(loess(chlorophyll ~ ydays_dayrange_percov,
-                     weights = weights,
-                     span = loessSpan,
-                     degree = 2),
-               silent=TRUE)
+    mod <- try(loess(chlorophyll ~ ydays_dayrange_percov, weights=weights, span=loessSpan, degree=2), silent=TRUE)
     bad_loess <- class(mod)=="try-error" | is.null(mod)
     if (!bad_loess) {
-      # use loess for fitting instead of real values
-      y$y <- fitted(mod)
-      # reset the weights so they aren't used again in a gaussian fit
-      weights <- rep(1,length(chlorophyll))
+      y$y <- fitted(mod) # use loess for fitting instead of real values
+      weights <- rep(1,length(chlorophyll)) # reset the weights so they aren't used again in a gaussian fit
     }
   }
   
@@ -203,24 +194,24 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     
     if (tm) {tmp_ti_lim <- c(1,365)
     } else {tmp_ti_lim <- ti_limits}
-    gauss_res <- gaussFit(t = t, y = y, w = weights,
-                          bloomShape = bloomShape,
-                          tm = tm, beta = beta,
-                          tm_limits = tm_limits,
-                          ti_limits = tmp_ti_lim,
-                          t_range = t_range,
-                          log_chla = log_chla,
-                          interval = interval,
-                          flag1_lim1 = flag1_lim1,
-                          flag1_lim2 = flag1_lim2,
-                          flag2_lim1 = flag2_lim1,
-                          flag2_lim2 = flag2_lim2,
-                          ti_threshold = ti_threshold,
-                          tt_threshold = tt_threshold,
-                          ydays_dayrange = ydays_dayrange,
-                          rm_bkrnd = rm_bkrnd,
-                          ti_threshold_type = ti_threshold_type,
-                          ti_threshold_constant = ti_threshold_constant)
+    gauss_res <- gaussFit(t=ydays_dayrange_percov, y=y, w=weights,
+                          bloomShape=bloomShape,
+                          tm=tm, beta=beta,
+                          tm_limits=tm_limits,
+                          ti_limits=tmp_ti_lim,
+                          t_range=t_range,
+                          log_chla=log_chla,
+                          interval=interval,
+                          flag1_lim1=flag1_lim1,
+                          flag1_lim2=flag1_lim2,
+                          flag2_lim1=flag2_lim1,
+                          flag2_lim2=flag2_lim2,
+                          ti_threshold=ti_threshold,
+                          tt_threshold=tt_threshold,
+                          ydays_dayrange=ydays_dayrange,
+                          rm_bkrnd=rm_bkrnd,
+                          ti_threshold_type=ti_threshold_type,
+                          ti_threshold_constant=ti_threshold_constant)
     # collect parameters from fit
     bf_results <- gauss_res$values
     # calculate rmse and fitted vector if non-null fit exists
@@ -228,32 +219,31 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
       bf_results$RMSE <- NA
       nofit_msg <- gauss_res$nofit_msg
     } else {
-      bf_results$RMSE <- ifelse(log_chla,
-                                rmse(chlorophyll, predict(gauss_res$fit)),
-                                rmse(log10(chlorophyll), log10(predict(gauss_res$fit))))
+      pgrf <- predict(gauss_res$fit)
+      bf_results$RMSE <- ifelse(log_chla, rmse(chlorophyll, pgrf), rmse(log10(chlorophyll), log10(pgrf)))
       yfit <- gauss_res$yfit
       ybkrnd <- gauss_res$ybkrnd
     }
   
   } else if (fitmethod == 'roc') {
     
-    bf_results <- rateOfChange(y = y, t = t,
-                               yall = chlall, tall = ydays_percov,
-                               bloomShape = bloomShape,
-                               tm_limits = tm_limits,
-                               ti_limits = ti_limits)
+    bf_results <- rateOfChange(y=y, t=ydays_dayrange_percov,
+                               yall=chlall, tall=ydays_percov,
+                               bloomShape=bloomShape,
+                               tm_limits=tm_limits,
+                               ti_limits=ti_limits)
     nofit_msg <- bf_results$nofit_msg
     bf_results <- bf_results$values
     
   } else if (fitmethod == "thresh") {
     
-    bf_results <- threshold(t = t, y = y, 
-                            tall = ydays_percov, yall = chlall,
-                            threshcoef = threshcoef, 
-                            bloomShape = bloomShape,
-                            tm_limits = tm_limits,
-                            ti_limits = ti_limits,
-                            log_chla = log_chla)
+    bf_results <- threshold(t=ydays_dayrange_percov, y=y, 
+                            tall=ydays_percov, yall=chlall,
+                            threshcoef=threshcoef, 
+                            bloomShape=bloomShape,
+                            tm_limits=tm_limits,
+                            ti_limits=ti_limits,
+                            log_chla=log_chla)
     nofit_msg <- bf_results$nofit_msg
     bf_results <- bf_results$values
     
@@ -264,20 +254,23 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   bf_results[,tvars] <- round(as.numeric(bf_results[,tvars]))
   
   # add extra stats
-  bf_result <- dplyr::bind_cols(data.frame(Mean = mean(chlorophyll, na.rm=TRUE),
+  bf_results <- dplyr::bind_cols(data.frame(Mean = mean(chlorophyll, na.rm=TRUE),
                                            Median = median(chlorophyll, na.rm=TRUE),
                                            StDev = sd(chlorophyll, na.rm=TRUE),
                                            stringsAsFactors = FALSE),
                                 bf_results)
+  if (log_chla) {
+    bf_results$Mean <- 10^(bf_results$Mean)
+    bf_results$Median <- 10^(bf_results$Median)
+    bf_results$StDev <- 10^(bf_results$StDev)
+  }
   
   # format output table for plotting
-  tab_to_plot <- data.frame(parameter=sapply(1:ncol(bf_results), function(i) sub("beta", "\u03B2", colnames(bf_results)[i])),
+  tab_to_plot <- data.frame(parameter=gsub("beta","\u03B2",colnames(bf_results)),
                             value=unlist(bf_results),
-                            stringsAsFactors = FALSE)
+                            stringsAsFactors=FALSE)
   tab_to_plot[c(1:3,8:nrow(tab_to_plot)),"value"] <- round(tab_to_plot[c(1:3,8:nrow(tab_to_plot)),"value"], 3)
-  # convert parameter table to tableGrob to overlay on ggplot
   values_df <- tableGrob(d = tab_to_plot, rows = NULL, cols = NULL,
-                         # Define theme to parse plotmath expressions
                          theme = ttheme_minimal(core=list(fg_params=list(parse=TRUE, hjust=0, x=0.02),
                                                           bg_params = list(fill="white", alpha=0.6)),
                                                 base_size=10,
@@ -324,7 +317,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
   if (smoothMethod == 'loess') {
     if (!bad_loess & all(is.finite(y$y))) {
       p <- p +
-        geom_line(data=data.frame(x=t, yloess=y$y, stringsAsFactors = FALSE),
+        geom_line(data=data.frame(x=ydays_dayrange_percov, yloess=y$y, stringsAsFactors = FALSE),
                   aes(x=x, y=yloess), color="green") +
         annotation_custom(grobTree(textGrob("** LOESS smoothing",
                                             x=0.01, y=0.89, hjust=0,
@@ -332,11 +325,8 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
     }
   }
   
-  # color of fit line, based on choice of mean/median daily/weekly statistic,
-  # matched with the mean/median vertical bar coloring in the density plot
-  fit_col <- ifelse(dailystat=="average","dodgerblue2","red2")
-  
   # add line and statistics based on user-selected fit method
+  fit_col <- ifelse(dailystat=="average","dodgerblue2","red2")
   if (fitmethod == 'gauss') {
     if (is.null(gauss_res$fit)) {
       p <- p +

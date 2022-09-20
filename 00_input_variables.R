@@ -16,8 +16,8 @@ sensor_names <- c("modis" = "MODIS-Aqua",
                   "viirs" = "VIIRS-SNPP",
                   "olcia" = "OLCI-A",
                   "olcib" = "OLCI-B",
-                  "recalibratedseawifs" = "SeaWiFS-modelled MODIS",
-                  "recalibratedviirs-snpp" = "VIIRS-modelled MODIS")
+                  "mseawifs" = "SeaWiFS-modelled MODIS",
+                  "mviirs" = "VIIRS-modelled MODIS")
 
 variable_names <- c("ocx" = "OCx chl-a (global, band ratio)",
                     "poly4" = "POLY4 chl-a (regional, band ratio)",
@@ -66,15 +66,15 @@ ti_threshold_types <- c("20% amplitude" = "percent_thresh",
                         "Constant threshold" = "constant_thresh")
 
 # bloom fit table parameter names, depending on fitmethod, bloomShape, beta (code \u03B2 to get the symbol)
-pnlist <- list("gauss"=list("symmetric"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
+pnlist <- list("gauss"=list("symmetric"=c("Mean", "Median", "StDev", "t[start]", "t[max]", "t[end]", "t[duration]",
                                           "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
                                           "B0", "h", "sigma", "beta", "failure_code", "RMSE"),
-                            "asymmetric"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]",
+                            "asymmetric"=c("Mean", "Median", "StDev", "t[start]", "t[max]", "t[end]", "t[duration]",
                                            "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
                                            "B0[left]", "h[left]", "sigma[left]", "beta[left]",
                                            "B0[right]", "h[right]", "sigma[right]", "beta[right]", "failure_code", "RMSE")),
-               "roc"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]", "Magnitude", "Amplitude"),
-               "thresh"=c("Mean", "Median", "t[start]", "t[max]", "t[end]", "t[duration]", "Magnitude", "Amplitude", "Threshold"))
+               "roc"=c("Mean", "Median", "StDev", "t[start]", "t[max]", "t[end]", "t[duration]", "Magnitude", "Amplitude"),
+               "thresh"=c("Mean", "Median", "StDev", "t[start]", "t[max]", "t[end]", "t[duration]", "Magnitude", "Amplitude", "Threshold"))
 
 
 #*******************************************************************************

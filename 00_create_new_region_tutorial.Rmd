@@ -19,6 +19,12 @@ filename = "data/testregion/testregion_modis_ocx_2015.fst"
 
 This tutorial contains instructions to create your own region for use in the PhytoFit app.  
 
+Before you can begin, make sure you have the required library:  
+
+```{r}
+library(fst)
+```
+
 
 # STEP 1: Naming scheme for region, sensor, variable
 
@@ -76,7 +82,7 @@ str(testregion_chl)
 df = data.frame(var = as.numeric(testregion_chl), stringsAsFactors = FALSE)
 ```
 
-4. Write the dataframe to an *fst* file and store it in the `data/region/` subfolders following the filenaming scheme `data/region/region_sensor_variable_year.fst`. Replace "region", "sensor", "variable", and "year" with the appropriate values (see example below). Note that this step (and the app) requires the "fst" library in R.  
+4. Write the dataframe to an *fst* file and store it in the `data/region/` subfolders following the filenaming scheme `data/region/region_sensor_variable_year.fst`. Replace "region", "sensor", "variable", and "year" with the appropriate values (see example below).  
 
 ```{r}
 filename = "data/testregion/testregion_modis_ocx_2015.fst"
