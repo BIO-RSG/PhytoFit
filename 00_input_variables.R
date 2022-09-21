@@ -47,7 +47,15 @@ latlon_methods <- c("Draw polygon on map" = "drawPoly",
 outliers <- c('None' = 'none',
               '+/- 2 SD' = 'sd2',
               '+/- 3 SD' = 'sd3',
-              '1.5 IQR' = 'iqr15')
+              '1.5 IQR' = 'iqr15',
+              'Outer 0.01%' = 'q0001',
+              'Outer 0.05%' = 'q0005',
+              'Outer 0.1%' = 'q0010',
+              'Outer 0.5%' = 'q0050',
+              'Outer 1%' = 'q0100',
+              'Outer 5%' = 'q0500',
+              'Outer 10%' = 'q1000',
+              'Outer 15%' = 'q1500')
 
 dailystats <- c('Arithmetic mean' = 'average',
                 'Median' = 'median')

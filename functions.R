@@ -89,7 +89,6 @@ get_stats <- function(rchla, outlier) {
   chl_mean <- apply(rchla, 2, mean, na.rm = TRUE)
   chl_sd <- apply(rchla, 2, sd, na.rm = TRUE)  
   chl_median <- apply(rchla, 2, median, na.rm = TRUE)
-  chl_iqr <- apply(rchla, 2, IQR, na.rm = TRUE)
   # Note: can't use "min" and "max" functions alone because unlike the mean and median functions,
   # which return NA if all their input is NA, min and max return Inf
   chl_min <- sapply(1:ncol(rchla), function(i) {ifelse(all(is.na(rchla[,i])), NaN, min(rchla[,i], na.rm = TRUE))})
@@ -106,8 +105,12 @@ get_stats <- function(rchla, outlier) {
     limits[,1] <- -1 * 3 * chl_sd + chl_mean
     limits[,2] <- 1 * 3 * chl_sd + chl_mean
   } else if (outlier == 'iqr15'){
+    chl_iqr <- apply(rchla, 2, IQR, na.rm = TRUE)
     limits[,1] <- -1 * 1.5 * chl_iqr + chl_median
     limits[,2] <- 1 * 1.5 * chl_iqr + chl_median
+  } else if (startsWith(outlier,"q")) {
+    qnum <- as.numeric(paste0(substr(outlier,2,3),".",substr(outlier,4,5)))/100
+    limits <- t(apply(rchla, 2, quantile, probs=c(qnum,1-qnum), na.rm = TRUE))
   }
   
   if (outlier == "none") {
