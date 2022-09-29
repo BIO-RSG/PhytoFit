@@ -4,22 +4,22 @@
 #*******************************************************************************
 # VARIABLES THAT CAN BE CHANGED - vectors of potential sensors and variables
 
-# The vector names (i.e. modis, seawifs, ocx, poly4...) must match the "sensor" and "variable"
+# The vector names (i.e. modis, seawifs, oci, poly4...) must match the "sensor" and "variable"
 # in the fst filenames.
-# The vector values (i.e. MODIS-Aqua, OCx chl-a...) are the full names of the sensor and variable,
+# The vector values (i.e. MODIS-Aqua, OCI chl-a...) are the full names of the sensor and variable,
 # which will appear in the drop-down menus in the app.
 # Note: if you don't have any data files for these stored in your "data" folder, they won't
 # appear in the drop-down menus when you load the app.
 
-sensor_names <- c("modis" = "MODIS-Aqua",
+sensor_names <- c("modisaqua" = "MODIS-Aqua",
                   "seawifs" = "SeaWiFS",
-                  "viirs" = "VIIRS-SNPP",
-                  "olcia" = "OLCI-A",
-                  "olcib" = "OLCI-B",
+                  "viirssnpp" = "VIIRS-SNPP",
+                  "olcis3a" = "OLCI-A",
+                  "olcis3b" = "OLCI-B",
                   "mseawifs" = "SeaWiFS-modelled MODIS",
-                  "mviirs" = "VIIRS-modelled MODIS")
+                  "mviirssnpp" = "VIIRS-modelled MODIS")
 
-variable_names <- c("ocx" = "OCx chl-a (global, band ratio)",
+variable_names <- c("oci" = "OCI chl-a (global, band ratio)",
                     "poly4" = "POLY4 chl-a (regional, band ratio)",
                     "gsmgs" = "GSM_GS chl-a (regional, semi-analytical)",
                     "eof" = "EOF chl-a (regional, empirical)")
