@@ -26,7 +26,18 @@ get_data <- function(region, satellite, algorithm, year, yearday, interval, log_
                      num_pix, doys_per_week, doy_week_start, doy_week_end,
                      concentration_type="full", cell_size_model1="small", cell_size_model2="small") {
   
-  sschla <- read_fst(paste0("./data/", region, "/", region, "_", satellite, "_", algorithm, "_", year, ".fst"))
+  time_variables <- get_time_vars(interval, year, yearday, doys_per_week)
+  sschla_filename <- paste0("./data/", region, "/", region, "_", satellite, "_", algorithm, "_", year, ".fst")
+  
+  if (!file.exists(sschla_filename)) {
+    return(list(sschla=data.frame(matrix(nrow=num_pix, ncol=1), stringsAsFactors = FALSE),
+                available_days=0,
+                doy_vec=0,
+                day_label=time_variables$day_label,
+                time_ind=time_variables$time_ind))
+  }
+  
+  sschla <- read_fst(sschla_filename)
   colnames(sschla) <- "var"
   
   available_days <- nrow(sschla)/num_pix
@@ -65,8 +76,6 @@ get_data <- function(region, satellite, algorithm, year, yearday, interval, log_
     
     # Convert daily data to weekly data.
     sschla <- sapply(1:length(doys_per_week_sub), function(i) rowMeans(matrix(sschla[,doys_per_week_sub[[i]]],nrow=nrow(sschla)),na.rm=TRUE))
-    
-    time_variables <- get_time_vars(interval, year, yearday, doys_per_week)
     
   }
   
