@@ -47,23 +47,48 @@ In publications, please include acknowledgments to <a href=\"https://oceancolor.
 *(Publicly available, updated more frequently)*  
 *Address: https://github.com/BIO-RSG/PhytoFit*  
 
-### PREREQUISITES
+
+### Prerequisites
+
 1. Install the latest versions of R and RStudio.
+
 2. Install the necessary libraries:
-`install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "leafem", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "geometry", "raster", "proj4"))`
-3. Install a fix for the leaflet.extras package, and a custom package (oceancolouR):
-``` r
-install.packages("remotes")
-remotes::install_github("bhaskarvk/leaflet.extras", ref = remotes::github_pull("184"))
-remotes::install_github("BIO-RSG/oceancolouR")
+```r
+install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leaflet.extras", "leafem", "quantreg", "minpack.lm", "rgdal", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "tidyr", "geometry", "raster", "proj4", "curl", "stringr"))
 ```
+
+3. Install a necessary fix for the leaflet.extras package, and a custom package (oceancolouR):
+```r
+# install.packages("remotes")
+remotes::install_github("bhaskarvk/leaflet.extras", ref = remotes::github_pull("184"))
+remotes::install_github("BIO-RSG/oceancolouR", build_vignettes = TRUE)
+```
+
 4. Restart R after the packages and fix have been installed.
-5. Download this repository one of two ways:  
 
-  - Code --> Download ZIP  
-  - Using git (this will make it easier to download updates in the future): Open git bash terminal, navigate to the folder where you want to download the repository, and type: `git clone https://github.com/BIO-RSG/PhytoFit.git`  
 
-**WARNING: individual data files are generally < 50mb, but the entire dataset is several GB. Check if you have enough space on your drive.** 
+### Getting started
+
+1. Download this repository one of two ways:  
+
+- Option 1: Code --> Download ZIP  
+
+- Option 2: Using git (this will make it easier to download updates in the future, by simply using the `git pull` command): Open git bash terminal, navigate to the folder where you want to download the repository, and type: `git clone https://github.com/BIO-RSG/PhytoFit.git`  
+
+2. Open the PhytoFit repository in RStudio:  
+
+- File --> Open Project --> Navigate to the PhytoFit folder and open "PhytoFit.Rproj"  
+
+3. Download the datasets of your choice, in one of two ways:  
+
+- Option 1: Manually download from the ftp server where they're stored: `ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit_datasets/`  
+Note: The files you download must be stored in the `data/atlantic/` or `data/pacific/` subfolders of the PhytoFit folder, depending on whether the filename starts with *atlantic_* or *pacific_*. If those subfolders don't exist yet, you can create them manually.  
+
+- Option 2: Open and run `download_new_datasets.R` from the PhytoFit folder and follow the prompts in the RStudio console to download a dataset from the ftp server, or run `update_datasets.R` to update the datasets you have already downloaded with the most recent copies (and download any years of data missing from your local directory).  
+
+**WARNINGS:**  
+- Data files will be downloaded to `data/atlantic/` or `data/pacific/` subfolders of the PhytoFit repository - Do NOT move them from there or the app will not be able to read them.  
+- If possible, please keep the data files if you intend to use them in the future, rather than re-downloading them later, to avoid excessive traffic on the ftp server.  
 
 
 ### INSTRUCTIONS
@@ -74,6 +99,9 @@ Open app.R within RStudio, and click "Run app".
 * Memory usage increases as data is loaded/processed in the app. If the app is slowing down the computer, restart R (Session --> Restart R).  
 
 * *Warning in if (sigma_limit1 < 0) { : the condition has length > 1 and only the first element will be used.*  [This warning might appear when running a Gaussian fit if two separate days have the same maximum chl-a concentration (the first instance of the maximum concentration will be used).]  
+
+* Most recent version of htmltools is required. Install like so:  
+`remotes::install_github("rstudio/htmltools")`  
 
 
 # WARNINGS  
@@ -659,4 +687,5 @@ To install [oceancolouR](https://github.com/BIO-RSG/oceancolouR):
 `remotes::install_github("BIO-RSG/oceancolouR", build_vignettes = TRUE)`  
 
 Note that the "chl" column in the output "data" file is the transformed value, if concentration_type is not set to "full". It has also been transformed to weekly values, if that option is selected. However, if log_chla=TRUE, the fit is performed on the logged values, but chl is transformed back to linear space before writing it to the output file (although the "mean" and "median" are left in log space).  
+
 
