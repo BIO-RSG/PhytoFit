@@ -34,6 +34,7 @@ source("functions.R")           # extra functions
 source("00_input_variables.R")  # variable options in the sidebar
 
 
+
 #*******************************************************************************
 # EXTRA VARIABLES ####
 
@@ -201,16 +202,14 @@ remove_custom_poly <- tags$script(HTML(
         "
 ))
 
-# Called at the top of the UI, this variable:
+# Called at the top of the UI wrapped in HTML(), this variable:
 #       - styles the horizontal bar in the sidebar,
 #       - reduces padding inside widget boxes
 #       - reduces padding between widget boxes
 #       - adjusts padding between inline radioButton options
-sidebar_tags_style <- tags$style(HTML(
-            "hr {border-top: 1px solid #bbbbbb;}
-            .form-control { padding:3px 3px;}
-            .radio-inline {margin-right: -5px;}"
-))
+sidebar_tags_style <- "hr {border-top: 1px solid #bbbbbb;}
+                       .form-control { padding:3px 3px;}
+                       .radio-inline {margin-right: -5px;}"
 
 
 
@@ -223,7 +222,7 @@ ui <- fluidPage(
     useShinyjs(),
     
     # styling
-    tags$head(sidebar_tags_style),
+    tags$head(tags$style(HTML(sidebar_tags_style))),
     inlineCSS(list("#applysettings" = "margin-top: -15px")),
     tags$style(".shiny-file-input-progress {display: none}"),
     
@@ -769,7 +768,7 @@ ui <- fluidPage(
                           animate = animationOptions(interval=4000),
                           ticks = TRUE,
                           width = '100%'),
-                
+              
                leafletOutput(outputId = 'fullmap',
                              height = '800px'),
                disabled(downloadButton(outputId = "savemap",
@@ -2525,7 +2524,7 @@ server <- function(input, output, session) {
                                            interval=interval,
                                            log_chla=log_chla,
                                            fitmethod=fitmethod,
-                                           custom_end="fulltimeseries",
+                                           custom_end=NULL,
                                            concentration_type=concentration_type,
                                            cell_size_model1=cell_size_model1,
                                            cell_size_model2=cell_size_model2))
@@ -2534,7 +2533,7 @@ server <- function(input, output, session) {
         steps <- 100/length(year_list)
         progress_updates <- round(seq(steps[1], 100, by=steps),1)
         
-        polygon_list <- get_polygon_details(regs, custom_name, region, polylat, polylon, newpoly, editedpoly, typedpoly)
+        polygon_list <- get_polygon_details(regs, custom_name, region, polylat, polylon, all_regions, full_names, poly_ID, newpoly, editedpoly, typedpoly)
         
         total_params_df <- data.frame(matrix(nrow=(length(year_list)*length(polygon_list$full_names)), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
         colnames(total_params_df) <- c("Region", "Year", pnames)
@@ -2625,17 +2624,17 @@ server <- function(input, output, session) {
         
         gc()
         
-        fname <- output_str(satellite=satellite,
+        fname <- paste0(output_str(satellite=satellite,
                             region=region,
                             algorithm=algorithm,
                             year=isolate(input$fullrunyears),
                             interval=interval,
                             log_chla=log_chla,
                             fitmethod=fitmethod,
-                            custom_end="fulltimeseries.zip",
+                            custom_end=NULL,
                             concentration_type=concentration_type,
                             cell_size_model1=cell_size_model1,
-                            cell_size_model2=cell_size_model2)
+                            cell_size_model2=cell_size_model2),".zip")
         
         # zip files up to be downloaded
         # j flag prevents files from being sorted into subdirectories inside the zip file (the other flags are defaults)
