@@ -39,8 +39,11 @@ source("00_input_variables.R")  # variable options in the sidebar
 # EXTRA VARIABLES ####
 
 # colors used in the map
-map_cols <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F",
-                               "yellow", "#FF7F00", "red", "#7F0000"))(100)
+# from "oceColorsJet" in "oce" package
+# map_cols <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F",
+                               # "yellow", "#FF7F00", "red", "#7F0000"))(100)
+# from "roma" palette in "scico" package (colorblind-friendly)
+map_cols <- colorRampPalette(c("#1A3399", "#2F5FAC", "#428FC0", "#5FC2D4", "#AEE8D5", "#E3EBB1", "#D9D26A", "#BA9532", "#9E5B19", "#7E1900"))(100)
 
 # variables for using weekly data rather than daily
 doy_week_start <- as.integer(8*(0:45)+1) # note: this is the same for leap years, using NASA's system
@@ -1490,6 +1493,7 @@ server <- function(input, output, session) {
         # Load full map data
         sslat <- reginfo[[state$region]]$lat
         sslon <- reginfo[[state$region]]$lon
+        ssbin <- reginfo[[state$region]]$bin
         state$max_area <- reginfo[[state$region]]$max_area
         
         all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
@@ -1594,7 +1598,8 @@ server <- function(input, output, session) {
         
         return(list(sschla=sschla,
                     sslon=sslon,
-                    sslat=sslat))
+                    sslat=sslat,
+                    ssbin=ssbin))
         
     })
     
@@ -1651,6 +1656,7 @@ server <- function(input, output, session) {
         sschla <- ssfull$sschla
         sslat <- ssfull$sslat
         sslon <- ssfull$sslon
+        ssbin <- ssfull$ssbin
         
         # Get the selected day of year
         yearday <- state$yearday
@@ -1683,12 +1689,11 @@ server <- function(input, output, session) {
             } else {
                 
                 # Make raster for leaflet map
-                pts <- data.frame(lon = sslon[chla_ind],
-                                  lat = sslat[chla_ind],
-                                  chl = sschla[chla_ind,time_ind],
-                                  stringsAsFactors = FALSE)
-                tr <- rasterFromXYZ(pts, res=reginfo[[state$region]]$map_resolution, digits=0)
-                crs(tr) <- "+proj=longlat +datum=WGS84 +no_defs"
+                tr <- var_to_rast(df=data.frame(bin=ssbin[chla_ind],
+                                                chl=sschla[chla_ind,time_ind],
+                                                stringsAsFactors = FALSE),
+                                  ext=c(reginfo[[state$region]]$lon_range,
+                                        reginfo[[state$region]]$lat_range))
                 state$tr <- tr # used for input$fullmap_click, currently disabled
                 
                 # Get colour scale for leaflet map
@@ -1698,7 +1703,9 @@ server <- function(input, output, session) {
                 lfp <- leafletProxy("fullmap", session) %>%
                     clearPopups() %>% clearControls() %>% clearGroup("georaster") %>%
                     addGeoRaster(x = tr, group = "georaster",
-                                 colorOptions = colorOptions(palette=map_cols, domain=zlim, na.color="#00000000"),
+                                 colorOptions = colorOptions(palette=map_cols,
+                                                             domain=zlim,
+                                                             na.color="#00000000"),
                                  autozoom = FALSE, project = FALSE) %>%
                     addLegend(position = 'topright',
                               pal = colorNumeric(palette=map_cols, domain=zlim, na.color="#00000000"),
