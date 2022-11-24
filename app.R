@@ -31,189 +31,7 @@ source("threshold.R")           # threshold function for bloom fit
 source("gaussFit.R")            # gaussian function for bloom fit
 source("full_run.R")            # contains function to run full time series with current settings
 source("functions.R")           # extra functions
-source("00_input_variables.R")  # variable options in the sidebar
-
-
-
-#*******************************************************************************
-# EXTRA VARIABLES ####
-
-# colors used in the map
-# from "oceColorsJet" in "oce" package
-# map_cols <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F",
-                               # "yellow", "#FF7F00", "red", "#7F0000"))(100)
-# from "roma" palette in "scico" package (colorblind-friendly)
-map_cols <- colorRampPalette(c("#1A3399", "#2F5FAC", "#428FC0", "#5FC2D4", "#AEE8D5", "#E3EBB1", "#D9D26A", "#BA9532", "#9E5B19", "#7E1900"))(100)
-
-# variables for using weekly data rather than daily
-doy_week_start <- as.integer(8*(0:45)+1) # note: this is the same for leap years, using NASA's system
-doy_week_end <- c(doy_week_start[2:length(doy_week_start)] - 1, 365)
-doys_per_week <- lapply(1:length(doy_week_start), function(i) {doy_week_start[i]:doy_week_end[i]})
-
-# Load region data (name, existing polygons, lat/lon vectors, resolution)
-reginfo <- readRDS("reginfo.rds")
-
-# Extract region and polygon info
-regions <- names(reginfo)
-names(regions) <- sapply(reginfo, "[[", "name")
-poly_choices <- lapply(reginfo, function(x) {v=c("custom",names(x$poly)); names(v)=c("Custom",sapply(x$poly,"[[","name")); v})
-multipoly_choices <- lapply(reginfo, function(x) {v=c("custom",names(x$poly)); names(v)=c("Custom",names(x$poly)); v})
-names(poly_choices) <- names(multipoly_choices) <- regions
-
-# variables from the original 00_regionBoxes.R, for easier transition to new code
-all_regions <- lapply(reginfo, function(x) lapply(x$poly, function(y) y[c("lat","lon")]))
-full_names <- lapply(reginfo, function(x) sapply(x$poly, "[[", "name"))
-poly_ID <- lapply(reginfo, function(x) names(x$poly))
-abbrev <- lapply(reginfo, function(x) sapply(x$poly, "[[", "label"))
-names(all_regions) <- names(full_names) <- names(poly_ID) <- names(abbrev) <- regions
-
-# Make polygon objects to plot on the leaflet map for each region
-original_polylist <- lapply(regions, function(reg) {
-    poly_coord_list <- all_regions[[reg]]
-    if (length(poly_coord_list) > 0) {
-        original_polys <- lapply(1:length(poly_coord_list), function(k) {
-            Polygon(coords=cbind(poly_coord_list[[k]]$lon, poly_coord_list[[k]]$lat), hole=TRUE)
-        })
-        original_polyIDs <- lapply(1:length(original_polys), function(k) {
-            Polygons(list(original_polys[[k]]), toupper(poly_ID[[reg]][k]))
-        })
-        return(SpatialPolygons(original_polyIDs, 1:length(poly_coord_list)))
-    } else {
-        return(NULL)
-    }
-}) %>% setNames(regions)
-
-# Get a list of data files in your "data" folder and extract region/sensor/variable/year info from them
-datasets <- data.frame(filename = list.files("data", recursive=TRUE, full.names=TRUE), stringsAsFactors = FALSE) %>%
-    dplyr::mutate(basename = basename(filename)) %>%
-    dplyr::filter(endsWith(filename,".fst")) %>%
-    tidyr::separate(col=basename, into=c("region","sensor","variable","year"), sep="_") %>%
-    tidyr::drop_na() %>% # remove rows with missing values
-    dplyr::filter(region %in% regions & sensor %in% names(sensor_names) & variable %in% names(variable_names))
-
-if (nrow(datasets)==0) {
-    
-    # user has no datasets to view
-    sat_algs <- c(" " = "")
-    years <- list(" " = "")
-    data_last_updated <- "NEVER"
-    
-} else {
-    
-    # get the date that the data was last updated
-    data_last_updated <- file.info(datasets$filename)$mtime
-    most_recent <- which.max(as.numeric(data_last_updated))
-    data_last_updated <- data_last_updated[most_recent]
-    
-    # for ordering sensor and variable names
-    sensor_num <- 1:length(sensor_names) %>% pad0(len=3) %>% setNames(names(sensor_names))
-    variable_num <- 1:length(variable_names) %>% pad0(len=3) %>% setNames(names(variable_names))
-    datasets <- datasets %>%
-        dplyr::mutate(year = as.numeric(gsub(".fst","",year)),
-                      region_name = str_replace_all(region, sapply(reginfo, "[[", "name")),
-                      sensor_name = str_replace_all(sensor, sensor_names),
-                      variable_name = str_replace_all(variable, variable_names),
-                      sensor_num = str_replace_all(sensor, sensor_num),
-                      variable_num = str_replace_all(variable, variable_num)) %>%
-        tidyr::unite(col="sat_alg", sensor, variable, sep="_", remove=FALSE) %>%
-        tidyr::unite(col="sat_alg_name", sensor_name, variable_name, sep=", ", remove=FALSE)
-    
-    # extract the sensor/variables for each region
-    sat_algs <- lapply(regions, function(x) {
-        tmp <- datasets %>%
-            dplyr::filter(region==x) %>%
-            dplyr::arrange(sensor_num, variable_num) %>%
-            dplyr::distinct(sat_alg, sat_alg_name)
-        tmpv <- tmp$sat_alg
-        names(tmpv) <- tmp$sat_alg_name
-        return(tmpv)
-    }) %>% setNames(regions)
-    
-    # extract the years of data for each region/sensor/variable combination
-    years <- lapply(regions, function(x) {
-        tmp_sat_algs <- sat_algs[[x]]
-        tmpx <- datasets %>% dplyr::filter(region==x) %>% dplyr::arrange(sensor_num, variable_num)
-        tmpv <- lapply(tmp_sat_algs, function(y) {
-            tmpy <- tmpx %>% dplyr::filter(sat_alg==y) %>% dplyr::distinct(year)
-            ys <- sort(as.numeric(tmpy$year))
-            names(ys) <- as.character(ys)
-            return(ys)
-        }) %>% setNames(tmp_sat_algs)
-    }) %>% setNames(regions)
-    
-}
-
-# set up defaults
-default_region <- regions[1]
-default_sat_algs <- sat_algs[[default_region]]
-default_sensor <- strsplit(default_sat_algs[1], split="_")[[1]][1]
-default_algorithm <- strsplit(default_sat_algs[1], split="_")[[1]][2]
-default_years <- years[[default_region]][[default_sat_algs[1]]]
-
-
-#*******************************************************************************
-# HTML STYLING ####
-
-# Default sidebar widget width in pixels
-widget_width <- NULL#"180px"
-
-# Style for leaflet map date marker
-tag.map.title <- tags$style(HTML("
-                          .leaflet-control.map-title {
-                            position: absolute;
-                            white-space: nowrap;
-                            left: 100%;
-                            text-align: left;
-                            padding-left: 10px; 
-                            padding-right: 10px; 
-                            background: rgba(255,255,255,0.75);
-                            font-weight: bold;
-                            font-size: 32px;
-                          }"))
-
-# "Accordion" button styles
-button_style <- "background-image: linear-gradient(#ddd, #eee);
-                 color: #182;
-                 padding: 5px 0px;
-                 width: 100%;
-                 text-align: center;
-                 font-size: 18px;
-                 border: none;
-                 outline-style: solid;
-                 outline-color: #fff;
-                 outline-width: 1px;"
-
-help_text_style <- "white-space: normal; font-size: 10px;"
-label_text_style <- "white-space: normal; font-size: 14px; color: #555555; font-weight: bold; margin-bottom: 1px; margin-top: -10px;"
-label_text_style_main_options <- "white-space: normal; font-size: 10px; color: #555555; margin-bottom: 1px; margin-top: -10px;"
-error_text_style <- "white-space: normal; font-size: 10px; color: #ee0022; font-weight: bold;"
-
-# Remove polygon programmatically (instead of making the user manually delete it
-# with the draw toolbar) -- this is used when, for example, the user selects a
-# different polygon, to make the old polygon disappear.
-# This variable is called at the top of the UI
-remove_custom_poly <- tags$script(HTML(
-    "Shiny.addCustomMessageHandler(
-          'removeleaflet',
-          function(x){
-            console.log('deleting',x)
-            // get leaflet map
-            var map = HTMLWidgets.find('#' + x.elid).getMap();
-            // remove
-            map.removeLayer(map._layers[x.layerid])
-          })
-        "
-))
-
-# Called at the top of the UI wrapped in HTML(), this variable:
-#       - styles the horizontal bar in the sidebar,
-#       - reduces padding inside widget boxes
-#       - reduces padding between widget boxes
-#       - adjusts padding between inline radioButton options
-sidebar_tags_style <- "hr {border-top: 1px solid #bbbbbb;}
-                       .form-control { padding:3px 3px;}
-                       .radio-inline {margin-right: -5px;}"
-
+source("00_input_variables.R")  # load pre-defined variables
 
 
 #*******************************************************************************
@@ -227,7 +45,8 @@ ui <- fluidPage(
     # styling
     tags$head(tags$style(HTML(sidebar_tags_style))),
     inlineCSS(list("#applysettings" = "margin-top: -15px")),
-    tags$style(".shiny-file-input-progress {display: none}"),
+    tags$style(".shiny-file-input-progress {display: none}
+               .irs-grid-text {font-size: 14px; color: white; bottom: -10px; top: 12px;}"),
     
     # old polygon removal code
     tags$div(remove_custom_poly),
@@ -762,7 +581,6 @@ ui <- fluidPage(
         mainPanel(width = 9,
                   
               # UI YEAR DAY ####
-              
               sliderInput(inputId = "yearday_slide",
                           label = NULL,
                           min = 1,
@@ -864,24 +682,11 @@ server <- function(input, output, session) {
     state$current_sat_algs <- default_sat_algs
     state$current_years <- default_years
     
-    
-    # START SCREEN POPUP ####
-    
+    # START SCREEN POPUP
     observe({
         showModal(modalDialog(
             title = "Satellite Chlorophyll Data Visualization",
-            HTML(paste0("This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.<br><br>",
-                        "<a href=\"https://github.com/BIO-RSG/PhytoFit\">Github repository</a> (All code and data can be accessed here)<br><br>",
-                        "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md\">User guide</a> (In progress)<br><br>",
-                        "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/fst_tutorial.md\">Using the raw (binned) data</a><br>This is a quick tutorial explaining how the raw satellite chlorophyll data used in PhytoFit can be read into R and manipulated for other purposes.<br><br>",
-                        "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/updates.md\">Code updates affecting the algorithms</a><br>Summary of updates that affect the way the bloom metrics are calculated.<br><br>",
-                        "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md#references-and-data-sources\">References and data sources</a><br><br>",
-                        "<b>How to cite:</b><br>",
-                        "In publications, please include acknowledgments to <a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a> for the raw satellite data and the <a href=\"https://github.com/BIO-RSG\">BIO remote sensing group</a> for the application, and use this citation in the references:<br>",
-                        "<i>Stephanie Clay, Chantelle Layton, & Emmanuel Devred. (2021). BIO-RSG/PhytoFit: First release (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.4770754</i><br><br>",
-                        "<b>Contact:</b><br>",
-                        "Stephanie.Clay@dfo-mpo.gc.ca<br><br>",
-                        "<b>Dataset last updated:</b><br>", data_last_updated)),
+            HTML(startup_popup),
             easyClose = TRUE,
             footer = modalButton("OK")
         ))
@@ -1495,6 +1300,7 @@ server <- function(input, output, session) {
         sslon <- reginfo[[state$region]]$lon
         ssbin <- reginfo[[state$region]]$bin
         state$max_area <- reginfo[[state$region]]$max_area
+        state$data_resolution <- reginfo[[state$region]]$data_resolution
         
         all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
                              state$yearday, state$interval, state$log_chla, length(sslat),
@@ -1692,8 +1498,10 @@ server <- function(input, output, session) {
                 tr <- var_to_rast(df=data.frame(bin=ssbin[chla_ind],
                                                 chl=sschla[chla_ind,time_ind],
                                                 stringsAsFactors = FALSE),
+                                  resolution=isolate(state$data_resolution),
                                   ext=c(reginfo[[state$region]]$lon_range,
-                                        reginfo[[state$region]]$lat_range))
+                                        reginfo[[state$region]]$lat_range),
+                                  max_bins=600000000)
                 state$tr <- tr # used for input$fullmap_click, currently disabled
                 
                 # Get colour scale for leaflet map
@@ -1780,7 +1588,8 @@ server <- function(input, output, session) {
         
         # Check for new coordinates
         coords <- try(unlist(state$newpoly$geometry$coordinates))
-        
+        print("firstcoords")
+        print(coords)
         # Check for edited coordinates
         if (is.null(coords)) {
             coords <- try(unlist(state$editedpoly$features[[1]]$geometry$coordinates))
@@ -1796,7 +1605,8 @@ server <- function(input, output, session) {
           
           # check area of polygon in case it's too large
           polygon_area <- polyarea(x=Longitude, y=Latitude)
-          
+          print(polygon_area)
+          print(isolate(state$max_area))
           if (polygon_area > isolate(state$max_area)) {
             coords <- NULL
             state$latlon_toolarge <- TRUE
