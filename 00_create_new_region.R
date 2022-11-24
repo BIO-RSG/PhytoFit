@@ -7,13 +7,14 @@
 # remotes::install_github("BIO-RSG/oceancolouR", build_vignettes = TRUE)
 library(oceancolouR)  # to get 4km-resolution lat/lon vectors of the atlantic/pacific/gosl4km/baffin regions
 library(ncdf4)        # to read 1km-resolution gosl lat/lon file (../panCan_processing/data/gsl_1km.nc)
+library(dplyr)
 
 # List of abbreviations of the regions to create.
 reg_list <- c("atlantic", "pacific", "gosl1km", "gosl4km", "baffin")
 
 
 #*******************************************************************************
-# SECTION 1: REGION METADATA, LATITUDE, AND LONGITUDE ####
+# SECTION 1: REGION METADATA, BIN NUMBERS, LATITUDES, AND LONGITUDES ####
 
 reginfo <- list()
 
@@ -22,30 +23,34 @@ reginfo <- list()
 # vectors of latitude and longitude associated with each pixel.
 
 if ("atlantic" %in% reg_list) {
-  df = get_bins(region="nwa", variables=c("latitude","longitude"))
   ltbs = lat_bounds[["atlantic"]]
   lnbs = lon_bounds[["atlantic"]]
-  ind <- df$latitude >= ltbs[1] & df$latitude <= ltbs[2] & df$longitude >= lnbs[1] & df$longitude <= lnbs[2]
+  df = get_bins(region="nwa", variables=c("bin","latitude","longitude")) %>%
+    dplyr::filter(between(latitude,ltbs[1],ltbs[2]) & between(longitude,lnbs[1],lnbs[2]))
   reginfo$atlantic = list(name = "Atlantic",
-                          lat = as.numeric(df$latitude)[ind],
-                          lon = as.numeric(df$longitude)[ind],
-                          data_resolution = 4.64^2,
-                          map_resolution = c(0.09,0.04167),
+                          bin = df$bin,
+                          lat = df$latitude,
+                          lon = df$longitude,
+                          lat_range = range(df$latitude),
+                          lon_range = range(df$longitude),
+                          data_resolution = "4",
                           center_lon = -55,
                           center_lat = 53,
                           zoom_level = 5)
 }
 
 if ("pacific" %in% reg_list) {
-  df = get_bins(region="nep", variables=c("latitude","longitude"))
   ltbs = lat_bounds[["NEP"]]
   lnbs = lon_bounds[["NEP"]]
-  ind <- df$latitude >= ltbs[1] & df$latitude <= ltbs[2] & df$longitude >= lnbs[1] & df$longitude <= lnbs[2]
+  df = get_bins(region="nep", variables=c("bin","latitude","longitude")) %>%
+    dplyr::filter(between(latitude,ltbs[1],ltbs[2]) & between(longitude,lnbs[1],lnbs[2]))
   reginfo$pacific = list(name = "Pacific",
-                         lat = as.numeric(df$latitude)[ind],
-                         lon = as.numeric(df$longitude)[ind],
-                         data_resolution = 4.64^2,
-                         map_resolution = c(0.08,0.04167),
+                         bin = df$bin,
+                         lat = df$latitude,
+                         lon = df$longitude,
+                         lat_range = range(df$latitude),
+                         lon_range = range(df$longitude),
+                         data_resolution = "4",
                          center_lon = -132.5,
                          center_lat = 51.5,
                          zoom_level = 6)
@@ -53,48 +58,59 @@ if ("pacific" %in% reg_list) {
 
 if ("gosl1km" %in% reg_list) {
   # 1km lat/lon vectors (note that endpoints in "ind" are not inclusive here)
-  nc <- nc_open("../panCan_processing/data/gsl_1km.nc")
-  lat <- ncvar_get(nc, "lat")
-  lon <- ncvar_get(nc, "lon")
-  nc_close(nc)
   ltbs = c(45.6, 51.8)
   lnbs = c(-71.4, -55)
-  ind <- lat > ltbs[1] & lat < ltbs[2] & lon > lnbs[1] & lon < lnbs[2]
+  nc <- nc_open("../panCan_processing/data/gsl_1km.nc")
+  df <- data.frame(bin = ncvar_get(nc, "bin_num"),
+                   latitude = ncvar_get(nc, "lat"),
+                   longitude = ncvar_get(nc, "lon"),
+                   stringsAsFactors = FALSE) %>%
+    # 1km gosl files were subsetted by lat/lon vectors and the endpoints were non-inclusive.
+    # Typically I use inclusive endpoints for regions, but we'll do it differently here:
+    dplyr::filter(latitude > ltbs[1] & latitude < ltbs[2] & longitude > lnbs[1] & longitude < lnbs[2])
+  nc_close(nc)
+  
   reginfo$gosl1km = list(name = "Gulf of Saint Lawrence, 1km",
-                         lat = as.numeric(lat)[ind],
-                         lon = as.numeric(lon)[ind],
-                         data_resolution = 1,
-                         map_resolution = c(0.03,0.01),
+                         bin = df$bin,
+                         lat = df$latitude,
+                         lon = df$longitude,
+                         lat_range = range(df$latitude),
+                         lon_range = range(df$longitude),
+                         data_resolution = "1",
                          center_lon = -62,
                          center_lat = 48,
                          zoom_level = 6)
 }
 
 if ("gosl4km" %in% reg_list) {
-  df = get_bins(region="gosl", variables=c("latitude","longitude"))
   ltbs = lat_bounds[["GoSL"]]
   lnbs = lon_bounds[["GoSL"]]
-  ind <- df$latitude >= ltbs[1] & df$latitude <= ltbs[2] & df$longitude >= lnbs[1] & df$longitude <= lnbs[2]
+  df = get_bins(region="gosl", variables=c("bin","latitude","longitude")) %>%
+    dplyr::filter(between(latitude,ltbs[1],ltbs[2]) & between(longitude,lnbs[1],lnbs[2]))
   reginfo$gosl4km = list(name = "Gulf of Saint Lawrence, 4km",
-                         lat = as.numeric(df$latitude)[ind],
-                         lon = as.numeric(df$longitude)[ind],
-                         data_resolution = 4.64^2,
-                         map_resolution = c(0.07,0.04167),
+                         bin = df$bin,
+                         lat = df$latitude,
+                         lon = df$longitude,
+                         lat_range = range(df$latitude),
+                         lon_range = range(df$longitude),
+                         data_resolution = "4",
                          center_lon = -62,
                          center_lat = 47,
                          zoom_level = 6)
 }
 
 if ("baffin" %in% reg_list) {
-  df = get_bins(region="nwa", variables=c("latitude","longitude"))
   ltbs = c(60,lat_bounds$NWA[2])
   lnbs = lon_bounds$NWA
-  ind <- df$latitude >= ltbs[1] & df$latitude <= ltbs[2] & df$longitude >= lnbs[1] & df$longitude <= lnbs[2]
+  df = get_bins(region="nwa", variables=c("bin","latitude","longitude")) %>%
+    dplyr::filter(between(latitude,ltbs[1],ltbs[2]) & between(longitude,lnbs[1],lnbs[2]))
   reginfo$baffin = list(name = "Baffin Bay",
-                        lat = as.numeric(df$latitude)[ind],
-                        lon = as.numeric(df$longitude)[ind],
-                        data_resolution = 4.64^2,
-                        map_resolution = c(0.2,0.04167),
+                        bin = df$bin,
+                        lat = df$latitude,
+                        lon = df$longitude,
+                        lat_range = range(df$latitude),
+                        lon_range = range(df$longitude),
+                        data_resolution = "4",
                         center_lon = -68,
                         center_lat = 72,
                         zoom_level = 5)
@@ -356,18 +372,19 @@ if (sum(reg_missing_polygons) > 0) {
 reginfo <- lapply(reg_list, function(x) {reginfo[[x]]$poly <- poly[[x]]; reginfo[[x]]})
 names(reginfo) <- reg_list
 
-# Check for problems with latitude/longitude vectors
+# Check for problems with bin/lat/lon vectors
+binlens <- sapply(lapply(reginfo, "[[", "lat"), length)
 latlens <- sapply(lapply(reginfo, "[[", "lat"), length)
 lonlens <- sapply(lapply(reginfo, "[[", "lon"), length)
-if (any(latlens != lonlens)) {
-  stop("Latitude and longitude vectors must be the same length.")
+if (any(binlens != lonlens) | any(latlens != lonlens)) {
+  stop("Bin, latitude, and longitude vectors must be the same length.")
 }
-if (any(latlens > 300000)) {
+if (any(binlens > 300000)) {
   warning("A region with > 300,000 pixels requires a lot of memory to load and might crash the app.")
 }
 
 # Add max_area to list elements (maximum area allowed for a custom polygon, in degrees^2, to prevent app from crashing, based on user-supplied data resolution and center latitude of region)
-reginfo <- lapply(reginfo, function(x) {x$max_area <- floor(x$data_resolution/0.02 * (abs(x$center_lat)/180+1)); x})
+reginfo <- lapply(reginfo, function(x) {x$max_area <- floor(res_code_to_dist(x$data_resolution)$km^2/0.02 * (abs(x$center_lat)/180+1)); x})
 
 # Save to rds file
 saveRDS(reginfo, file = "reginfo.rds", compress=TRUE)
