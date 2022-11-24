@@ -32,6 +32,7 @@ source("gaussFit.R")            # gaussian function for bloom fit
 source("full_run.R")            # contains function to run full time series with current settings
 source("functions.R")           # extra functions
 source("00_input_variables.R")  # load pre-defined variables
+source("widget_download_funcs.R")
 
 
 #*******************************************************************************
@@ -2481,9 +2482,7 @@ server <- function(input, output, session) {
     
     # Download the results from "fullrun_process"
     output$fullrun_download <- downloadHandler(
-        filename <- function() {
-            isolate(state$fullrun_fname)
-        },
+        filename <- isolate(state$fullrun_fname),
         content <- function(file) {
             file.copy(file.path(isolate(state$fullrun_outputdir), isolate(state$fullrun_fname)), file)
         },
@@ -2494,141 +2493,45 @@ server <- function(input, output, session) {
     
     #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
     # DOWNLOAD OUTPUT ####
-    # Map, density plot, bloom fit plot, annual stats, bloom parameters, and settings.
-    # Downloads to browser's default downloads folder.
+    # Map, density plot, bloom fit plot, annual stats, bloom parameters, and settings. Downloads to browser's default downloads folder.
     
     # SAVE MAP (.html)
     output$savemap <- downloadHandler(
-        filename <- function() {
-            output_str(satellite=isolate(state$satellite),
-                       region=isolate(state$region),
-                       algorithm=isolate(state$algorithm),
-                       year=isolate(state$year),
-                       interval=isolate(state$interval),
-                       log_chla=isolate(state$log_chla),
-                       day_label=gsub(" ", "", strsplit(isolate(state$day_label), "[()]+")[[1]][2]),
-                       polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
-                       fitmethod=isolate(state$fitmethod),
-                       custom_end="map.html",
-                       concentration_type=isolate(state$concentration_type),
-                       cell_size_model1=isolate(state$cell_size_model1),
-                       cell_size_model2=isolate(state$cell_size_model2))
-            },
+        filename <- filename_map(isolate(state)),
         content <- function(file) {
-            isolate({
-                pc <- state$tr
-                lt <- state$leg_title
-                dl <- state$day_label
-                zl <- c(state$zlim1, state$zlim2)
-            })
-            tr_coloradj <- calc(pc, function(x) ifelse(x <= zl[1], zl[1]+(1e-10), ifelse(x >= zl[2], zl[2]-(1e-10), x)))
-            cm <- colorNumeric(palette=map_cols, domain=zl, na.color="#00000000")
-            saveWidget(widget = map_reactive() %>%
-                           clearControls() %>% clearGroup("georaster") %>%
-                           addRasterImage(x = tr_coloradj, colors = cm) %>%
-                           addLegend(position = 'topright', pal = cm, values = zl,
-                                     title = lt, bins = 10, opacity = 1) %>%
-                           # Label map with current year and day of year
-                           addControl(tags$div(tag.map.title, HTML(dl)),
-                                      position = "topleft",
-                                      className = "map-title"),
-                       file = file)
+          saveWidget(widget=content_map(d=isolate(state),map=map_reactive()),
+                     file=file)
         }
     )
     
-    
     # SAVE DENSITY PLOT (.png)
     output$savedensplot <- downloadHandler(
-        filename <- function() {
-            output_str(satellite=isolate(state$satellite),
-                       region=isolate(state$region),
-                       algorithm=isolate(state$algorithm),
-                       year=isolate(state$year),
-                       interval=isolate(state$interval),
-                       log_chla=isolate(state$log_chla),
-                       day_label=gsub(" ", "", strsplit(isolate(state$day_label), "[()]+")[[1]][2]),
-                       polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
-                       fitmethod=isolate(state$fitmethod),
-                       custom_end="density_plot.png",
-                       concentration_type=isolate(state$concentration_type),
-                       cell_size_model1=isolate(state$cell_size_model1),
-                       cell_size_model2=isolate(state$cell_size_model2))
-            },
+        filename <- filename_dens(d=isolate(state)),
         content <- function(file) {
             ggsave(file=file, plot=isolate(make_density_plot()), width=12, height=5, units="in")
         }
     )
     
-    
     # SAVE BLOOM FIT PLOT (.png)
     output$savebloomfit <- downloadHandler(
-        filename <- function() {
-            output_str(satellite=isolate(state$satellite),
-                       region=isolate(state$region),
-                       algorithm=isolate(state$algorithm),
-                       year=isolate(state$year),
-                       interval=isolate(state$interval),
-                       log_chla=isolate(state$log_chla),
-                       polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
-                       fitmethod=isolate(state$fitmethod),
-                       custom_end="bloom_fit.png",
-                       concentration_type=isolate(state$concentration_type),
-                       cell_size_model1=isolate(state$cell_size_model1),
-                       cell_size_model2=isolate(state$cell_size_model2))
-            },
+        filename <- filename_bfp(d=isolate(state)),
         content <- function(file) {
             ggsave(file=file, plot=isolate(make_bloom_fit()), width=12, height=5, units="in")
         }
     )
     
-    
     # SAVE ANNUAL STATS (.csv)
     output$saveannualstats <- downloadHandler(
-        filename <- function() {
-            output_str(satellite=isolate(state$satellite),
-                       region=isolate(state$region),
-                       algorithm=isolate(state$algorithm),
-                       year=isolate(state$year),
-                       interval=isolate(state$interval),
-                       log_chla=isolate(state$log_chla),
-                       polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
-                       fitmethod=isolate(state$fitmethod),
-                       custom_end="annual_stats.csv",
-                       concentration_type=isolate(state$concentration_type),
-                       cell_size_model1=isolate(state$cell_size_model1),
-                       cell_size_model2=isolate(state$cell_size_model2))
-            },
+        filename <- filename_stats(d=isolate(state)),
         content <- function(file) {
-            write.csv(data.frame(doy=isolate(state$doy_vec),
-                                 mean_chl=isolate(state$chl_mean),
-                                 median_chl=isolate(state$chl_median),
-                                 stdev_chl=isolate(state$chl_sd),
-                                 min_chl=isolate(state$chl_min),
-                                 max_chl=isolate(state$chl_max),
-                                 nobs=isolate(state$nobs),
-                                 percent_coverage=isolate(state$percent_coverage),
-                                 loess_smooth=isolate(state$loess_smooth),
-                                 stringsAsFactors=FALSE),
-                      file=file, quote=FALSE, na=" ", row.names=FALSE)
+          sdf <- content_stats(d=isolate(state))
+          write.csv(sdf, file=file, quote=FALSE, na=" ", row.names=FALSE)
         }
     )
     
     # SAVE BLOOM FIT PARAMETERS (.csv)
     output$savebloomparams <- downloadHandler(
-        filename <- function() {
-            output_str(satellite=isolate(state$satellite),
-                       region=isolate(state$region),
-                       algorithm=isolate(state$algorithm),
-                       year=isolate(state$year),
-                       interval=isolate(state$interval),
-                       log_chla=isolate(state$log_chla),
-                       polygon=gsub(pattern=" ", replacement="_", x=isolate(state$poly_name)),
-                       fitmethod=isolate(state$fitmethod),
-                       custom_end="bloom_parameters.csv",
-                       concentration_type=isolate(state$concentration_type),
-                       cell_size_model1=isolate(state$cell_size_model1),
-                       cell_size_model2=isolate(state$cell_size_model2))
-            },
+        filename <- filename_bfparam(d=isolate(state)),
         content <- function(file) {
             write.csv(isolate(state$fitparams), file=file, quote=FALSE, na=" ", row.names=FALSE)
         }
@@ -2636,35 +2539,11 @@ server <- function(input, output, session) {
     
     # SAVE CURRENT INFO/SETTINGS (if annual data has been loaded) (.csv)
     output$savesettings <- downloadHandler(
-        filename <- function() {
-            output_str(satellite=isolate(state$satellite),
-                       region=isolate(state$region),
-                       algorithm=isolate(state$algorithm),
-                       year=isolate(state$year),
-                       interval=isolate(state$interval),
-                       log_chla=isolate(state$log_chla),
-                       day_label=gsub(" ", "", strsplit(isolate(state$day_label), "[()]+")[[1]][2]),
-                       polygon=isolate(state$box),
-                       fitmethod=isolate(state$fitmethod),
-                       custom_end="settings.csv",
-                       concentration_type=isolate(state$concentration_type),
-                       cell_size_model1=isolate(state$cell_size_model1),
-                       cell_size_model2=isolate(state$cell_size_model2))
-            },
+        filename <- filename_settings(isolate(state)),
         content <- function(file) {
-            if (isolate(state$box)=="custom") {
-                plons <- isolate(state$polylon)
-                plats <- isolate(state$polylat)
-            } else {
-                plons <- plats <- NA
-            }
-            info <- format_settings_to_save(all_inputs=reactiveValuesToList(isolate(input)),
-                                            custom_name=isolate(state$custom_name),
-                                            polylon=plons,
-                                            polylat=plats,
-                                            regions=regions,
-                                            sat_algs=sat_algs)
-            write.table(info, file=file, row.names=FALSE, na=" ", sep="\\")
+          info <- content_settings(d=isolate(state),
+                                   inp=reactiveValuesToList(isolate(input)))
+          write.table(info, file=file, row.names=FALSE, na=" ", sep="\\")
         }
     )
     
