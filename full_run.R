@@ -1,6 +1,6 @@
 # return stats and bloom fit for a selected year
 
-full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
+full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon, 
                      polygon_list, latlon_method, pnames, yearday, doys_per_week, doy_week_start, doy_week_end,
                      dailystat, pixrange1, pixrange2, outlier, percent, log_chla,
                      fitmethod, bloomShape, smoothMethod, loessSpan=NA, use_weights,

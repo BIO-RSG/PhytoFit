@@ -414,6 +414,7 @@ format_settings_to_save <- function(all_inputs, custom_name, polylon, polylat, r
                 "See user guide for full names and boundaries of polygons",
                 "See user guide for full names and boundaries of polygons",
                 NA, "Decimal degrees", "Decimal degrees")
+  val_desc <- gsub(",","",val_desc) # remove commas so they don't break csv columns
   
   # subset them based on the ones you need to save
   all_inputs <- all_inputs[names(all_inputs) %in% input_ids_to_save]

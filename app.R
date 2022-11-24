@@ -65,14 +65,14 @@ ui <- fluidPage(
             # UI LOAD OPTIONS ####
             
             helpText(HTML(paste0("<font style=\"font-size: 18px; color: #555555; font-weight: bold;\">Option 1: </font><br>",
-                                 "Load a file with predefined settings (.csv, created in PhytoFit): Browse to select, then click \"Apply settings\".")),
+                                 "Load a file with predefined settings (.txt, created in PhytoFit): Browse to select, then click \"Apply settings\" and \"Load data\" below.")),
                      width = widget_width,
                      style = label_text_style_main_options),
             br(),
             fileInput(inputId = "settings_file",
                       label = NULL,
                       multiple = FALSE,
-                      accept = ".csv",
+                      accept = ".txt",
                       width = widget_width),
             actionButton(inputId="applysettings",
                          label="Apply settings",
@@ -255,7 +255,7 @@ ui <- fluidPage(
                                                        value = "",
                                                        width = widget_width,
                                                        placeholder = "-61, -59, -55, -57, -60.4, -61"),
-                                             actionButton(inputId = 'draw',
+                                             actionButton(inputId = 'createTypedPoly',
                                                           label = 'Create polygon',
                                                           width = widget_width,
                                                           style = button_style)),
@@ -626,6 +626,9 @@ ui <- fluidPage(
     
 )
 
+
+
+
 #*******************************************************************************
 # SERVER ####
 
@@ -720,9 +723,9 @@ server <- function(input, output, session) {
         file <- input$settings_file
         ext <- tools::file_ext(file$datapath)
         # check the extension, try to load the file, and check file contents
-        if (ext == "csv") {
+        if (ext == "txt") {
             # try to load the file
-            file_contents <- try(read.csv(file$datapath, header = TRUE, sep="\\"), silent=TRUE)
+            file_contents <- try(read.table(file$datapath, header = TRUE, sep="\\"), silent=TRUE)
             if (class(file_contents)=="try-error") {
                 help_settings_file_txt <- "Invalid input file."
             } else {
@@ -748,7 +751,7 @@ server <- function(input, output, session) {
                     names(current_inputs) <- NULL
                     new_inputs <- unlist(tmp_values)
                     names(new_inputs) <- NULL
-                    # if necessary, update satellite, region, algorithm, year, interval, and log_chla
+                    # if necessary, update region, satellite/algorithm, concentration type, year, interval, and log_chla
                     if (identical(current_inputs, new_inputs)) {
                         state$num_sfile_no_main_change <- state$num_sfile_no_main_change + 1
                     } else {
@@ -836,79 +839,46 @@ server <- function(input, output, session) {
         disable("savebloomparams")
         disable("saveannualstats")
         
-        # FOR APPLYING INDIVIDUAL SETTINGS MANUALLY
-        if (is.null(state$secondary_settings)) {
-            
-            # if the satellite has changed, and not as a result of loading a settings file,
-            # update the sat_alg and year dropdown menus
-            # if they don't need to be updated, then continue checking if data exists
-            new_sat_algs <- sat_algs[[input$region]]
-            if (!identical(new_sat_algs, state$current_sat_algs)) {
-                if (state$sat_alg %in% new_sat_algs) {
-                    selected_sat_alg <- state$sat_alg
-                } else {
-                    selected_sat_alg <- new_sat_algs[1]
-                }
-                updateSelectInput(session, inputId = "sat_alg", choices = new_sat_algs, selected = selected_sat_alg)
-                state$current_sat_algs <- new_sat_algs
-                sat_alg_file <- selected_sat_alg
+        # if the satellite has changed, update the sat_alg and year dropdown menus
+        # if they don't need to be updated, then continue checking if data exists
+
+        new_sat_algs <- sat_algs[[input$region]]
+        if (!identical(new_sat_algs, state$current_sat_algs)) {
+            if (state$sat_alg %in% new_sat_algs) {
+                selected_sat_alg <- state$sat_alg
             } else {
-                sat_alg_file <- input$sat_alg
+                selected_sat_alg <- new_sat_algs[1]
             }
-            new_years <- years[[input$region]][[sat_alg_file]]
-            if (!identical(new_years, state$current_years)) {
-                if (state$year %in% new_years) {
-                    selected_year <- state$year
-                } else {
-                    selected_year <- max(new_years)
-                }
-                updateSelectInput(session, inputId = "year", choices = rev(new_years), selected = selected_year)
-                state$current_years <- new_years
-                year_file <- selected_year
-            } else {
-                year_file <- input$year
-            }
-            
-            # enable/disable load button depending on whether or not data exists for these settings
-            state$data_loaded <- FALSE
-            data_exists <- file.exists(paste0("./data/", input$region, "/", input$region, "_", sat_alg_file, "_", year_file, ".fst"))
-            
-            if (data_exists) {
-                enable("load")
-                state$help_load_txt <- ""
-            } else {
-                disable("load")
-                state$help_load_txt <- "No data available for the selected options."
-            }
-            
-        # FOR APPLYING A SETTINGS FILE
+            updateSelectInput(session, inputId = "sat_alg", choices = new_sat_algs, selected = selected_sat_alg)
+            state$current_sat_algs <- new_sat_algs
+            sat_alg_file <- selected_sat_alg
         } else {
-            
-            # reset the "current_sat_algs", and "current_years" variables so they know to change
-            # if you manually select a satellite with different sat_algs / years
-            new_sat_algs <- sat_algs[[input$region]]
-            if (!identical(new_sat_algs, state$current_sat_algs)) {
-                state$current_sat_algs <- new_sat_algs
-            }
-            new_years <- years[[input$region]][[input$sat_alg]]
-            if (!identical(new_years, state$current_years)) {
-                state$current_years <- new_years
-            }
-            
-            # enable/disable load button depending on whether or not data exists for these settings
-            state$data_loaded <- FALSE
-            data_exists <- file.exists(paste0("./data/", input$region, "/", input$region, "_", input$sat_alg, "_", input$year, ".fst"))
-            
-            if (data_exists) {
-                enable("load")
-                state$help_load_txt <- ""
-                shinyjs::click("load")
+            sat_alg_file <- input$sat_alg
+        }
+        new_years <- years[[input$region]][[sat_alg_file]]
+        if (!identical(new_years, state$current_years)) {
+            if (state$year %in% new_years) {
+                selected_year <- state$year
             } else {
-                disable("load")
-                state$help_load_txt <- "No data available for the selected options."
-                state$secondary_settings <- NULL
+                selected_year <- max(new_years)
             }
-            
+            updateSelectInput(session, inputId = "year", choices = rev(new_years), selected = selected_year)
+            state$current_years <- new_years
+            year_file <- selected_year
+        } else {
+            year_file <- input$year
+        }
+        
+        # enable/disable load button depending on whether or not data exists for these settings
+        state$data_loaded <- FALSE
+        data_exists <- file.exists(paste0("./data/", input$region, "/", input$region, "_", sat_alg_file, "_", year_file, ".fst"))
+        
+        if (data_exists) {
+            enable("load")
+            state$help_load_txt <- ""
+        } else {
+            disable("load")
+            state$help_load_txt <- "No data available for the selected options."
         }
         
     })
@@ -965,7 +935,7 @@ server <- function(input, output, session) {
         input$manual_lons
     }, {
         if (state$latlon_method != "drawPoly" & state$draw_programmatically) {
-            shinyjs::click("draw")
+            shinyjs::click("createTypedPoly")
             state$draw_programmatically <- FALSE
         }
     })
@@ -1097,18 +1067,7 @@ server <- function(input, output, session) {
     observeEvent(input$flagdescriptions, {
         showModal(modalDialog(
             title = "Gaussian fit flag descriptions",
-            HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 1: Amplitude ratio</font></br>",
-                        "Flagged if (amplitude<sub>fit</sub> / amplitude<sub>real</sub>) is outside the selected range (default 0.75-1.25).</br></br>",
-                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 2: Magnitude ratio</font></br>",
-                        "Flagged if (magnitude<sub>fit</sub> / magnitude<sub>real</sub>) is outside the selected range (default 0.85-1.15).</br></br>",
-                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 3: Small sigma</font></br>",
-                        "Flagged if sigma <= time resolution (1 for daily data, 8 for weekly data).</br></br>",
-                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 4: t<sub>start</sub> on boundary</font></br>",
-                        "Flagged if the calculated t<sub>start</sub> is on the boundary of the t<sub>start</sub> slider.</br></br>",
-                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 5: t<sub>max</sub> on boundary</font></br>",
-                        "Flagged if the calculated t<sub>max</sub> is on the boundary of the t<sub>max</sub> slider.</br></br>",
-                        "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 6: t<sub>end</sub> on boundary</font></br>",
-                        "Flagged if the calculated t<sub>end</sub> is on the boundary of the t<sub>range</sub> slider.")),
+            HTML(gauss_flag_popup),
             easyClose = TRUE,
             footer = modalButton("Close")
         ))
@@ -1357,7 +1316,7 @@ server <- function(input, output, session) {
             fullrunyears_value <- as.numeric(strsplit(fullrunyears_value, split=",")[[1]])
             updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years), max = max(tmp_years), value = fullrunyears_value)
             
-            # updating remaining secondary settings
+            # update remaining secondary settings
             secondary_settings <- secondary_settings[!extra_inds,]
             formatted_settings <- format_settings_to_load(secondary_settings)
             tmp_ids <- formatted_settings$ids
@@ -1379,7 +1338,7 @@ server <- function(input, output, session) {
                 updateRadioButtons(session, inputId="latlon_method", selected="typeCoords")
                 updateTextInput(session, inputId="manual_lats", value=predefined_custom_lats)
                 updateTextInput(session, inputId="manual_lons", value=predefined_custom_lons)
-                # set a variable to automatically click "draw" after the lats/lons are updated
+                # set a variable to automatically click "createTypedPoly" after the lats/lons are updated
                 state$draw_programmatically <- TRUE
                 # if the custom polygon has a name, apply it
                 if (nchar(custom_polygon_name) > 0) {
@@ -1589,13 +1548,10 @@ server <- function(input, output, session) {
         
         # Check for new coordinates
         coords <- try(unlist(state$newpoly$geometry$coordinates))
-        print("firstcoords")
-        print(coords)
         # Check for edited coordinates
         if (is.null(coords)) {
             coords <- try(unlist(state$editedpoly$features[[1]]$geometry$coordinates))
         }
-        
         
         # Check if polygon area is too large
         if (!is.null(coords)) {
@@ -1606,8 +1562,7 @@ server <- function(input, output, session) {
           
           # check area of polygon in case it's too large
           polygon_area <- polyarea(x=Longitude, y=Latitude)
-          print(polygon_area)
-          print(isolate(state$max_area))
+          
           if (polygon_area > isolate(state$max_area)) {
             coords <- NULL
             state$latlon_toolarge <- TRUE
@@ -1631,7 +1586,7 @@ server <- function(input, output, session) {
     
     # Instead of getting coordinates of a polygon drawn directly on the map,
     # get coordinates entered in a box by the user.
-    observeEvent(input$draw, {
+    observeEvent(input$createTypedPoly, {
         
         good_latlons <- check_latlons(input$manual_lats, input$manual_lons,
                                       state$num_invalid_polygons_drawn)
@@ -2470,15 +2425,18 @@ server <- function(input, output, session) {
     
     output$fullrun_fname <- renderUI({
         if (is.null(state$fullrun_fname)) {
-            helpText("",
-                     width = widget_width,
-                     style = help_text_style)
+            helpText("", width = widget_width, style = help_text_style)
         } else {
             helpText(HTML(paste0("File ready for download:<br>", gsub("_", "_ ", state$fullrun_fname))),
                      width = widget_width,
                      style = help_text_style)
         }
     })
+    
+    
+    #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+    # DOWNLOAD OUTPUT ####
+    # Map, density plot, bloom fit plot, annual stats, bloom parameters, and settings. Downloads to browser's default downloads folder.
     
     # Download the results from "fullrun_process"
     output$fullrun_download <- downloadHandler(
@@ -2489,18 +2447,11 @@ server <- function(input, output, session) {
         contentType = "application/zip"
     )
     
-    
-    
-    #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-    # DOWNLOAD OUTPUT ####
-    # Map, density plot, bloom fit plot, annual stats, bloom parameters, and settings. Downloads to browser's default downloads folder.
-    
     # SAVE MAP (.html)
     output$savemap <- downloadHandler(
         filename <- filename_map(isolate(state)),
         content <- function(file) {
-          saveWidget(widget=content_map(d=isolate(state),map=map_reactive()),
-                     file=file)
+          saveWidget(widget=content_map(d=isolate(state),map=map_reactive()), file=file)
         }
     )
     
@@ -2537,13 +2488,12 @@ server <- function(input, output, session) {
         }
     )
     
-    # SAVE CURRENT INFO/SETTINGS (if annual data has been loaded) (.csv)
+    # SAVE CURRENT SETTINGS (.txt)
     output$savesettings <- downloadHandler(
         filename <- filename_settings(isolate(state)),
         content <- function(file) {
-          info <- content_settings(d=isolate(state),
-                                   inp=reactiveValuesToList(isolate(input)))
-          write.table(info, file=file, row.names=FALSE, na=" ", sep="\\")
+          info <- content_settings(d=isolate(state), inp=reactiveValuesToList(isolate(input)))
+          write.table(info, file=file, row.names=FALSE, na="NA", sep="\\")
         }
     )
     

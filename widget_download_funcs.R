@@ -135,7 +135,7 @@ filename_settings <- function(d) {
              day_label=gsub(" ", "", strsplit(d$day_label, "[()]+")[[1]][2]),
              polygon=d$box,
              fitmethod=d$fitmethod,
-             custom_end="settings.csv",
+             custom_end="settings.txt",
              concentration_type=d$concentration_type,
              cell_size_model1=d$cell_size_model1,
              cell_size_model2=d$cell_size_model2)

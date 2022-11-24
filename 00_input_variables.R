@@ -4,9 +4,9 @@
 #*******************************************************************************
 # VARIABLES THAT CAN BE CHANGED - vectors of potential sensors and variables
 
-# The vector names (i.e. modisaquar2018, seawifsr2018, oci, poly4...) must match the "sensor" and "variable"
+# The vector values (i.e. modisaquar2018, seawifsr2018, oci, poly4...) must match the "sensor" and "variable"
 # in the fst filenames.
-# The vector values (i.e. MODIS-Aqua v2018, OCI chl-a...) are the full names of the sensor and variable,
+# The vector names (i.e. MODIS-Aqua v2018, OCI chl-a...) are the full names of the sensor and variable,
 # which will appear in the drop-down menus in the app.
 # Note: if you don't have any data files for these stored in your "data" folder, they won't
 # appear in the drop-down menus when you load the app.
@@ -143,10 +143,8 @@ input_ids_description <- c("Region", "Sensor and Chlorophyll-a Algorithm",
                          "Polygon name", "Custom polygon name", "Custom polygon longitudes", "Custom polygon latitudes")
 
 
-
-
 #*******************************************************************************
-# EXTRA VARIABLES ####
+# DEFINE/CALCULATE EXTRA VARIABLES ####
 
 # colors used in the map
 # from "oceColorsJet" in "oce" package
@@ -326,8 +324,9 @@ sidebar_tags_style <- "hr {border-top: 1px solid #bbbbbb;}
 
 
 #*******************************************************************************
-# START SCREEN POPUP MESSAGE ####
+# POPUP MESSAGES ####
 
+# start screen popup
 startup_popup <- paste0("This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.<br><br>",
                       "<a href=\"https://github.com/BIO-RSG/PhytoFit\">Github repository</a> (All code and data can be accessed here)<br><br>",
                       "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md\">User guide</a> (In progress)<br><br>",
@@ -341,4 +340,17 @@ startup_popup <- paste0("This app can be used to display satellite chlorophyll c
                       "Stephanie.Clay@dfo-mpo.gc.ca<br><br>",
                       "<b>Dataset last updated:</b><br>", data_last_updated)
 
+# gaussian bloom fit flag descriptions
+gauss_flag_popup <- paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 1: Amplitude ratio</font></br>",
+                           "Flagged if (amplitude<sub>fit</sub> / amplitude<sub>real</sub>) is outside the selected range (default 0.75-1.25).</br></br>",
+                           "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 2: Magnitude ratio</font></br>",
+                           "Flagged if (magnitude<sub>fit</sub> / magnitude<sub>real</sub>) is outside the selected range (default 0.85-1.15).</br></br>",
+                           "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 3: Small sigma</font></br>",
+                           "Flagged if sigma <= time resolution (1 for daily data, 8 for weekly data).</br></br>",
+                           "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 4: t<sub>start</sub> on boundary</font></br>",
+                           "Flagged if the calculated t<sub>start</sub> is on the boundary of the t<sub>start</sub> slider.</br></br>",
+                           "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 5: t<sub>max</sub> on boundary</font></br>",
+                           "Flagged if the calculated t<sub>max</sub> is on the boundary of the t<sub>max</sub> slider.</br></br>",
+                           "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 6: t<sub>end</sub> on boundary</font></br>",
+                           "Flagged if the calculated t<sub>end</sub> is on the boundary of the t<sub>range</sub> slider.")
 
