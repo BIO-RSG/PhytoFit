@@ -1254,6 +1254,11 @@ server <- function(input, output, session) {
         ssbin <- reginfo[[state$region]]$bin
         state$max_area <- reginfo[[state$region]]$max_area
         state$data_resolution <- reginfo[[state$region]]$data_resolution
+        state$ext <- c(reginfo[[state$region]]$lon_range,
+                       reginfo[[state$region]]$lat_range)
+        # make a blank raster template for plotting the data on the map faster
+        state$binGrid <- gen_bin_grid(resolution=state$data_resolution, ext=state$ext, rast=FALSE, max_bins=600000000)
+        state$binGrid_dim <- dim(state$binGrid)
         
         all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
                              state$yearday, state$interval, state$log_chla, length(sslat),
@@ -1447,14 +1452,15 @@ server <- function(input, output, session) {
                 
             } else {
                 
-                # Make raster for leaflet map
-                tr <- var_to_rast(df=data.frame(bin=ssbin[chla_ind],
-                                                chl=sschla[chla_ind,time_ind],
-                                                stringsAsFactors = FALSE),
-                                  resolution=isolate(state$data_resolution),
-                                  ext=c(reginfo[[state$region]]$lon_range,
-                                        reginfo[[state$region]]$lat_range),
-                                  max_bins=600000000)
+                # Update raster for leaflet map
+                df_bins <- ssbin[chla_ind]
+                ext <- state$ext
+                binGrid <- state$binGrid
+                binGrid_dim <- state$binGrid_dim
+                newmat <- rep(NA, length(binGrid))
+                newmat[binGrid %in% df_bins] <- sschla[chla_ind,time_ind][match(binGrid, df_bins, nomatch=0)]
+                tr <- raster::raster(ncols=binGrid_dim[2], nrows=binGrid_dim[1], xmn=ext[1], xmx=ext[2], ymn=ext[3], ymx=ext[4])
+                raster::values(tr) <- matrix(newmat, nrow=binGrid_dim[1])
                 state$tr <- tr # used for input$fullmap_click, currently disabled
                 
                 # Get colour scale for leaflet map
@@ -1936,7 +1942,7 @@ server <- function(input, output, session) {
                       axis.title.x=element_blank(),
                       axis.text.x=element_text(size=12),
                       axis.text.y=element_text(size=12),
-                      panel.border = element_rect(colour="black", fill=NA, size=0.4))
+                      panel.border = element_rect(colour="black", fill=NA, linewidth=0.4))
             
             # make the download button visible since there are data available
             enable("savedensplot")
