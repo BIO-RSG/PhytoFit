@@ -354,3 +354,24 @@ gauss_flag_popup <- paste0("<font style=\"font-size: 12px; color: #555555; font-
                            "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 6: t<sub>end</sub> on boundary</font></br>",
                            "Flagged if the calculated t<sub>end</sub> is on the boundary of the t<sub>range</sub> slider.")
 
+
+#*******************************************************************************
+# MONTH LABEL BAR AT TOP ####
+
+# make a simple plot of month abbreviations for the top of the day of year slider
+# just use a regular year, ignore the change in leap years because it's small
+# this is just to make it easier to see where each month starts along the slider
+pydays <- yday(as_date(paste0("2019",pad0(1:12,2),"01"),format="%Y%m%d"))
+pmonth <- ggplot(df) +
+  # geom_hline(yintercept=0, color="grey") +
+  geom_vline(xintercept=pydays, color="grey") +
+  scale_x_continuous(limits=c(1,365), breaks=pydays, labels=month.abb, expand=c(0,0), position="top") +
+  scale_y_continuous(limits=c(-1,0.2)) +
+  theme(panel.background=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_line(color="grey"),
+        axis.title=element_blank(),
+        axis.text.x=element_text(angle=45, hjust=0, vjust=1, size=12),
+        axis.text.y=element_blank(),
+        plot.margin=unit(c(0,0,0,0),"cm"))
+

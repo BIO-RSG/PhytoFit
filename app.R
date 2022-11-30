@@ -47,7 +47,8 @@ ui <- fluidPage(
     tags$head(tags$style(HTML(sidebar_tags_style))),
     inlineCSS(list("#applysettings" = "margin-top: -15px")),
     tags$style(".shiny-file-input-progress {display: none}
-               .irs-grid-text {font-size: 14px; color: white; bottom: -10px; top: 12px;}"),
+               .irs-grid-text {font-size: 14px; color: white; bottom: -10px; top: 12px;}
+               .irs-from, .irs-to, .irs-min, .irs-max {visibility: hidden !important;"),
     
     # old polygon removal code
     tags$div(remove_custom_poly),
@@ -85,8 +86,7 @@ ui <- fluidPage(
                                  "Start selecting your settings below, then click \"Load data\" and adjust remaining settings as needed.")),
                      width = widget_width,
                      style = label_text_style_main_options),
-            br(),
-            br(),
+            br(),br(),
             helpText("Region",
                      width = widget_width,
                      style = label_text_style_main_options),
@@ -177,8 +177,7 @@ ui <- fluidPage(
                              label="Apply",
                              style=button_style)),
             
-            br(),
-            br(),
+            br(),br(),
             
             # UI POLYGON ####
             
@@ -330,8 +329,7 @@ ui <- fluidPage(
                              label="Apply",
                              style=button_style)),
             
-            br(),
-            br()
+            br(),br()
             ),
             
             
@@ -450,8 +448,7 @@ ui <- fluidPage(
                              actionButton(inputId = "flagdescriptions",
                                           label = "Flag descriptions",
                                           style = button_style),
-                             br(),
-                             br(),
+                             br(),br(),
                              helpText(HTML(paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 1: Amplitude ratio limits</font>")),
                                       width = widget_width,
                                       style = help_text_style),
@@ -503,9 +500,7 @@ ui <- fluidPage(
             
             ),
             
-            br(),
-            br(),
-            hr(),
+            br(),br(),hr(),
             
             # UI SAVE OPTIONS ####
             
@@ -567,8 +562,7 @@ ui <- fluidPage(
             disabled(downloadButton(outputId = "fullrun_download",
                                     label = "Download results (.zip)",
                                     style = button_style)),
-            br(),
-            br(),
+            br(),br(),
             disabled(downloadButton(outputId = "savesettings",
                                     label = "Save settings (.csv)",
                                     style = button_style))
@@ -580,8 +574,10 @@ ui <- fluidPage(
         # UI DISPLAY ####
         
         mainPanel(width = 9,
-                  
+              
               # UI YEAR DAY ####
+              div(style="margin-bottom: -30px; margin-left: 4px; margin-right: 7px;",
+                  plotOutput(outputId = 'datebar',height="40px",width = '100%')),
               sliderInput(inputId = "yearday_slide",
                           label = NULL,
                           min = 1,
@@ -596,8 +592,7 @@ ui <- fluidPage(
                disabled(downloadButton(outputId = "savemap",
                                        label = "Download map (.html)",
                                        style = button_style)),
-               br(),
-               br(),
+               br(),br(),
                htmlOutput(outputId = "poly_title"),
                br(),
                plotOutput(outputId = 'chla_hist',
@@ -605,8 +600,7 @@ ui <- fluidPage(
                disabled(downloadButton(outputId = "savedensplot",
                                        label = "Download density plot (.png)",
                                        style = button_style)),
-               br(),
-               br(),
+               br(),br(),
                plotOutput(outputId = 'bloomfit',
                           height = '440px',
                           click = 'bloomfit_click'),
@@ -619,8 +613,7 @@ ui <- fluidPage(
                disabled(downloadButton(outputId = "savebloomparams",
                                        label = "Download fitted bloom parameters (.csv)",
                                        style = button_style)),
-               br(),
-               br()
+               br(),br()
         ) # closes column for plots
     )
     
@@ -641,7 +634,7 @@ server <- function(input, output, session) {
     state$null_rchla <- TRUE # used to tell the plots that there's no custom polygon data yet
     state$latlon_invalid <- FALSE # used to prevent custom polygons with invalid coordinates
     state$latlon_toolarge <- FALSE # used to prevent custom polygons that are too large
-    state$num_invalid_polygons_drawn <- 0
+    state$nbad_polys <- 0
     state$data_loaded <- FALSE
     state$sat_alg <- default_sat_algs[1]
     state$satellite <- default_sensor
@@ -1470,11 +1463,10 @@ server <- function(input, output, session) {
                 # Update map based on choices of year day
                 lfp <- leafletProxy("fullmap", session) %>%
                     clearPopups() %>% clearControls() %>% clearGroup("georaster") %>%
-                    addGeoRaster(x = tr, group = "georaster",
-                                 colorOptions = colorOptions(palette=map_cols,
-                                                             domain=zlim,
-                                                             na.color="#00000000"),
-                                 autozoom = FALSE, project = FALSE) %>%
+                    addGeoRaster(x = tr,
+                                 group = "georaster",
+                                 colorOptions = colorOptions(palette=map_cols,domain=zlim,na.color="#00000000"),
+                                 autozoom = FALSE) %>%
                     addLegend(position = 'topright',
                               pal = colorNumeric(palette=map_cols, domain=zlim, na.color="#00000000"),
                               values = zlim, title = state$leg_title, bins = 10, opacity = 1) %>%
@@ -1543,67 +1535,47 @@ server <- function(input, output, session) {
     # stats to update the density plot and bloom fit scatterplot
     draw_polygon <- reactive({
         
-        # Reset this, assume acceptable polygon size
-        state$latlon_toolarge <- FALSE
-        
-        # Check for new coordinates
+        # Check for new or edited coordinates
         coords <- try(unlist(state$newpoly$geometry$coordinates))
-        # Check for edited coordinates
         if (is.null(coords)) {
             coords <- try(unlist(state$editedpoly$features[[1]]$geometry$coordinates))
         }
         
         # Check if polygon area is too large
+        state$latlon_toolarge <- FALSE
         if (!is.null(coords)) {
-          
-          # Extract lat/lon from coordinates
-          Longitude <- coords[seq(1,length(coords), 2)]
-          Latitude <- coords[seq(2,length(coords), 2)]
-          
-          # check area of polygon in case it's too large
-          polygon_area <- polyarea(x=Longitude, y=Latitude)
-          
-          if (polygon_area > isolate(state$max_area)) {
+          polygon_area <- polyarea(x=coords[seq(1,length(coords), 2)], y=coords[seq(2,length(coords), 2)])
+          ma <- isolate(state$max_area)
+          if (polygon_area > ma) {
             coords <- NULL
             state$latlon_toolarge <- TRUE
-            state$num_invalid_polygons_drawn <- state$num_invalid_polygons_drawn + 1
-            showModal(modalDialog(
-                paste0("WARNING: Polygon is too large (must be <= ", isolate(state$max_area), " degrees squared)."),
-                title = NULL,
-                footer = modalButton("Dismiss"),
-                size = c("m", "s", "l"),
-                easyClose = TRUE,
-                fade = FALSE
-            ))
+            state$nbad_polys <- state$nbad_polys + 1
+            state$help_latlon_txt <- paste0("Polygon is too large (must be <= ", ma, " degrees squared).")
           }
-          
         }
         
         return(coords)
         
     })
     
-    
     # Instead of getting coordinates of a polygon drawn directly on the map,
     # get coordinates entered in a box by the user.
     observeEvent(input$createTypedPoly, {
-        
-        good_latlons <- check_latlons(input$manual_lats, input$manual_lons,
-                                      state$num_invalid_polygons_drawn)
-        
+        good_latlons <- check_latlons(input$manual_lats, input$manual_lons, state$nbad_polys)
         state$typedpoly <- good_latlons$coords
-        state$num_invalid_polygons_drawn <- good_latlons$num_invalid_polygons_drawn
+        state$nbad_polys <- good_latlons$nbad_polys
         state$latlon_invalid <- good_latlons$latlon_invalid
         state$latlon_toolarge <- good_latlons$latlon_toolarge
         state$help_latlon_txt <- good_latlons$help_latlon_txt
-        
     })
     
     type_polygon <- reactive({
         return(state$typedpoly)
     })
     
-    
+    # Or read a shapefile containing a polygon. This makes use of the "typed polygon"
+    # code above, entering the shapefile vertex lat/lons in the text boxes and programmatically
+    # clicking the "Create Polygon" button to trigger input$createTypedPoly
     observeEvent(input$shapefile, {
         ext <- tools::file_ext(input$shapefile$name)
         show_modal_spinner(spin = "atom",
@@ -1648,32 +1620,19 @@ server <- function(input, output, session) {
         state$help_latlon_txt <- help_latlon_txt
     })
     
-    
+    # If there's something wrong with the custom polygon coordinates, show an error message on the sidebar
     output$help_latlon <- renderUI({
-        if (state$help_latlon_txt != "") {
-            showModal(modalDialog(
-                paste("ERROR:", state$help_latlon_txt),
-                title = NULL,
-                footer = modalButton("Dismiss"),
-                size = c("m", "s", "l"),
-                easyClose = TRUE,
-                fade = FALSE
-            ))
-        }
         helpText(state$help_latlon_txt,
                  width = widget_width,
                  style = error_text_style)
     })
     
-    
     # POLYGON TITLE PANEL
     output$poly_title <- renderUI({
-        
         if (state$data_loaded) {
             str1 <- paste0(state$year, " ", names(regions)[state$region==regions], ", ", state$poly_name)
             if (is.null(state$polylat)) {
-                str2 <- ""
-                str3 <- ""
+                str2 <- str3 <- ""
             } else {
                 if (length(state$polylat) > 20) {
                     extra_coords <- paste0("... <i>[truncated, ", length(state$polylat)-20, " remaining]</i>")
@@ -1688,7 +1647,13 @@ server <- function(input, output, session) {
                         "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Latitudes:</font> ", str2, "<br/>",
                         "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Longitudes:</font> ", str3))
         }
-        
+    })
+    
+    #***************************************************************************
+    # DATE BAR AT TOP
+    
+    output$datebar <- renderPlot({
+      pmonth
     })
     
     
@@ -1699,31 +1664,23 @@ server <- function(input, output, session) {
     delete_boxes <- eventReactive({
         state$box
         state$latlon_method
-        state$num_invalid_polygons_drawn
+        state$nbad_polys
         state$region
     }, {
         
-        # Remove popups, previously selected existing AZMP boxes, or previously
-        # typed polygons
+        # Remove popups, previously selected existing AZMP boxes, or previously typed polygons
         leafletProxy("fullmap", session) %>%
             clearPopups() %>% removeShape("highlighted_box") %>% removeShape("typedpoly")
         
+        # Remove drawn polygons
         snp <- isolate(state$newpoly)
         sep <- isolate(state$editedpoly)
-        
-        # Remove drawn polygons
         if (!is.null(snp)) {
-            drawnshapes <- snp$properties$`_leaflet_id`
-            session$sendCustomMessage(
-                "removeleaflet",
-                list(elid="fullmap", layerid=drawnshapes)
-            )
+            shapes <- snp$properties$`_leaflet_id`
+            session$sendCustomMessage("removeleaflet", list(elid="fullmap", layerid=shapes))
         } else if (!is.null(sep)) {
-            drawnshapes <- sep$features[[1]]$properties$`_leaflet_id`
-            session$sendCustomMessage(
-                "removeleaflet",
-                list(elid="fullmap", layerid=drawnshapes)
-            )
+            shapes <- sep$features[[1]]$properties$`_leaflet_id`
+            session$sendCustomMessage("removeleaflet", list(elid="fullmap", layerid=shapes))
         }
         
         # Reset drawn/typed polygon variables to NULL
@@ -1748,17 +1705,12 @@ server <- function(input, output, session) {
         
         # Get coordinates from a custom polygon
         if (state$box=="custom" & state$latlon_method=="drawPoly") {
-            
             coords <- draw_polygon()
-            
         } else if (state$box=="custom" & (state$latlon_method=="typeCoords" | state$latlon_method=="loadShapefile")) {
-            
             coords <- type_polygon()
-            
             # for highlighted box in leaflet map
             highlight_ID <- "typedpoly"
             add_poly <- TRUE
-            
         }
         
         if (state$box == "custom" & is.null(coords)) {
@@ -1768,22 +1720,16 @@ server <- function(input, output, session) {
         } else {
             
             if (state$box == "custom") {
-                
                 # Extract lat/lon from coordinates
                 Longitude <- coords[seq(1,length(coords), 2)]
                 Latitude <- coords[seq(2,length(coords), 2)]
-                
             } else {
-                
-                # Use point.in.polygon to extract AZMP stat boxes based on their
-                # lat/lon boundaries.
+                # Use point.in.polygon to extract data from existing boxes
                 Longitude <- as.numeric(all_regions[[region]][[which(state$box==poly_ID[[region]])]]$lon)
                 Latitude <- as.numeric(all_regions[[region]][[which(state$box==poly_ID[[region]])]]$lat)
-                
                 # for highlighted box in leaflet map
                 highlight_ID <- "highlighted_box"
                 add_poly <- TRUE
-                
             }
             
             if (add_poly) {
@@ -1834,22 +1780,10 @@ server <- function(input, output, session) {
         state$polylat <- Latitude
         state$null_rchla <- is.null(rchla)
         
-        # If there is valid data in this region for any day, compute statistics for it
+        # If there is valid data in this region for any day, compute statistics and add to state list
         if (!is.null(rchla)) {
-            
             all_stats <- get_stats(rchla=rchla, outlier=state$outlier)
-            
-            # update state with statistics for this region
-            state$limits <- all_stats$limits
-            state$lenok <- all_stats$lenok
-            state$chl_mean <- all_stats$chl_mean
-            state$chl_median <- all_stats$chl_median
-            state$chl_sd <- all_stats$chl_sd
-            state$chl_min <- all_stats$chl_min
-            state$chl_max <- all_stats$chl_max
-            state$nobs <- all_stats$nobs
-            state$percent_coverage <- all_stats$percent_coverage
-            
+            dummy <- lapply(names(all_stats), function(nm) {state[[nm]] <- all_stats[[nm]]})
         }
         
         gc()
@@ -2436,13 +2370,14 @@ server <- function(input, output, session) {
     
     #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
     # DOWNLOAD OUTPUT ####
-    # Map, density plot, bloom fit plot, annual stats, bloom parameters, and settings. Downloads to browser's default downloads folder.
+    # Map, density plot, bloom fit plot, annual stats, bloom parameters, and settings.
+    # Downloads to browser's default downloads folder.
     
     # Download the results from "fullrun_process"
     output$fullrun_download <- downloadHandler(
         filename <- isolate(state$fullrun_fname),
         content <- function(file) {
-            file.copy(file.path(isolate(state$fullrun_outputdir), isolate(state$fullrun_fname)), file)
+          file.copy(file.path(isolate(state$fullrun_outputdir), isolate(state$fullrun_fname)), file)
         },
         contentType = "application/zip"
     )
@@ -2459,7 +2394,7 @@ server <- function(input, output, session) {
     output$savedensplot <- downloadHandler(
         filename <- filename_dens(d=isolate(state)),
         content <- function(file) {
-            ggsave(file=file, plot=isolate(make_density_plot()), width=12, height=5, units="in")
+          ggsave(file=file, plot=isolate(make_density_plot()), width=12, height=5, units="in")
         }
     )
     
@@ -2467,7 +2402,7 @@ server <- function(input, output, session) {
     output$savebloomfit <- downloadHandler(
         filename <- filename_bfp(d=isolate(state)),
         content <- function(file) {
-            ggsave(file=file, plot=isolate(make_bloom_fit()), width=12, height=5, units="in")
+          ggsave(file=file, plot=isolate(make_bloom_fit()), width=12, height=5, units="in")
         }
     )
     
@@ -2484,7 +2419,7 @@ server <- function(input, output, session) {
     output$savebloomparams <- downloadHandler(
         filename <- filename_bfparam(d=isolate(state)),
         content <- function(file) {
-            write.csv(isolate(state$fitparams), file=file, quote=FALSE, na=" ", row.names=FALSE)
+          write.csv(isolate(state$fitparams), file=file, quote=FALSE, na=" ", row.names=FALSE)
         }
     )
     
