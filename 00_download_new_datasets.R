@@ -34,10 +34,10 @@ base_local <- paste0(getwd(),"/data/")
 cat("Retrieving list of files in local directory...\n")
 
 local_df <- data.frame(location=character(),
-                       reg_sens_alg=character(),
+                       reg_sens_var=character(),
                        region=character(),
                        sensor=character(),
-                       algorithm=character(),
+                       variable=character(),
                        stringsAsFactors = FALSE)
 
 local_regions <- list.files(base_local)
@@ -50,14 +50,12 @@ if (length(local_regions) > 0) {
   if (length(local_file_list) > 0) {
     
     # convert to a dataframe
-    local_df <- data.frame(do.call(rbind, strsplit(gsub(base_local,"",local_file_list), split="_")),
-                           stringsAsFactors = FALSE)
-    colnames(local_df) <- c("region","sensor","algorithm","year")
+    local_df <- data.frame(do.call(rbind, strsplit(basename(local_file_list), split="_")), stringsAsFactors = FALSE)
+    colnames(local_df) <- c("region","sensor","variable","year")
     local_df <- local_df %>%
-      dplyr::mutate(location = "local",
-                    region = sapply(strsplit(region, split="/"), "[[", 2)) %>%
-      dplyr::select(location, region, sensor, algorithm) %>%
-      tidyr::unite(col="reg_sens_alg", region, sensor, algorithm, remove=FALSE) %>%
+      dplyr::mutate(location = "local") %>%
+      dplyr::select(-year) %>%
+      tidyr::unite(col="reg_sens_var", region, sensor, variable, remove=FALSE) %>%
       dplyr::distinct()
     
   }
@@ -91,23 +89,23 @@ ftp_res <- ftp_res[endsWith(ftp_res,".fst")]
 ftp_df <- do.call(rbind, strsplit(ftp_res, split="\\s+")) %>% data.frame(stringsAsFactors = FALSE)
 colnames(ftp_df) <- c("date_modified","time_modified","size_mb","filename")
 metadata_df <- do.call(rbind, strsplit(ftp_df$filename, split="_")) %>% data.frame(stringsAsFactors = FALSE)
-colnames(metadata_df) <- c("region","sensor","algorithm","year")
+colnames(metadata_df) <- c("region","sensor","variable","year")
 ftp_df <- dplyr::bind_cols(ftp_df, metadata_df)
 ftp_df <- ftp_df %>%
   dplyr::mutate(location = "ftp",
                 filename = paste0(region,"/",filename),
                 size_mb = round(as.numeric(size_mb) * conv_factor_file, 2)) %>%
-  dplyr::select(location, filename, size_mb, region, sensor, algorithm) %>%
-  tidyr::unite(col="reg_sens_alg", region, sensor, algorithm, remove=FALSE)
+  dplyr::select(location, filename, size_mb, region, sensor, variable) %>%
+  tidyr::unite(col="reg_sens_var", region, sensor, variable, remove=FALSE)
 
 
 #*******************************************************************************
 # COMPARE FTP AND LOCAL FILENAMES ####
 
 # subset ftp_df to the files from the existing local datasets
-ftp_df <- ftp_df %>% dplyr::filter(!(reg_sens_alg %in% local_df$reg_sens_alg))
+ftp_df <- ftp_df %>% dplyr::filter(!(reg_sens_var %in% local_df$reg_sens_var))
 
-ftp_sets <- sort(unique(ftp_df$reg_sens_alg))
+ftp_sets <- sort(unique(ftp_df$reg_sens_var))
 
 
 #*******************************************************************************
@@ -116,11 +114,11 @@ ftp_sets <- sort(unique(ftp_df$reg_sens_alg))
 if (length(ftp_sets) > 0) {
   
   tmp_df <- ftp_df %>%
-    dplyr::group_by(reg_sens_alg) %>%
+    dplyr::group_by(reg_sens_var) %>%
     dplyr::summarize(total_size_mb = sum(size_mb,na.rm=TRUE),
                      num_files_available = n()) %>%
     dplyr::ungroup() %>%
-    dplyr::rename(region_sensor_algorithm=reg_sens_alg) %>%
+    dplyr::rename(region_sensor_variable=reg_sens_var) %>%
     as.data.frame()
   
   cat("Datasets to download:\n")
@@ -129,7 +127,7 @@ if (length(ftp_sets) > 0) {
   
   for (i in 1:length(ftp_sets)) {
     current_set <- ftp_sets[i]
-    tmp_df <- ftp_df %>% dplyr::filter(reg_sens_alg==current_set)
+    tmp_df <- ftp_df %>% dplyr::filter(reg_sens_var==current_set)
     msg <- paste0("Download ",current_set," (",nrow(tmp_df)," files, ",
                   sum(tmp_df$size_mb,na.rm=TRUE),"mb total)? Y/N ")
     ans <- readYN(msg)

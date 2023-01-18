@@ -3,7 +3,7 @@
 
 # Run this script to update your existing datasets.
 # This will download the fst files for any years that are missing or out-of-date
-# for the region/sensor/algorithm datasets existing in your PhytoFit/data/ subfolder.
+# for the region/sensor/variable datasets existing in your PhytoFit/data/ subfolder.
 
 library(dplyr)
 library(lubridate)
@@ -51,19 +51,18 @@ if (length(local_regions)) {
     # convert to a dataframe
     local_df <- data.frame(date_modified=local_res$mtime,
                            size_mb=local_res$size,
-                           filename=as.character(gsub(base_local,"",local_file_list)),
+                           filename=as.character(basename(local_file_list)),
                            stringsAsFactors = FALSE)
     tz(local_df$date_modified) <- Sys.timezone()
     metadata_df <- data.frame(do.call(rbind, strsplit(local_df$filename, split="_")), stringsAsFactors = FALSE)
-    colnames(metadata_df) <- c("region","sensor","algorithm","year")
+    colnames(metadata_df) <- c("region","sensor","variable","year")
     local_df <- dplyr::bind_cols(local_df, metadata_df)
     local_df <- local_df %>%
       dplyr::mutate(location = "local",
-                    region = sapply(strsplit(region, split="/"), "[[", 2),
                     year = as.numeric(gsub(".fst","",year)),
                     size_mb = round(as.numeric(size_mb) * conv_factor_file, 2)) %>%
-      dplyr::select(location, filename, date_modified, size_mb, region, sensor, algorithm, year) %>%
-      tidyr::unite(col="reg_sens_alg", region, sensor, algorithm, remove=FALSE)
+      dplyr::select(location, filename, date_modified, size_mb, region, sensor, variable, year) %>%
+      tidyr::unite(col="reg_sens_var", region, sensor, variable, remove=FALSE)
     
   } else {
     
@@ -104,7 +103,7 @@ ftp_res <- ftp_res[endsWith(ftp_res,".fst")]
 ftp_df <- do.call(rbind, strsplit(ftp_res, split="\\s+")) %>% data.frame(stringsAsFactors = FALSE)
 colnames(ftp_df) <- c("date_modified","time_modified","size_mb","filename")
 metadata_df <- do.call(rbind, strsplit(ftp_df$filename, split="_")) %>% data.frame(stringsAsFactors = FALSE)
-colnames(metadata_df) <- c("region","sensor","algorithm","year")
+colnames(metadata_df) <- c("region","sensor","variable","year")
 ftp_df <- dplyr::bind_cols(ftp_df, metadata_df)
 ftp_df <- ftp_df %>%
   dplyr::mutate(location = "ftp",
@@ -114,15 +113,15 @@ ftp_df <- ftp_df %>%
                 date_modified = as_datetime(paste(date_modified,time_modified),
                                             format="%m-%d-%y %I:%M%p",
                                             tz="Canada/Eastern")) %>%
-  dplyr::select(location, filename, date_modified, size_mb, region, sensor, algorithm, year) %>%
-  tidyr::unite(col="reg_sens_alg", region, sensor, algorithm, remove=FALSE)
+  dplyr::select(location, filename, date_modified, size_mb, region, sensor, variable, year) %>%
+  tidyr::unite(col="reg_sens_var", region, sensor, variable, remove=FALSE)
 
 
 #*******************************************************************************
 # COMPARE FTP AND LOCAL TIMESTAMPS AND FILENAMES ####
 
 # subset ftp_df to the files from the existing local datasets
-ftp_df <- ftp_df %>% dplyr::filter(reg_sens_alg %in% unique(local_df$reg_sens_alg))
+ftp_df <- ftp_df %>% dplyr::filter(reg_sens_var %in% unique(local_df$reg_sens_var))
 
 # find existing local files that have different times on the ftp site
 diff_times <- dplyr::inner_join(ftp_df, local_df, by="filename") %>% dplyr::filter(date_modified.x > date_modified.y)
