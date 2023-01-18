@@ -1,15 +1,15 @@
 # Using the raw chlorophyll data
 
-You can download the raw data used in PhytoFit in *fst* format (stored in the `data/` subdirectory [here](https://github.com/BIO-RSG/PhytoFit/tree/master/data)), which can be read into R.  
+You can download the raw data used in PhytoFit in *fst* format (stored in the `data/` subdirectory [here](https://github.com/BIO-RSG/PhytoFit/tree/master/data)), which can be read into R. This data is binned, meaning that instead of being projected, it's been placed in "bins" of approximately equal area on the Earth's surface. See [NASA OBPG's explanation](https://oceancolor.gsfc.nasa.gov/docs/format/l3bins/) of the binning scheme for details.  
 
 ### Files you will need:  
 
-- data/*region*/*region_sensor_algorithm_year*.fst  
-- [coords.rds](https://github.com/BIO-RSG/PhytoFit/raw/master/coords.rds)  
+- data/*region*/*region_sensor_variable_year*.fst  
+- [reginfo.rds](https://github.com/BIO-RSG/PhytoFit/raw/master/reginfo.rds)  
 
 ### Example:
 
-Using MODIS-Aqua OCx chlorophyll-a for 2003 in the Atlantic, and subsetting it to the Gulf of Saint Lawrence...  
+Using the 2022 reprocessing of MODIS-Aqua OCI chlorophyll-a for 2003 in the Atlantic, and subsetting it to the Gulf of Saint Lawrence...  
 
 First, load the necessary packages:  
 
@@ -21,7 +21,7 @@ library(sp)     # to subset the region by lat/lon
 To read a file:
 
 ```{r}
-filename <- "data/atlantic/atlantic_modis_ocx_2003.fst"
+filename <- "data/atlantic/atlantic_modisaquar2022.0_chloci_2003.fst"
 dat <- read_fst(filename)
 ```
 
@@ -35,22 +35,22 @@ The data has been flattened and formatted as a long dataframe to write to fst, s
 
 ```{r}
 # if you're using ocx, poly4, or gsm_gs in the atlantic
-dat_mat <- matrix(dat$chl, nrow=183824)
-# # if you're using ocx, poly4, or gsm_gs in the pacific
-# dat_mat <- matrix(dat$chl, nrow=48854)
+dat_mat <- matrix(dat[[1]], nrow=183824)
+# # if you're using oci, poly4, or gsm_gs in the pacific
+# dat_mat <- matrix(dat[[1]], nrow=48854)
 # # if you're using eof
-# dat_mat <- matrix(dat$chl, nrow=68067)
+# dat_mat <- matrix(dat[[1]], nrow=68067)
 str(dat_mat)
 ```
 
-(Note the different options depending on the algorithm you use - ocx, poly4, and gsmgs are on a 4km-resolution "atlantic" or "pacific" grid, which has 183824 (or 48854) pixels, but eof is on a 4km-resolution Gulf of Saint Lawrence grid, which only has 68067)  
+(Note the different options depending on the algorithm you use - oci, poly4, and gsmgs are on a 4km-resolution "atlantic" or "pacific" grid, which has 183824 (or 48854) pixels, but eof is on a 4km-resolution Gulf of Saint Lawrence grid, which only has 68067)  
 
 Now load the coordinates file and grab the vector of coordinates associated with the pixels for the Atlantic (or Pacific or GoSL) region:  
 
 ```{r}
-coordinates <- readRDS("coords.rds")$atlantic
-# coordinates <- readRDS("coords.rds")$pacific
-# coordinates <- readRDS("coords.rds")$gosl_4km
+coordinates <- readRDS("reginfo.rds")$atlantic
+# coordinates <- readRDS("reginfo.rds")$pacific
+# coordinates <- readRDS("reginfo.rds")$gosl4km
 str(coordinates)
 ```
 
@@ -69,12 +69,13 @@ pixel_index <- as.logical(point.in.polygon(point.x = coordinates$lon,
 
 Note that `point.in.polygon()` returns an integer vector of values the same length as point.x and point.y, where the value is 0 if the point is outside the bounds, 1 if it's inside, 2 if on the edge, and 3 if on a vertex. Converting this to a logical vector makes all 0 points *FALSE* and everything else *TRUE*.  
 
-Now use this index to subset the data and vectors of coordinates:  
+Now use this index to subset the data, coordinates, and bin number:  
 
 ```{r}
 dat_mat_subset <- dat_mat[pixel_index,]
 lat_subset <- coordinates$lat[pixel_index]
 lon_subset <- coordinates$lon[pixel_index]
+bin_subset <- coordinates$bin[pixel_index]
 ```
 
 To turn this daily data for 2003 into a dataframe with columns latitude, longitude, day, and chlorophyll, you can do this:  
@@ -82,6 +83,7 @@ To turn this daily data for 2003 into a dataframe with columns latitude, longitu
 ```{r}
 df <- data.frame(latitude = rep(lat_subset, ncol(dat_mat)),
                  longitude = rep(lon_subset, ncol(dat_mat)),
+                 bin = rep(bin_subset, ncol(dat_mat)),
                  day = rep(1:ncol(dat_mat), each = nrow(dat_mat_subset)),
                  chlorophyll = as.numeric(dat_mat_subset),
                  stringsAsFactors = FALSE)
@@ -93,26 +95,29 @@ str(df)
 View the data for day of year 126:  
 
 ```{r}
-# packages required to view the data on a map, with land boundaries
-library(dplyr)          # dataframe manipulation tools
-library(raster)         # to rasterize the binned data
-library(latticeExtra)   # to plot the land boundaries
-data("wrld_simpl", package = "maptools")
-
+library(dplyr) # dataframe manipulation tools
 df <- df %>%
   # use only the data for day 126
   dplyr::filter(day == 126) %>%
   # remove the "day" column
   dplyr::select(-day)
 
-coordinates(df) <- ~longitude + latitude
-
-# create an empty raster object to the extent of the points
-rast <- raster(ext=extent(df), resolution = c(0.065,0.04333333))
-
-# rasterize the irregular points
-rast <- rasterize(df, rast, df$chlorophyll, fun = mean, na.rm = TRUE)
-
+# MAP CODE OPTION 1:
+library(oceancolouR) # install with remotes::install_github("BIO-RSG/oceancolouR")
+# make a raster out of the points
+rast <- var_to_rast(df=df %>% dplyr::select(bin, chlorophyll), ext=c(range(lon_example),range(lat_example)))
 # view it on a map (log10 transform first so it's easier to see the gradient)
-spplot(log10(rast)) + latticeExtra::layer(sp.polygons(wrld_simpl))
+make_raster_map(log10(rast), xlim=range(lon_example), ylim=range(lat_example))
+
+# # MAP CODE OPTION 2:
+# library(raster)
+# library(latticeExtra)
+# data("wrld_simpl", package = "maptools")
+# coordinates(df) <- ~longitude + latitude
+# # create an empty raster object to the extent of the points
+# rast <- raster(ext=extent(df), resolution = c(0.065,0.04333333))
+# # rasterize the irregular points
+# rast <- rasterize(df, rast, df$chlorophyll, fun = mean, na.rm = TRUE)
+# # view it on a map
+# spplot(log10(rast)) + latticeExtra::layer(sp.polygons(wrld_simpl))
 ```
