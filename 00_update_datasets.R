@@ -4,6 +4,10 @@
 # Run this script to update your existing datasets.
 # This will download the fst files for any years that are missing or out-of-date
 # for the region/sensor/variable datasets existing in your PhytoFit/data/ subfolder.
+# To run from the command line and ask before downloading each data subset:
+#   Rscript [script directory]/00_update_datasets.R 'true'
+# To run from the command line and download everything automatically:
+#   Rscript [script directory]/00_update_datasets.R 'false'
 
 library(dplyr)
 library(lubridate)
@@ -19,6 +23,12 @@ conv_factor_file <- 1/1024/1024 # megabytes, for file sizes
 
 # subdirectory in the phytofit repository, where the data is stored
 base_local <- paste0(getwd(),"/data/")
+
+# check if R script is run from command line with arguments
+all_args <- commandArgs(trailingOnly=TRUE)
+if (length(all_args) > 0) {
+  ask_user <- as.logical(all_args[1])
+}
 
 
 #*******************************************************************************

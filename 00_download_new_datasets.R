@@ -2,11 +2,18 @@
 # 28 Jul 2020
 
 # Run this script to download new datasets.
+# To run from the command line and ask before downloading each data subset:
+#   Rscript [script directory]/00_download_new_datasets.R 'true'
+# To run from the command line and download everything automatically:
+#   Rscript [script directory]/00_download_new_datasets.R 'false'
 
 library(dplyr)
 library(lubridate)
 library(curl)
 source("readYN.R")
+
+# should the script ask before downloading each data subset?
+ask_user <- FALSE
 
 # for bytes to kilobytes, megabytes, or gigabytes
 conv_factor_dir <- 1/1024/1024/1024 # gigabytes, for directory sizes
@@ -15,6 +22,11 @@ conv_factor_file <- 1/1024/1024 # megabytes, for file sizes
 # subdirectory in the phytofit repository, where the data is stored
 base_local <- paste0(getwd(),"/data/")
 
+# check if R script is run from command line with arguments
+all_args <- commandArgs(trailingOnly=TRUE)
+if (length(all_args) > 0) {
+  ask_user <- as.logical(all_args[1])
+}
 
 #*******************************************************************************
 # GET LIST OF LOCAL DATASETS ####
@@ -116,11 +128,15 @@ if (length(ftp_sets) > 0) {
   for (i in 1:length(ftp_sets)) {
     current_set <- ftp_sets[i]
     tmp_df <- ftp_df %>% dplyr::filter(reg_sens_var==current_set)
-    msg <- paste0("Download ",current_set," (",nrow(tmp_df)," files, ",
-                  sum(tmp_df$size_mb,na.rm=TRUE),"mb total)? Y/N ")
-    ans <- readYN(msg)
-    while (is.null(ans)) {
+    if (ask_user) {
+      msg <- paste0("Download ",current_set," (",nrow(tmp_df)," files, ",
+                    sum(tmp_df$size_mb,na.rm=TRUE),"mb total)? Y/N ")
       ans <- readYN(msg)
+      while (is.null(ans)) {
+        ans <- readYN(msg)
+      }
+    } else {
+      ans <- "Y"
     }
     if (ans=="Y") {
       # create output directory for the region, if necessary
