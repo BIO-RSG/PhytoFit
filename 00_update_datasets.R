@@ -8,22 +8,10 @@
 library(dplyr)
 library(lubridate)
 library(curl)
+source("readYN.R")
 
-# should the script ask before downloading updates?
+# should the script ask before downloading updates for each data subset?
 ask_user <- FALSE
-
-readYN <- function(pr) {
-  if (interactive()) {
-    n <- toupper(readline(prompt=pr))
-  } else {
-    cat(pr)
-    con <- file("stdin")
-    n <- toupper(readLines(con,1))
-    close(con)
-  }
-  if(!(n=="Y" | n=="N")) {return()}
-  return(n)
-}
 
 # for bytes to kilobytes, megabytes, or gigabytes
 conv_factor_dir <- 1/1024/1024/1024 # gigabytes, for directory sizes
@@ -42,19 +30,19 @@ local_regions <- list.files(base_local)
 
 if (length(local_regions)) {
   
-  local_file_list <- lapply(local_regions, function(x) Sys.glob(paste0(base_local,x,"/*.fst"))) %>% do.call(what=c)
-  local_file_list <- local_file_list[endsWith(local_file_list,".fst")]
-  local_res <- file.info(local_file_list)
+  local_file_list <- list.files(base_local,recursive=TRUE)
+  local_file_list <- sort(local_file_list[endsWith(local_file_list,".fst")])
+  local_res <- file.info(file.path(base_local,local_file_list))
   
   if (nrow(local_res) > 0) {
     
     # convert to a dataframe
     local_df <- data.frame(date_modified=local_res$mtime,
                            size_mb=local_res$size,
-                           filename=as.character(basename(local_file_list)),
+                           filename=local_file_list,
                            stringsAsFactors = FALSE)
     tz(local_df$date_modified) <- Sys.timezone()
-    metadata_df <- data.frame(do.call(rbind, strsplit(local_df$filename, split="_")), stringsAsFactors = FALSE)
+    metadata_df <- data.frame(do.call(rbind, strsplit(basename(local_df$filename), split="_")), stringsAsFactors = FALSE)
     colnames(metadata_df) <- c("region","sensor","variable","year")
     local_df <- dplyr::bind_cols(local_df, metadata_df)
     local_df <- local_df %>%
@@ -123,39 +111,51 @@ ftp_df <- ftp_df %>%
 # subset ftp_df to the files from the existing local datasets
 ftp_df <- ftp_df %>% dplyr::filter(reg_sens_var %in% unique(local_df$reg_sens_var))
 
-# find existing local files that have different times on the ftp site
+# find existing local files that have more recent modified times on the ftp site
 diff_times <- dplyr::inner_join(ftp_df, local_df, by="filename") %>% dplyr::filter(date_modified.x > date_modified.y)
 
 # find ftp files missing from the existing local datasets
 missing_files <- ftp_df %>% dplyr::filter(!(filename %in% diff_times$filename) & !(filename %in% local_df$filename))
 
 # combine list of files to download, with their sizes (in mb)
-files_to_download <- c(diff_times$filename, missing_files$filename)
-sizes <- c(diff_times$size_mb.x, missing_files$size_mb)
+files_to_download <- dplyr::bind_rows(
+  diff_times %>%
+    dplyr::select(reg_sens_var.x,filename,size_mb.x) %>%
+    dplyr::rename(reg_sens_var=reg_sens_var.x,size_mb=size_mb.x),
+  missing_files %>%
+    dplyr::select(reg_sens_var,filename,size_mb)
+)
 
 
 #*******************************************************************************
 # DOWNLOAD FILES ####
 
-if (length(files_to_download) > 0) {
-  cat("List of files to download:\n")
-  cat(paste0(files_to_download, collapse="\n"))
-  cat("\n\nTotal download size =", sum(sizes), "mb\n")
-  if (ask_user) {
-    ans <- readYN("Download all? Y/N ")
-    while (is.null(ans)) {
-      ans <- readYN("Download all? Y/N ")
+if (nrow(files_to_download) > 0) {
+  ftp_sets <- unique(files_to_download$reg_sens_var)
+  for (i in 1:length(ftp_sets)) {
+    current_set <- ftp_sets[i]
+    tmp_df <- files_to_download %>% dplyr::filter(reg_sens_var==current_set)
+    if (ask_user) {
+      msg <- paste0("Update ",current_set," (",nrow(tmp_df)," files, ",
+                    sum(tmp_df$size_mb,na.rm=TRUE),"mb total)? Y/N ")
+      ans <- readYN(msg)
+      while (is.null(ans)) {
+        ans <- readYN(msg)
+      }
+    } else {
+      ans <- "Y"
     }
-  } else {
-    ans <- "Y"
-  }
-  if (ans=="Y") {
-    for (i in 1:length(files_to_download)) {
-      cat(paste0("Downloading ", files_to_download[i], "...\n"))
-      curl_download(url = paste0(base_ftp, files_to_download[i]),
-                    destfile = paste0(base_local, files_to_download[i]))
+    if (ans=="Y") {
+      # download each file for the region and dataset
+      tmpfiles <- tmp_df$filename
+      for (j in 1:nrow(tmp_df)) {
+        filename <- tmpfiles[j]
+        cat(paste0("Downloading ", filename, "...\n"))
+        curl_download(url = paste0(base_ftp, filename),
+                      destfile = paste0(base_local, filename))
+      }
+      cat("\n")
     }
-    cat("DONE!")
   }
 } else {
   cat("Everything up-to-date.")

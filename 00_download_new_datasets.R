@@ -6,19 +6,7 @@
 library(dplyr)
 library(lubridate)
 library(curl)
-
-readYN <- function(pr) {
-  if (interactive()) {
-    n <- toupper(readline(prompt=pr))
-  } else {
-    cat(pr)
-    con <- file("stdin")
-    n <- toupper(readLines(con,1))
-    close(con)
-  }
-  if(!(n=="Y" | n=="N")) {return()}
-  return(n)
-}
+source("readYN.R")
 
 # for bytes to kilobytes, megabytes, or gigabytes
 conv_factor_dir <- 1/1024/1024/1024 # gigabytes, for directory sizes

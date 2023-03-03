@@ -4,27 +4,27 @@
 #*******************************************************************************
 # VARIABLES THAT CAN BE CHANGED - vectors of potential sensors and variables
 
-# The vector values (i.e. modisaquar2018, seawifsr2018, oci, poly4...) must match the "sensor" and "variable"
+# The vector values (i.e. modisaquar2018.1, seawifsr2022.0, chloci, chlpoly4...) must match the "sensor" and "variable"
 # in the fst filenames.
-# The vector names (i.e. MODIS-Aqua v2018, OCI chl-a...) are the full names of the sensor and variable,
+# The vector names (i.e. MODIS-Aqua R2018.1, OCI chl-a...) are the full names of the sensor and variable,
 # which will appear in the drop-down menus in the app.
 # Note: if you don't have any data files for these stored in your "data" folder, they won't
 # appear in the drop-down menus when you load the app.
-# Note: SENSOR NAMES INCLUDE THE VERSION DATA (i.e. the reprocessing)
+# Note: SENSOR NAMES INCLUDE THE DATA VERSION (i.e. the reprocessing)
 
-sensor_names <- c("MODIS-Aqua R2018.1" = "modisaquar2018",
-                  "SeaWiFS R2018.0" = "seawifsr2018",
-                  "VIIRS-SNPP R2018.0" = "viirssnppr2018",
-                  "OLCI-A R2022.0" = "olcis3ar2022",
-                  "OLCI-B R2022.0" = "olcis3br2022",
-                  "SeaWiFS-modelled MODIS R2018.1" = "mseawifsr2018",
-                  "VIIRS-modelled MODIS R2018.1" = "mviirssnppr2018",
-                  "Multi-sensor R2018.1" = "multisensorr2018")
+sensor_names <- c("MODIS-Aqua R2022.0" = "modisaquar2022.0",
+                  "MODIS-Aqua R2018.1" = "modisaquar2018.1",
+                  "SeaWiFS R2022.0" = "seawifsr2022.0",
+                  "SeaWiFS R2018.0" = "seawifsr2018.0",
+                  "VIIRS-SNPP R2022.0" = "viirssnppr2022.0",
+                  "VIIRS-SNPP R2018.0" = "viirssnppr2018.0",
+                  "OLCI-S3A R2022.0" = "olcis3ar2022.0",
+                  "OLCI-S3B R2022.0" = "olcis3br2022.0")
 
-variable_names <- c("OCI chl-a (global, band ratio)" = "oci",
-                    "POLY4 chl-a (regional, band ratio)" = "poly4",
-                    "GSM_GS chl-a (regional, semi-analytical)" = "gsmgs",
-                    "EOF chl-a (regional, empirical)" = "eof")
+variable_names <- c("OCI chl-a (global, band ratio)" = "chloci",
+                    "POLY4 chl-a (regional, band ratio)" = "chlpoly4",
+                    "GSM_GS chl-a (regional, semi-analytical)" = "chlgsmgs",
+                    "EOF chl-a (regional, empirical)" = "chleof")
 
 
 #*******************************************************************************
@@ -148,8 +148,7 @@ input_ids_description <- c("Region", "Sensor and Chlorophyll-a Algorithm",
 
 # colors used in the map
 # from "oceColorsJet" in "oce" package
-# map_cols <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F",
-# "yellow", "#FF7F00", "red", "#7F0000"))(100)
+# map_cols <- colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F", "yellow", "#FF7F00", "red", "#7F0000"))(100)
 # from "roma" palette in "scico" package (colorblind-friendly)
 map_cols <- colorRampPalette(c("#1A3399", "#2F5FAC", "#428FC0", "#5FC2D4", "#AEE8D5", "#E3EBB1", "#D9D26A", "#BA9532", "#9E5B19", "#7E1900"))(100)
 
@@ -197,6 +196,7 @@ datasets <- data.frame(filename = list.files("data", recursive=TRUE, full.names=
   dplyr::filter(endsWith(filename,".fst")) %>%
   tidyr::separate(col=basename, into=c("region","sensor","variable","year"), sep="_") %>%
   tidyr::drop_na() %>% # remove rows with missing values
+  # list of possible datasets is restricted to the user-defined sensors and variables at the top of this script, and regions in reginfo
   dplyr::filter(region %in% regions & sensor %in% sensor_names & variable %in% variable_names)
 
 if (nrow(datasets)==0) {
@@ -254,8 +254,6 @@ if (nrow(datasets)==0) {
 # set up defaults
 default_region <- regions[1]
 default_sat_algs <- sat_algs[[default_region]]
-default_sensor <- strsplit(default_sat_algs[1], split="_")[[1]][1]
-default_algorithm <- strsplit(default_sat_algs[1], split="_")[[1]][2]
 default_years <- years[[default_region]][[default_sat_algs[1]]]
 
 
@@ -330,6 +328,7 @@ sidebar_tags_style <- "hr {border-top: 1px solid #bbbbbb;}
 startup_popup <- paste0("This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.<br><br>",
                       "<a href=\"https://github.com/BIO-RSG/PhytoFit\">Github repository</a> (All code and data can be accessed here)<br><br>",
                       "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md\">User guide</a> (In progress)<br><br>",
+                      "<a href=\"https://bio-rsg.github.io/chla_model_performance_summary.html\">Chl-a model performance evaluation</a><br><br>",
                       "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/fst_tutorial.md\">Using the raw (binned) data</a><br>This is a quick tutorial explaining how the raw satellite chlorophyll data used in PhytoFit can be read into R and manipulated for other purposes.<br><br>",
                       "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/updates.md\">Code updates affecting the algorithms</a><br>Summary of updates that affect the way the bloom metrics are calculated.<br><br>",
                       "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md#references-and-data-sources\">References and data sources</a><br><br>",
@@ -361,8 +360,8 @@ gauss_flag_popup <- paste0("<font style=\"font-size: 12px; color: #555555; font-
 # make a simple plot of month abbreviations for the top of the day of year slider
 # just use a regular year, ignore the change in leap years because it's small
 # this is just to make it easier to see where each month starts along the slider
-pydays <- yday(as_date(paste0("2019",pad0(1:12,2),"01"),format="%Y%m%d"))
-pmonth <- ggplot(df) +
+pydays <- as.numeric(format(as.Date(paste0("2019",pad0(1:12,2),"01"),format="%Y%m%d"),"%j"))
+pmonth <- ggplot() +
   # geom_hline(yintercept=0, color="grey") +
   geom_vline(xintercept=pydays, color="grey") +
   scale_x_continuous(limits=c(1,365), breaks=pydays, labels=month.abb, expand=c(0,0), position="top") +
