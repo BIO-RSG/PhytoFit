@@ -1,3 +1,8 @@
+# function to check if a data file exists
+dexist <- function(region,sat_alg,year) {
+  file.exists(paste0("./data/", region, "/", region, "_", sat_alg, "_", year, ".fst"))
+}
+
 # Create day label for plots/maps and time index for subsetting data.
 # This changes when year, interval, or day of year change.
 get_time_vars <- function(interval, year, yearday, doys_per_week=NULL) {
@@ -22,12 +27,12 @@ get_time_vars <- function(interval, year, yearday, doys_per_week=NULL) {
 }
 
 # Load and format a new dataset
-get_data <- function(region, satellite, algorithm, year, yearday, interval, log_chla,
+get_data <- function(region, sat_alg, year, yearday, interval, log_chla,
                      num_pix, doys_per_week, doy_week_start, doy_week_end,
                      concentration_type="full", cell_size_model1="small", cell_size_model2="small") {
   
   time_variables <- get_time_vars(interval, year, yearday, doys_per_week)
-  sschla_filename <- paste0("./data/", region, "/", region, "_", satellite, "_", algorithm, "_", year, ".fst")
+  sschla_filename <- paste0("./data/", region, "/", region, "_", sat_alg, "_", year, ".fst")
   
   if (!file.exists(sschla_filename)) {
     return(list(sschla=data.frame(matrix(nrow=num_pix, ncol=1), stringsAsFactors = FALSE),
@@ -163,11 +168,28 @@ get_stats <- function(rchla, outlier) {
 
 # Get bloom fitted parameters and resulting plot
 get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_median, lenok, ind_dayrange_percov,
-                               ind_percov, ydays_dayrange_percov, ydays_percov, ydays_dayrange, rchla_nrow,
-                               use_weights, smoothMethod, loessSpan, fitmethod, bloomShape, daily_percov,
-                               tm, beta, tm_limits, ti_limits, t_range, log_chla, threshcoef, doy_vec, plot_title,
-                               flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, ti_threshold=0.2, tt_threshold=0.2,
-                               rm_bkrnd=FALSE, ti_threshold_type = "percent_thresh", ti_threshold_constant = 0.1) {
+                               ind_percov, ydays_dayrange_percov, ydays_percov, ydays_dayrange, rchla_nrow, daily_percov,
+                               t_range, log_chla, doy_vec, plot_title, sv) {
+  
+  use_weights = sv$use_weights
+  smoothMethod = sv$smoothMethod
+  loessSpan = sv$loessSpan
+  fitmethod = sv$fitmethod
+  bloomShape = sv$bloomShape
+  tm = sv$tm
+  beta = sv$beta
+  tm_limits = sv$tm_limits
+  ti_limits = sv$ti_limits
+  threshcoef = sv$threshcoef
+  flag1_lim1 = sv$flag1_lim1
+  flag1_lim2 = sv$flag1_lim2
+  flag2_lim1 = sv$flag2_lim1
+  flag2_lim2 = sv$flag2_lim2
+  ti_threshold = sv$ti_threshold
+  tt_threshold = sv$tt_threshold
+  rm_bkrnd = sv$rm_bkrnd
+  ti_threshold_type = sv$ti_threshold_type
+  ti_threshold_constant = sv$ti_threshold_constant
   
   nofit_msg <- NULL
   
@@ -304,7 +326,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
                aes(x=x, y=y, size=percov), alpha=0.6) +
     geom_vline(xintercept=as.numeric(bf_results[,tvars[1:3]]), col="black", alpha=0.6) +
     ggtitle(plot_title) +
-    labs(x='Day number') +
+    labs(x='Day number',size="% coverage") +
     scale_x_continuous(limits=c(0,365), breaks=seq(0,365,by=50)) +
     scale_size_area(minor_breaks=c(25, 50, 75, 100), limits=c(0, 100), max_size=10) +
     theme(legend.position="bottom",
@@ -313,7 +335,7 @@ get_bloom_fit_data <- function(interval, p, pnames, dailystat, chl_mean, chl_med
           axis.title.x=element_text(size=10),
           axis.text.x=element_text(size=12),
           axis.text.y=element_text(size=12),
-          panel.border = element_rect(colour="black", fill=NA, size=0.4)) +
+          panel.border = element_rect(colour="black", fill=NA, linewidth=0.4)) +
     annotation_custom(grobTree(textGrob(paste0("** Click a point and scroll up to see the map for that ",
                                                ifelse(interval=="daily", "day", "week")),
                                         x=0.01, y=0.94,hjust=0,
@@ -448,9 +470,29 @@ format_settings_to_save <- function(all_inputs, custom_name, polylon, polylat, r
 }
 
 # Create an output filename based on user-selected settings
-output_str <- function(satellite, region, algorithm, year, interval, log_chla,
-                       day_label=NULL, polygon=NULL, fitmethod, custom_end,
-                       concentration_type="full", cell_size_model1="small", cell_size_model2="small") {
+# d = "state" list of reactive values
+output_str <- function(d, custom_end) {
+
+  sat_alg <- d$sat_alg
+  region <- d$region
+  year <- d$year
+  interval <- d$interval
+  log_chla <- d$log_chla
+  fitmethod <- d$fitmethod
+  concentration_type <- d$concentration_type
+  cell_size_model1 <- d$cell_size_model1
+  cell_size_model2 <- d$cell_size_model2
+  day_label <- NULL
+  polygon <- NULL
+  
+  if (!is.null(custom_end)) {
+    if (custom_end %in% c("map.html","density_plot.png","settings.txt")) {
+      day_label <- gsub(" ", "", strsplit(d$day_label, "[()]+")[[1]][2])
+    }
+    if (custom_end %in% c("map.html","density_plot.png","bloom_fit.png","annual_stats.csv","bloom_parameters.csv","settings.txt")) {
+      polygon <- d$box
+    }
+  }
   
   if (length(year) > 1) {
     if (year[1]==year[2]) {
@@ -459,13 +501,13 @@ output_str <- function(satellite, region, algorithm, year, interval, log_chla,
       year <- paste0(year, collapse="-")
     }
   }
-  
   cellSize <- paste0("cellSize", ifelse(concentration_type=="full", "All",
                                         ifelse(concentration_type=="model1", paste0(proper(cell_size_model1), "-mod1"),
                                                paste0(proper(cell_size_model2), "-mod2"))))
   
-  output_name <- paste(c(satellite, region, polygon, interval, year, day_label, cellSize,
-                         ifelse(log_chla, paste0("log", proper(algorithm), "Chla"), paste0(proper(algorithm), "Chla")),
+  sat_alg <- strsplit(sat_alg,split="_")[[1]]
+  output_name <- paste(c(sat_alg[1], region, polygon, interval, year, day_label, cellSize,
+                         ifelse(log_chla, paste0("log", proper(sat_alg[2])), proper(sat_alg[2])),
                          fitmethod, paste0("created", format(Sys.time(),"%Y-%m-%d-%H%M%S")), custom_end),
                        collapse="_")
   
@@ -614,7 +656,7 @@ phyto_cellsize_model1 <- function(chla, which_size="small") {
 }
 
 
-# Three population
+# Three populations
 phyto_cellsize_model2 <- function(chla, which_size="small") {
   new_chla <- matrix(nrow=nrow(chla), ncol=ncol(chla))
   good_chla <- !is.na(chla)

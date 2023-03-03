@@ -1,23 +1,23 @@
 # return stats and bloom fit for a selected year
 
-full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon, 
-                     polygon_list, latlon_method, pnames, yearday, doys_per_week, doy_week_start, doy_week_end,
-                     dailystat, pixrange1, pixrange2, outlier, percent, log_chla,
-                     fitmethod, bloomShape, smoothMethod, loessSpan=NA, use_weights,
-                     threshcoef=NA, tm=FALSE, beta=FALSE, t_range = c(1,365),
-                     tm_limits = c(1,365), ti_limits = c(1,365), dir_name,
-                     flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, ti_threshold=0.2, tt_threshold=0.2,
-                     rm_bkrnd=FALSE, ti_threshold_type = "percent_thresh", ti_threshold_constant = 0.1,
-                     fullrunoutput_png = TRUE, fullrunoutput_statcsv = TRUE,
-                     concentration_type="full", cell_size_model1="small", cell_size_model2="small") {
+full_run <- function(d, year, sslat, sslon, polygon_list, pnames, doys_per_week, doy_week_start,
+                     doy_week_end, dir_name, fullrunoutput_png=TRUE, fullrunoutput_statcsv=TRUE) {
     
-    
+    interval = d$interval
+    dailystat = d$dailystat
+    pixrange1 = d$pixrange1
+    pixrange2 = d$pixrange2
+    percent = d$percent
+    log_chla = d$log_chla
+    smoothMethod = d$smoothMethod
+    t_range = d$t_range
+
     #***************************************************************************
     # load data and create base plot and plot title
     
-    all_data <- get_data(region, satellite, algorithm, year, yearday, interval,
+    all_data <- get_data(d$region, d$sat_alg, year, d$yearday, interval,
                          log_chla, length(sslat), doys_per_week, doy_week_start, doy_week_end,
-                         concentration_type, cell_size_model1, cell_size_model2)
+                         d$concentration_type, d$cell_size_model1, d$cell_size_model2)
     
     sschla <- all_data$sschla
     available_days <- all_data$available_days
@@ -92,16 +92,19 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
         } else {
             
             # process full annual stats
-            all_stats <- get_stats(rchla, outlier)
-            limits <- all_stats$limits
+            all_stats <- get_stats(rchla, d$outlier)
             lenok <- all_stats$lenok
             chl_mean <- all_stats$chl_mean
             chl_median <- all_stats$chl_median
-            chl_sd <- all_stats$chl_sd
-            chl_min <- all_stats$chl_min
-            chl_max <- all_stats$chl_max
-            nobs <- all_stats$nobs
-            percent_coverage <- all_stats$percent_coverage
+            stats_df <- data.frame(doy=doy_vec,
+                                   mean_chl=chl_mean,
+                                   median_chl=chl_median,
+                                   stdev_chl=all_stats$chl_sd,
+                                   min_chl=all_stats$chl_min,
+                                   max_chl=all_stats$chl_max,
+                                   nobs=all_stats$nobs,
+                                   percent_coverage=all_stats$percent_coverage,
+                                   stringsAsFactors=FALSE)
             
             first_day <- t_range[1]
             last_day <- t_range[2]
@@ -122,16 +125,6 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                              last_day, " with >= ", percent, "% coverage")
                 
             }
-            
-            stats_df <- data.frame(doy=doy_vec,
-                                   mean_chl=chl_mean,
-                                   median_chl=chl_median,
-                                   stdev_chl=chl_sd,
-                                   min_chl=chl_min,
-                                   max_chl=chl_max,
-                                   nobs=nobs,
-                                   percent_coverage=percent_coverage,
-                                   stringsAsFactors=FALSE)
             
         }
         
@@ -154,30 +147,13 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
                                           ydays_percov = ydays_percov,
                                           ydays_dayrange = ydays_dayrange,
                                           rchla_nrow = nrow(rchla),
-                                          use_weights = use_weights,
-                                          smoothMethod = smoothMethod,
-                                          loessSpan = loessSpan,
-                                          fitmethod = fitmethod,
-                                          bloomShape = bloomShape,
                                           daily_percov = daily_percov,
-                                          tm = tm,
-                                          beta = beta,
-                                          tm_limits = tm_limits,
-                                          ti_limits = ti_limits,
                                           t_range = t_range,
                                           log_chla = log_chla,
-                                          threshcoef = threshcoef,
                                           doy_vec = doy_vec,
                                           plot_title = plot_title,
-                                          flag1_lim1 = flag1_lim1,
-                                          flag1_lim2 = flag1_lim2,
-                                          flag2_lim1 = flag2_lim1,
-                                          flag2_lim2 = flag2_lim2,
-                                          ti_threshold = ti_threshold,
-                                          tt_threshold = tt_threshold,
-                                          rm_bkrnd = rm_bkrnd,
-                                          ti_threshold_type = ti_threshold_type,
-                                          ti_threshold_constant = ti_threshold_constant)
+                                          sv = d)
+            
             loess_smooth <- rep(NA,length(daily_percov))
             if (smoothMethod == 'loess') {
                 loess_smooth[ind_dayrange_percov] <- bf_data$y$y
@@ -200,24 +176,18 @@ full_run <- function(year, satellite, region, algorithm, interval, sslat, sslon,
         }
         
         
-        
         #***********************************************************************
         # Write stats to csv and ggplot to png, and add fit parameters for the current region to the full dataframe
         
         if (fullrunoutput_statcsv) {
             write.csv(stats_df,
                       file=file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind], "_stats.csv")),
-                      quote=FALSE,
-                      na=" ",
-                      row.names=FALSE)
+                      quote=FALSE, na=" ", row.names=FALSE)
         }
         
         if (fullrunoutput_png) {
             ggsave(file=file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind], "_bloomfit.png")),
-                   plot=p,
-                   width=12,
-                   height=5,
-                   units="in")
+                   plot=p, width=12,  height=5, units="in")
         }
         
         full_fit_params[reg_ind,] <- c(toupper(poly_IDs[reg_ind]), year, as.numeric(fitparams))

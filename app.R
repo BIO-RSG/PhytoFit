@@ -10,7 +10,7 @@ library(shinyjs)        # for enabling/disabling download buttons
 library(shinybusy)      # to show progress when processing a full time series
 library(htmlwidgets)    # to use saveWidget to save the map
 library(leaflet)        # for creating map
-library(leaflet.extras) # for custom polygon drawings on map
+library(leafpm)         # for drawing/editing polygons on the map (replacing leaflet.extras)
 library(leafem)         # to add raster to map, and mouse coordinates at top of map
 library(quantreg)       # used in the fitting models
 library(minpack.lm)     # to use nlsLM for asymmetric gaussian fit
@@ -32,7 +32,6 @@ source("gaussFit.R")            # gaussian function for bloom fit
 source("full_run.R")            # contains function to run full time series with current settings
 source("functions.R")           # extra functions
 source("00_input_variables.R")  # load pre-defined variables
-source("widget_download_funcs.R")
 
 
 #*******************************************************************************
@@ -47,8 +46,7 @@ ui <- fluidPage(
     tags$head(tags$style(HTML(sidebar_tags_style))),
     inlineCSS(list("#applysettings" = "margin-top: -15px")),
     tags$style(".shiny-file-input-progress {display: none}
-               .irs-grid-text {font-size: 14px; color: white; bottom: -10px; top: 12px;}
-               .irs-from, .irs-to, .irs-min, .irs-max {visibility: hidden !important;"),
+               .irs-grid-text {font-size: 14px; color: white; bottom: -10px; top: 12px;}"),
     
     # old polygon removal code
     tags$div(remove_custom_poly),
@@ -564,7 +562,7 @@ ui <- fluidPage(
                                     style = button_style)),
             br(),br(),
             disabled(downloadButton(outputId = "savesettings",
-                                    label = "Save settings (.csv)",
+                                    label = "Save settings (.txt)",
                                     style = button_style))
             
             ))
@@ -637,8 +635,6 @@ server <- function(input, output, session) {
     state$nbad_polys <- 0
     state$data_loaded <- FALSE
     state$sat_alg <- default_sat_algs[1]
-    state$satellite <- default_sensor
-    state$algorithm <- default_algorithm
     state$year <- as.numeric(format(Sys.Date(),"%Y"))
     state$interval <- "daily"
     state$log_chla <- TRUE
@@ -668,14 +664,12 @@ server <- function(input, output, session) {
     state$secondary_settings <- NULL
     state$draw_programmatically <- FALSE
     state$applyname_programmatically <- FALSE
-    state$num_sfile_no_main_change <- 0 # number of settings files loaded that changed the main inputs
     state$max_area <- reginfo[[default_region]]$max_area
     state$loess_smooth <- NA
     
     # These are used to check which specific inputs have been updated in the code block
     # below that hides the left panel if any of the main inputs have changed.
     # years are dependant on sat_algs, which is dependent on region
-    state$current_region <- default_region
     state$current_sat_algs <- default_sat_algs
     state$current_years <- default_years
     
@@ -699,9 +693,9 @@ server <- function(input, output, session) {
     #               a. load the main settings (i.e. before the "load data" button)
     #               b. store the secondary settings
     #       3. When the main settings change, a block of code is executed to check if there is data
-    #          available for the selected settings. If there is, and there are secondary settings stored
-    #          in the "state" variable, the "load data" button is automatically clicked.
-    #       4. At the end of the "load data" code chunk:
+    #          available for the selected main settings. If there is, the "load data" button will be visible
+    #          for the user to click.
+    #       4. When "load data" is clicked, at the end of the "load data" code chunk:
     #               a. the secondary settings are updated
     #               b. if the settings file contains box=="custom" and valid polylons/polylats:
     #                   - input$box and state$box are updated to "custom"
@@ -731,8 +725,7 @@ server <- function(input, output, session) {
                                   "cell_size_model1", "cell_size_model2", "year", "interval", "log_chla")
                     main_inds <- file_contents$setting_id %in% main_ids
                     primary_settings <- file_contents[main_inds,]
-                    state$secondary_settings <- file_contents[!main_inds,]
-                    # update main input buttons
+                    # get updated values of main input buttons
                     formatted_settings <- format_settings_to_load(primary_settings)
                     tmp_ids <- formatted_settings$ids
                     tmp_values <- formatted_settings$values
@@ -744,18 +737,26 @@ server <- function(input, output, session) {
                     names(current_inputs) <- NULL
                     new_inputs <- unlist(tmp_values)
                     names(new_inputs) <- NULL
-                    # if necessary, update region, satellite/algorithm, concentration type, year, interval, and log_chla
-                    if (identical(current_inputs, new_inputs)) {
-                        state$num_sfile_no_main_change <- state$num_sfile_no_main_change + 1
-                    } else {
+                    if (dexist(tmp_values[[1]],tmp_values[[2]],tmp_values[[6]])) {
+                      # if necessary, update region, sat_alg, concentration type, year, interval, log_chla
+                      # otherwise just update secondary settings (if they've changed)
+                      if (identical(current_inputs, new_inputs)) {
+                        update_settings2(file_contents[!main_inds,])
+                      } else {
+                        sat_alg_choices <- sat_algs[[tmp_values[[1]]]]
+                        year_choices <- rev(years[[tmp_values[[1]]]][[tmp_values[[2]]]])
                         updateSelectInput(session, inputId = tmp_ids[1], selected = tmp_values[[1]])
-                        updateSelectInput(session, inputId = tmp_ids[2], selected = tmp_values[[2]])
+                        updateSelectInput(session, inputId = tmp_ids[2], selected = tmp_values[[2]], choices = sat_alg_choices)
                         updateRadioButtons(session, inputId = tmp_ids[3], selected = tmp_values[[3]])
                         updateRadioGroupButtons(session, inputId = tmp_ids[4], selected = tmp_values[[4]])
                         updateRadioGroupButtons(session, inputId = tmp_ids[5], selected = tmp_values[[5]])
-                        updateSelectInput(session, inputId = tmp_ids[6], selected = tmp_values[[6]], choices = rev(years[[tmp_values[[1]]]]))
+                        updateSelectInput(session, inputId = tmp_ids[6], selected = tmp_values[[6]], choices = year_choices)
                         updateSelectInput(session, inputId = tmp_ids[7], selected = tmp_values[[7]])
                         updateSwitchInput(session, inputId = tmp_ids[8], value = tmp_values[[8]])
+                        state$secondary_settings <- file_contents[!main_inds,] # these will be updated after "load" is pressed
+                      }
+                    } else {
+                        help_settings_file_txt <- "No data available for the region/satellite/algorithm/year in the settings file."
                     }
                 } else {
                     help_settings_file_txt <- "Invalid file contents."
@@ -772,6 +773,74 @@ server <- function(input, output, session) {
                  width = widget_width,
                  style = error_text_style)
     })
+    
+    # function to apply secondary settings, either after loading the new main settings or without reloading the main settings (assuming they haven't changed)
+    update_settings2 <- function(secondary_settings) {
+      
+      extra_inds <- secondary_settings$setting_id %in% c("yearday_slide", "fullrunyears",
+                                                         "box", "custom_name", "polylon", "polylat")
+      extra_df <- secondary_settings[extra_inds,]
+      
+      # get box details to update later
+      predefined_polygon <- extra_df$value[extra_df$setting_id=="box"]
+      custom_polygon_name <- extra_df$value[extra_df$setting_id=="custom_name"]
+      predefined_custom_lons <- extra_df$value[extra_df$setting_id=="polylon"]
+      predefined_custom_lats <- extra_df$value[extra_df$setting_id=="polylat"]
+      
+      # update yearday_slider with proper choices and selection
+      yearday_value <- as.numeric(trimws(extra_df$value[extra_df$setting_id=="yearday_slide"]))
+      if (state$interval=="daily") {
+        updateSliderInput(session, inputId = "yearday_slide", value = yearday_value, step = 1)
+      } else if (state$interval=="weekly") {
+        updateSliderInput(session, inputId = "yearday_slide", value = yearday_value, step = 8)
+      }
+      
+      # update full_run slider input with proper choices and selection
+      tmp_years <- as.numeric(years[[state$region]][[state$sat_alg]])
+      fullrunyears_value <- trimws(extra_df$value[extra_df$setting_id=="fullrunyears"])
+      fullrunyears_value <- as.numeric(strsplit(fullrunyears_value, split=",")[[1]])
+      updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years), max = max(tmp_years), value = fullrunyears_value)
+      
+      # update remaining secondary settings
+      secondary_settings <- secondary_settings[!extra_inds,]
+      formatted_settings <- format_settings_to_load(secondary_settings)
+      tmp_ids <- formatted_settings$ids
+      tmp_values <- formatted_settings$values
+      tmp_widgets <- formatted_settings$widgets
+      lapply(1:sum(tmp_widgets==1), function(i) updateSelectInput(session, inputId = tmp_ids[tmp_widgets==1][i], selected = tmp_values[tmp_widgets==1][[i]]))
+      lapply(1:sum(tmp_widgets==2), function(i) updateSliderInput(session, inputId = tmp_ids[tmp_widgets==2][i], value = tmp_values[tmp_widgets==2][[i]]))
+      lapply(1:sum(tmp_widgets==3), function(i) updateNumericInput(session, inputId = tmp_ids[tmp_widgets==3][i], value = tmp_values[tmp_widgets==3][[i]]))
+      lapply(1:sum(tmp_widgets==4), function(i) updateTextInput(session, inputId = tmp_ids[tmp_widgets==4][i], value = tmp_values[tmp_widgets==4][[i]]))
+      lapply(1:sum(tmp_widgets==5), function(i) updateRadioButtons(session, inputId = tmp_ids[tmp_widgets==5][i], selected = tmp_values[tmp_widgets==5][[i]]))
+      lapply(1:sum(tmp_widgets==6), function(i) updateCheckboxInput(session, inputId = tmp_ids[tmp_widgets==6][i], value = tmp_values[tmp_widgets==6][[i]]))
+      lapply(1:sum(tmp_widgets==7), function(i) updateSwitchInput(session, inputId = tmp_ids[tmp_widgets==7][i], value = tmp_values[tmp_widgets==7][[i]]))
+      lapply(1:sum(tmp_widgets==8), function(i) updatePickerInput(session, inputId = tmp_ids[tmp_widgets==8][i], selected = tmp_values[tmp_widgets==8][[i]]))
+      
+      # now update the box input
+      updateSelectInput(session, inputId = "box", choices = poly_choices[[isolate(input$region)]], selected=predefined_polygon)
+      # if it's a custom box, update lat/lon input and add it to the map and stats using the "typeCoords" method
+      if (predefined_polygon=="custom" & !is.na(predefined_custom_lats) & !is.na(predefined_custom_lons)) {
+        updateRadioButtons(session, inputId="latlon_method", selected="typeCoords")
+        updateTextInput(session, inputId="manual_lats", value=predefined_custom_lats)
+        updateTextInput(session, inputId="manual_lons", value=predefined_custom_lons)
+        # set a variable to automatically click "createTypedPoly" after the lats/lons are updated
+        state$draw_programmatically <- TRUE
+        # if the custom polygon has a name, apply it
+        if (nchar(custom_polygon_name) > 0) {
+          updateTextInput(session, inputId="custom_name", value=custom_polygon_name)
+          state$applyname_programmatically <- TRUE
+        }
+      }
+      
+      # update the box state variable as well
+      # this is needed because the input choices/widget will be updated during this round of reactive updates,
+      # then the stats will be calculated, but the actual box state won't be updated until next round, so it
+      # won't be calculating the right stats (if you change region, this will make it crash)
+      state$box <- predefined_polygon
+      
+      # now reset secondary_settings
+      state$secondary_settings <- NULL
+    }
     
     
     # DISABLE/TOGGLE BUTTONS ####
@@ -822,7 +891,6 @@ server <- function(input, output, session) {
         input$year
         input$interval
         input$log_chla
-        state$num_sfile_no_main_change
     }, {
         
         hideElement(id = "hiddenPanel", anim = FALSE)
@@ -832,46 +900,70 @@ server <- function(input, output, session) {
         disable("savebloomparams")
         disable("saveannualstats")
         
-        # if the satellite has changed, update the sat_alg and year dropdown menus
-        # if they don't need to be updated, then continue checking if data exists
-
-        new_sat_algs <- sat_algs[[input$region]]
-        if (!identical(new_sat_algs, state$current_sat_algs)) {
+        # FOR APPLYING INDIVIDUAL SETTINGS MANUALLY
+        if (is.null(state$secondary_settings)) {
+          # if the region has changed, check if you need to update the sat_alg dropdown
+          new_sat_algs <- sat_algs[[input$region]]
+          if (!identical(new_sat_algs, state$current_sat_algs)) {
             if (state$sat_alg %in% new_sat_algs) {
-                selected_sat_alg <- state$sat_alg
+              selected_sat_alg <- state$sat_alg
             } else {
-                selected_sat_alg <- new_sat_algs[1]
+              selected_sat_alg <- new_sat_algs[1]
             }
             updateSelectInput(session, inputId = "sat_alg", choices = new_sat_algs, selected = selected_sat_alg)
-            state$current_sat_algs <- new_sat_algs
-            sat_alg_file <- selected_sat_alg
-        } else {
-            sat_alg_file <- input$sat_alg
-        }
-        new_years <- years[[input$region]][[sat_alg_file]]
-        if (!identical(new_years, state$current_years)) {
+          } else {
+            selected_sat_alg <- input$sat_alg
+          }
+          state$current_sat_algs <- new_sat_algs
+          # if the region or sat_alg have changed, check if you need to update the year dropdown
+          new_years <- years[[input$region]][[selected_sat_alg]]
+          if (!identical(new_years, state$current_years)) {
             if (state$year %in% new_years) {
-                selected_year <- state$year
+              selected_year <- state$year
             } else {
-                selected_year <- max(new_years)
+              selected_year <- max(new_years)
             }
             updateSelectInput(session, inputId = "year", choices = rev(new_years), selected = selected_year)
-            state$current_years <- new_years
-            year_file <- selected_year
-        } else {
-            year_file <- input$year
-        }
-        
-        # enable/disable load button depending on whether or not data exists for these settings
-        state$data_loaded <- FALSE
-        data_exists <- file.exists(paste0("./data/", input$region, "/", input$region, "_", sat_alg_file, "_", year_file, ".fst"))
-        
-        if (data_exists) {
+          } else {
+            selected_year <- input$year
+          }
+          state$current_years <- new_years
+          # enable/disable load button depending on whether or not data exists for these settings
+          state$data_loaded <- FALSE
+          data_exists <- dexist(input$region, selected_sat_alg, selected_year)
+          if (data_exists) {
             enable("load")
             state$help_load_txt <- ""
-        } else {
+          } else {
             disable("load")
             state$help_load_txt <- "No data available for the selected options."
+          }
+          
+          # FOR APPLYING A SETTINGS FILE
+          # necessary update() functions have already been called in the applysettings code chunk,
+          # so you don't need to do that here - you can just double-check that data is available
+        } else {
+          # reset "current" variables so it knows to change if you manually select
+          # a region with different sat_algs or years
+          new_sat_algs <- sat_algs[[input$region]]
+          if (!identical(new_sat_algs, state$current_sat_algs)) {
+            if (state$sat_alg %in% new_sat_algs) {
+              selected_sat_alg <- state$sat_alg
+            } else {
+              selected_sat_alg <- new_sat_algs[1]
+            }
+            state$current_sat_algs <- new_sat_algs
+          } else {
+            selected_sat_alg <- state$sat_alg
+          }
+          new_years <- years[[input$region]][[selected_sat_alg]]
+          if (!identical(new_years, state$current_years)) {
+            state$current_years <- new_years
+          }
+          state$data_loaded <- FALSE
+          enable("load")
+          state$help_load_txt <- ""
+          shinyjs::click("load")
         }
         
     })
@@ -975,6 +1067,7 @@ server <- function(input, output, session) {
     
     # GET YEAR DAY ####
     
+    output$datebar <- renderPlot(pmonth) # date bar at top
     observeEvent(input$yearday_slide, {
         # Get the day entered on the slider
         state$yearday <- input$yearday_slide
@@ -1234,8 +1327,6 @@ server <- function(input, output, session) {
         # year to the reactive values that will be used in the date label on the
         # map, and other output
         state$sat_alg <- input$sat_alg
-        state$satellite <- strsplit(state$sat_alg, split="_")[[1]][1]
-        state$algorithm <- strsplit(state$sat_alg, split="_")[[1]][2]
         state$concentration_type <- input$concentration_type
         state$cell_size_model1 <- input$cell_size_model1
         state$cell_size_model2 <- input$cell_size_model2
@@ -1260,7 +1351,7 @@ server <- function(input, output, session) {
         state$binGrid <- gen_bin_grid(resolution=state$data_resolution, ext=state$ext, rast=FALSE, max_bins=600000000)
         state$binGrid_dim <- dim(state$binGrid)
         
-        all_data <- get_data(state$region, state$satellite, state$algorithm, state$year,
+        all_data <- get_data(state$region, state$sat_alg, state$year,
                              state$yearday, state$interval, state$log_chla, length(sslat),
                              doys_per_week, doy_week_start, doy_week_end,
                              state$concentration_type, state$cell_size_model1, state$cell_size_model2)
@@ -1271,9 +1362,7 @@ server <- function(input, output, session) {
         state$time_ind <- all_data$time_ind
         
         secondary_settings <- state$secondary_settings
-        
         if (is.null(secondary_settings)) {
-            
             # Update the yearday slider so if using weekly data, it only allows the user
             # to select the starting day of each 8-day week.
             # Note: Don't update the actual value in the slider, otherwise the map will update
@@ -1284,86 +1373,19 @@ server <- function(input, output, session) {
             } else if (state$interval=="weekly") {
                 updateSliderInput(session, inputId = "yearday_slide", step = 8)
             }
-            
             # Update full_run slider input
             tmp_years <- as.numeric(years[[state$region]][[state$sat_alg]])
-            updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years), max = max(tmp_years), value = range(tmp_years))
-            
+            updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years),
+                              max = max(tmp_years), value = range(tmp_years))
         } else {
-            
-            extra_inds <- secondary_settings$setting_id %in% c("yearday_slide", "fullrunyears", "box", "custom_name", "polylon", "polylat")
-            extra_df <- secondary_settings[extra_inds,]
-            
-            # get box details to update later
-            predefined_polygon <- extra_df$value[extra_df$setting_id=="box"]
-            custom_polygon_name <- extra_df$value[extra_df$setting_id=="custom_name"]
-            predefined_custom_lons <- extra_df$value[extra_df$setting_id=="polylon"]
-            predefined_custom_lats <- extra_df$value[extra_df$setting_id=="polylat"]
-            
-            # update yearday_slider with proper choices and selection
-            yearday_value <- as.numeric(trimws(extra_df$value[extra_df$setting_id=="yearday_slide"]))
-            if (state$interval=="daily") {
-                updateSliderInput(session, inputId = "yearday_slide", value = yearday_value, step = 1)
-            } else if (state$interval=="weekly") {
-                updateSliderInput(session, inputId = "yearday_slide", value = yearday_value, step = 8)
-            }
-            
-            # update full_run slider input with proper choices and selection
-            tmp_years <- as.numeric(years[[state$region]][[state$sat_alg]])
-            fullrunyears_value <- trimws(extra_df$value[extra_df$setting_id=="fullrunyears"])
-            fullrunyears_value <- as.numeric(strsplit(fullrunyears_value, split=",")[[1]])
-            updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years), max = max(tmp_years), value = fullrunyears_value)
-            
-            # update remaining secondary settings
-            secondary_settings <- secondary_settings[!extra_inds,]
-            formatted_settings <- format_settings_to_load(secondary_settings)
-            tmp_ids <- formatted_settings$ids
-            tmp_values <- formatted_settings$values
-            tmp_widgets <- formatted_settings$widgets
-            lapply(1:sum(tmp_widgets==1), function(i) updateSelectInput(session, inputId = tmp_ids[tmp_widgets==1][i], selected = tmp_values[tmp_widgets==1][[i]]))
-            lapply(1:sum(tmp_widgets==2), function(i) updateSliderInput(session, inputId = tmp_ids[tmp_widgets==2][i], value = tmp_values[tmp_widgets==2][[i]]))
-            lapply(1:sum(tmp_widgets==3), function(i) updateNumericInput(session, inputId = tmp_ids[tmp_widgets==3][i], value = tmp_values[tmp_widgets==3][[i]]))
-            lapply(1:sum(tmp_widgets==4), function(i) updateTextInput(session, inputId = tmp_ids[tmp_widgets==4][i], value = tmp_values[tmp_widgets==4][[i]]))
-            lapply(1:sum(tmp_widgets==5), function(i) updateRadioButtons(session, inputId = tmp_ids[tmp_widgets==5][i], selected = tmp_values[tmp_widgets==5][[i]]))
-            lapply(1:sum(tmp_widgets==6), function(i) updateCheckboxInput(session, inputId = tmp_ids[tmp_widgets==6][i], value = tmp_values[tmp_widgets==6][[i]]))
-            lapply(1:sum(tmp_widgets==7), function(i) updateSwitchInput(session, inputId = tmp_ids[tmp_widgets==7][i], value = tmp_values[tmp_widgets==7][[i]]))
-            lapply(1:sum(tmp_widgets==8), function(i) updatePickerInput(session, inputId = tmp_ids[tmp_widgets==8][i], selected = tmp_values[tmp_widgets==8][[i]]))
-            
-            # now update the box input
-            updateSelectInput(session, inputId = "box", choices = poly_choices[[isolate(input$region)]], selected=predefined_polygon)
-            # if it's a custom box, update lat/lon input and add it to the map and stats using the "typeCoords" method
-            if (predefined_polygon=="custom" & !is.na(predefined_custom_lats) & !is.na(predefined_custom_lons)) {
-                updateRadioButtons(session, inputId="latlon_method", selected="typeCoords")
-                updateTextInput(session, inputId="manual_lats", value=predefined_custom_lats)
-                updateTextInput(session, inputId="manual_lons", value=predefined_custom_lons)
-                # set a variable to automatically click "createTypedPoly" after the lats/lons are updated
-                state$draw_programmatically <- TRUE
-                # if the custom polygon has a name, apply it
-                if (nchar(custom_polygon_name) > 0) {
-                    updateTextInput(session, inputId="custom_name", value=custom_polygon_name)
-                    state$applyname_programmatically <- TRUE
-                }
-            }
-            
-            # update the box state variable as well
-            # this is needed because the input choices/widget will be updated during this round of reactive updates,
-            # then the stats will be calculated, but the actual box state won't be updated until next round, so it
-            # won't be calculating the right stats (if you change region, this will make it crash)
-            state$box <- predefined_polygon
-            
-            # now reset secondary_settings
-            state$secondary_settings <- NULL
-            
+            update_settings2(secondary_settings)
         }
         
         remove_modal_spinner()
         
         gc()
         
-        return(list(sschla=sschla,
-                    sslon=sslon,
-                    sslat=sslat,
-                    ssbin=ssbin))
+        return(list(sschla=sschla, sslon=sslon, sslat=sslat, ssbin=ssbin))
         
     })
     
@@ -1406,7 +1428,7 @@ server <- function(input, output, session) {
                                 noHide=TRUE, textOnly=TRUE, textsize='13px', direction="center",
                                 style=list('color'='white', 'text-shadow' = '0px 0px 4px #000000')))
         }
-        
+        lf$dependencies <- c(lf$dependencies, leafpm::pmDependencies()) # required to make addPmToolbar work
         lf
         
     })
@@ -1461,7 +1483,7 @@ server <- function(input, output, session) {
                 newmat[binGrid %in% df_bins] <- sschla[chla_ind,time_ind][match(binGrid, df_bins, nomatch=0)]
                 tr <- raster::raster(ncols=binGrid_dim[2], nrows=binGrid_dim[1], xmn=ext[1], xmx=ext[2], ymn=ext[3], ymx=ext[4])
                 raster::values(tr) <- matrix(newmat, nrow=binGrid_dim[1])
-                state$tr <- tr # used for input$fullmap_click, currently disabled
+                state$tr <- tr
                 
                 # Get colour scale for leaflet map
                 zlim <- c(state$zlim1, state$zlim2)
@@ -1488,20 +1510,16 @@ server <- function(input, output, session) {
         }
         
         if (state$draw_toolbar) {
-            shape_options <- drawShapeOptions(color="yellow", fill=FALSE, weight=2.5)
             lfp <- lfp %>%
-                addDrawToolbar(
-                    # remove options to draw lines, circles, or single markers
-                    polylineOptions=FALSE, circleOptions=FALSE, markerOptions=FALSE, circleMarkerOptions=FALSE,
-                    # only one custom polygon at a time
-                    singleFeature=TRUE,
-                    # adjust custom polygon colors
-                    polygonOptions=drawPolygonOptions(shapeOptions = shape_options),
-                    rectangleOptions=drawRectangleOptions(shapeOptions = shape_options),
-                    # custom polygons can be edited
-                    editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions()))
+              addPmToolbar(toolbarOptions = pmToolbarOptions(drawMarker=FALSE,drawPolygon=TRUE,drawPolyline=FALSE,
+                                                             drawCircle=FALSE,drawRectangle=TRUE,editMode=TRUE,
+                                                             cutPolygon=FALSE,removalMode=TRUE,position="topleft"),
+                           drawOptions = pmDrawOptions(allowSelfIntersection = FALSE,
+                                                       templineStyle = list(color = "#yellow"),
+                                                       hintlineStyle = list(color = "#yellow")),
+                           editOptions = pmEditOptions(allowSelfIntersection = FALSE))
         } else {
-            lfp <- lfp %>% removeDrawToolbar(clearFeatures = TRUE)
+            lfp <- lfp %>% removePmToolbar(clearFeatures = TRUE)
         }
         
         gc()
@@ -1517,10 +1535,21 @@ server <- function(input, output, session) {
     
     
     #***************************************************************************
-    # CUSTOM POLYGON/POINT FUNCTIONS ####
+    # CUSTOM POLYGON FUNCTIONS ####
     
     # Get user input for new, edited, or deleted polygons
     observeEvent(input$fullmap_draw_new_feature, {
+        # If a polygon already exists, delete it before grabbing the new one
+        snp <- isolate(state$newpoly)
+        sep <- isolate(state$editedpoly)
+        if (!is.null(snp)) {
+          shapes <- snp$properties$`_leaflet_id`
+          session$sendCustomMessage("removeleaflet", list(elid="fullmap", layerid=shapes))
+        } else if (!is.null(sep)) {
+          shapes <- sep$properties$`_leaflet_id`
+          session$sendCustomMessage("removeleaflet", list(elid="fullmap", layerid=shapes))
+        }
+        # collect new coordinates
         state$newpoly <- input$fullmap_draw_new_feature
         state$editedpoly <- NULL
         state$typedpoly <- NULL
@@ -1540,13 +1569,11 @@ server <- function(input, output, session) {
     # will trigger to get the coordinates of the polygon and send them to annual
     # stats to update the density plot and bloom fit scatterplot
     draw_polygon <- reactive({
-        
         # Check for new or edited coordinates
         coords <- try(unlist(state$newpoly$geometry$coordinates))
         if (is.null(coords)) {
-            coords <- try(unlist(state$editedpoly$features[[1]]$geometry$coordinates))
+            coords <- try(unlist(state$editedpoly$geometry$coordinates))
         }
-        
         # Check if polygon area is too large
         state$latlon_toolarge <- FALSE
         if (!is.null(coords)) {
@@ -1559,9 +1586,54 @@ server <- function(input, output, session) {
             state$help_latlon_txt <- paste0("Polygon is too large (must be <= ", ma, " degrees squared).")
           }
         }
-        
         return(coords)
-        
+    })
+    
+    # Or read a shapefile containing a polygon. This makes use of the "typed polygon"
+    # code below, entering the shapefile vertex lat/lons in the text boxes and programmatically
+    # clicking the "Create Polygon" button to trigger input$createTypedPoly
+    observeEvent(input$shapefile, {
+      ext <- tools::file_ext(input$shapefile$name)
+      show_modal_spinner(spin = "atom",
+                         color = "#112446",
+                         text = paste0("Loading ", input$shapefile$name[ext=="shp"], "..."))
+      mydir <- tempdir()
+      on.exit(unlink(mydir))
+      file <- file.path(mydir, input$shapefile$name)
+      file.copy(input$shapefile$datapath, file)
+      # check the extensions, try to load the file, and check file contents
+      if ("shp" %in% ext) {
+        # try to load the file
+        file <- file[ext=="shp"]
+        file_contents <- try(raster::shapefile(file), silent=TRUE)
+        if (class(file_contents)[1]=="try-error") {
+          help_latlon_txt <- "Invalid input files. Make sure all files with the same name (and different extensions, e.g. shp, dbf, prj, sbx...) are selected."
+        } else {
+          # check the file contents
+          if (class(file_contents)[1] == "SpatialPolygonsDataFrame") {
+            file_coords <- try(file_contents@polygons[[1]]@Polygons[[1]]@coords, silent=TRUE)
+            if (class(file_coords)[1]=="try-error") {
+              help_latlon_txt <- "Invalid file contents."
+            } else {
+              help_latlon_txt <- ""
+              # format coordinates and update manual_lats and manual_lons
+              shapefile_custom_lons <- as.numeric(file_coords[,1])
+              shapefile_custom_lats <- as.numeric(file_coords[,2])
+              updateTextInput(session, inputId="manual_lats", value=paste0(shapefile_custom_lats, collapse=","))
+              updateTextInput(session, inputId="manual_lons", value=paste0(shapefile_custom_lons, collapse=","))
+              updateTextInput(session, inputId="custom_name", value=input$shapefile$name[ext=="shp"])
+              state$draw_programmatically <- TRUE
+              state$applyname_programmatically <- TRUE
+            }
+          } else {
+            help_latlon_txt <- "Invalid file contents. Shapefile must contain a SpatialPolygonsDataFrame."
+          }
+        }
+      } else {
+        help_latlon_txt <- "Please select a shapefile (.shp) and all corresponding files with the same name but different extensions (e.g. dbf, prj, sbx...)"
+      }
+      remove_modal_spinner()
+      state$help_latlon_txt <- help_latlon_txt
     })
     
     # Instead of getting coordinates of a polygon drawn directly on the map,
@@ -1579,52 +1651,6 @@ server <- function(input, output, session) {
         return(state$typedpoly)
     })
     
-    # Or read a shapefile containing a polygon. This makes use of the "typed polygon"
-    # code above, entering the shapefile vertex lat/lons in the text boxes and programmatically
-    # clicking the "Create Polygon" button to trigger input$createTypedPoly
-    observeEvent(input$shapefile, {
-        ext <- tools::file_ext(input$shapefile$name)
-        show_modal_spinner(spin = "atom",
-                           color = "#112446",
-                           text = paste0("Loading ", input$shapefile$name[ext=="shp"], "..."))
-        mydir <- tempdir()
-        on.exit(unlink(mydir))
-        file <- file.path(mydir, input$shapefile$name)
-        file.copy(input$shapefile$datapath, file)
-        # check the extensions, try to load the file, and check file contents
-        if ("shp" %in% ext) {
-            # try to load the file
-            file <- file[ext=="shp"]
-            file_contents <- try(readOGR(dsn=file, verbose=FALSE), silent=TRUE)
-            if (class(file_contents)[1]=="try-error") {
-                help_latlon_txt <- "Invalid input files. Make sure all files with the same name (and different extensions, e.g. shp, dbf, prj, sbx...) are selected."
-            } else {
-                # check the file contents
-                if (class(file_contents)[1] == "SpatialPolygonsDataFrame") {
-                    file_coords <- try(file_contents@polygons[[1]]@Polygons[[1]]@coords, silent=TRUE)
-                    if (class(file_coords)[1]=="try-error") {
-                        help_latlon_txt <- "Invalid file contents."
-                    } else {
-                        help_latlon_txt <- ""
-                        # format coordinates and update manual_lats and manual_lons
-                        shapefile_custom_lons <- as.numeric(file_coords[,1])
-                        shapefile_custom_lats <- as.numeric(file_coords[,2])
-                        updateTextInput(session, inputId="manual_lats", value=paste0(shapefile_custom_lats, collapse=","))
-                        updateTextInput(session, inputId="manual_lons", value=paste0(shapefile_custom_lons, collapse=","))
-                        updateTextInput(session, inputId="custom_name", value=input$shapefile$name[ext=="shp"])
-                        state$draw_programmatically <- TRUE
-                        state$applyname_programmatically <- TRUE
-                    }
-                } else {
-                    help_latlon_txt <- "Invalid file contents. Shapefile must contain a SpatialPolygonsDataFrame."
-                }
-            }
-        } else {
-            help_latlon_txt <- "Please select a shapefile (.shp) and all corresponding files with the same name but different extensions (e.g. dbf, prj, sbx...)"
-        }
-        remove_modal_spinner()
-        state$help_latlon_txt <- help_latlon_txt
-    })
     
     # If there's something wrong with the custom polygon coordinates, show an error message on the sidebar
     output$help_latlon <- renderUI({
@@ -1655,13 +1681,6 @@ server <- function(input, output, session) {
         }
     })
     
-    #***************************************************************************
-    # DATE BAR AT TOP
-    
-    output$datebar <- renderPlot({
-      pmonth
-    })
-    
     
     #***************************************************************************
     # ANNUAL STATS FOR BOX/POLYGON ####
@@ -1673,11 +1692,9 @@ server <- function(input, output, session) {
         state$nbad_polys
         state$region
     }, {
-        
         # Remove popups, previously selected existing AZMP boxes, or previously typed polygons
         leafletProxy("fullmap", session) %>%
             clearPopups() %>% removeShape("highlighted_box") %>% removeShape("typedpoly")
-        
         # Remove drawn polygons
         snp <- isolate(state$newpoly)
         sep <- isolate(state$editedpoly)
@@ -1685,15 +1702,13 @@ server <- function(input, output, session) {
             shapes <- snp$properties$`_leaflet_id`
             session$sendCustomMessage("removeleaflet", list(elid="fullmap", layerid=shapes))
         } else if (!is.null(sep)) {
-            shapes <- sep$features[[1]]$properties$`_leaflet_id`
+            shapes <- sep$properties$`_leaflet_id`
             session$sendCustomMessage("removeleaflet", list(elid="fullmap", layerid=shapes))
         }
-        
         # Reset drawn/typed polygon variables to NULL
         state$newpoly <- NULL
         state$editedpoly <- NULL
         state$typedpoly <- NULL
-        
     })
     
     annual_stats <- reactive({
@@ -1710,16 +1725,18 @@ server <- function(input, output, session) {
         region <- isolate(state$region)
         
         # Get coordinates from a custom polygon
-        if (state$box=="custom" & state$latlon_method=="drawPoly") {
+        if (state$box=="custom") {
+          if (state$latlon_method=="drawPoly") {
             coords <- draw_polygon()
-        } else if (state$box=="custom" & (state$latlon_method=="typeCoords" | state$latlon_method=="loadShapefile")) {
+          } else if (state$latlon_method=="typeCoords" | state$latlon_method=="loadShapefile") {
             coords <- type_polygon()
             # for highlighted box in leaflet map
             highlight_ID <- "typedpoly"
             add_poly <- TRUE
+          }
         }
         
-        if (state$box == "custom" & is.null(coords)) {
+        if (state$box == "custom" & is.null(coords) | !(state$box %in% poly_ID[[region]])) {
             
             Longitude <- Latitude <- rchla <- NULL
             
@@ -1834,25 +1851,17 @@ server <- function(input, output, session) {
         em <- NULL
         
         if (state$data_loaded) {
-            
             if (yearday > state$available_days) {
-                
                 em <- paste0("No data available yet for ", day_label)
-                
             } else if (state$box=="custom" & state$latlon_toolarge) {
-              
                 em <- paste0("Polygon is too large (max allowed area = ", isolate(state$max_area), " degrees^2).")
-            
             } else if (state$null_rchla) {
-                
                 if (state$box=="custom" & is.null(state$newpoly) & is.null(state$editedpoly) & is.null(state$typedpoly)) {
                     em <- "Create your custom polygon in a region with sufficient data"
                 } else {
                     em <- "No data in the selected region"
                 }
-            
             } else {
-                
                 # check if % coverage for this day and region is high enough to
                 # create a density plot (default = 10%)
                 lenok <- state$lenok
@@ -1862,9 +1871,7 @@ server <- function(input, output, session) {
                 } else if (lenok[time_ind]==1) {
                     em <- "Only one valid point selected"
                 }
-                
             }
-            
         } else {
             em <- "Load data to begin"
         }
@@ -1882,8 +1889,8 @@ server <- function(input, output, session) {
             p <- p +
                 ggtitle(plot_title) +
                 geom_density(data=data.frame(x=rchla[,time_ind]), aes(x=x), fill="grey", alpha = 0.7) + 
-                geom_vline(aes(xintercept=chl_mean[time_ind], col="chl_mean"), size=1.2) +
-                geom_vline(aes(xintercept=chl_median[time_ind], col="chl_median"), size=1)
+                geom_vline(aes(xintercept=chl_mean[time_ind], col="chl_mean"), linewidth=1.2) +
+                geom_vline(aes(xintercept=chl_median[time_ind], col="chl_median"), linewidth=1)
             
             # Color codes for mean/median lines, to use in legend
             leg_col_labels <- c("mean", "median")
@@ -1892,7 +1899,7 @@ server <- function(input, output, session) {
             # Plot outlier boundaries
             if (state$outlier != "none") {
                 limits <- state$limits[time_ind,]
-                p <- p + geom_vline(aes(xintercept=limits, col="stdev"), linetype="dotted", size=1)
+                p <- p + geom_vline(aes(xintercept=limits, col="stdev"), linetype="dotted", linewidth=1)
                 # Update color code vector for legend, to include outlier bars
                 leg_col_labels[3] <- ifelse(state$outlier=="sd2", "+/- 2 standard deviations",
                                             ifelse(state$outlier=="sd3", "+/- 3 standard deviations", "+/- 1.5 IQR (interquartile range)"))
@@ -1983,10 +1990,11 @@ server <- function(input, output, session) {
             cell_size_model1 <- state$cell_size_model1
             cell_size_model2 <- state$cell_size_model2
             interval <- state$interval
-            dailystat <- state$dailystat
             year <- state$year
             log_chla <- state$log_chla
         })
+        
+        dailystat <- state$dailystat
         
         plot_title <- paste0(ifelse(concentration_type=="model1", paste0(proper(cell_size_model1), " cell size: "),
                                     ifelse(concentration_type=="model2", paste0(proper(cell_size_model2), " cell size: "), "")),
@@ -2067,10 +2075,17 @@ server <- function(input, output, session) {
         
         if (is.null(em)) {
             
+            sv = list(state$use_weights,state$smoothMethod,state$loessSpan,state$fitmethod,state$bloomShape,state$tm,
+                      state$beta,state$tm_limits,state$ti_limits,state$threshcoef,state$flag1_lim1,state$flag1_lim2,
+                      state$flag2_lim1,state$flag2_lim2,state$ti_threshold,state$tt_threshold,state$rm_bkrnd,
+                      state$ti_threshold_type,state$ti_threshold_constant)
+            names(sv) <- c("use_weights","smoothMethod","loessSpan","fitmethod","bloomShape","tm","beta","tm_limits",
+                           "ti_limits","threshcoef","flag1_lim1","flag1_lim2","flag2_lim1","flag2_lim2","ti_threshold",
+                           "tt_threshold","rm_bkrnd","ti_threshold_type","ti_threshold_constant")
             bf_data <- get_bloom_fit_data(interval=interval,
                                           p=p,
                                           pnames = pnames,
-                                          dailystat = state$dailystat,
+                                          dailystat = dailystat,
                                           chl_mean = chl_mean,
                                           chl_median = chl_median,
                                           lenok = lenok,
@@ -2080,30 +2095,12 @@ server <- function(input, output, session) {
                                           ydays_percov = ydays_percov,
                                           ydays_dayrange = ydays_dayrange,
                                           rchla_nrow = nrow(rchla),
-                                          use_weights = state$use_weights,
-                                          smoothMethod = state$smoothMethod,
-                                          loessSpan = state$loessSpan,
-                                          fitmethod = state$fitmethod,
-                                          bloomShape = state$bloomShape,
                                           daily_percov = daily_percov,
-                                          tm = state$tm,
-                                          beta = state$beta,
-                                          tm_limits = state$tm_limits,
-                                          ti_limits = state$ti_limits,
                                           t_range = c(first_day, last_day),
                                           log_chla = log_chla,
-                                          threshcoef = state$threshcoef,
                                           doy_vec = doy_vec,
                                           plot_title = plot_title,
-                                          flag1_lim1 = state$flag1_lim1,
-                                          flag1_lim2 = state$flag1_lim2,
-                                          flag2_lim1 = state$flag2_lim1,
-                                          flag2_lim2 = state$flag2_lim2,
-                                          ti_threshold = state$ti_threshold,
-                                          tt_threshold = state$tt_threshold,
-                                          rm_bkrnd = state$rm_bkrnd,
-                                          ti_threshold_type = state$ti_threshold_type,
-                                          ti_threshold_constant = state$ti_threshold_constant)
+                                          sv = sv)
             loess_smooth <- rep(NA,length(daily_percov))
             if (state$smoothMethod == 'loess') {
                 loess_smooth[ind_dayrange_percov] <- bf_data$y$y
@@ -2166,191 +2163,83 @@ server <- function(input, output, session) {
     # and bloom fits for each, using the current settings
     observeEvent(input$fullrun_process, {
         
-        regs <- isolate(state$fullrunboxes)
-        
         # Get variables
-        isolate({
-            satellite <- state$satellite
-            region <- state$region
-            algorithm <- state$algorithm
-            interval <- state$interval
-            log_chla <- state$log_chla
-            yearday <- state$yearday
-            fitmethod <- state$fitmethod
-            bloomShape <- state$bloomShape
-            tm <- state$tm
-            beta <- state$beta
-            custom_name <- state$custom_name
-            polylat <- state$polylat
-            polylon <- state$polylon
-            latlon_method <- state$latlon_method
-            dailystat <- state$dailystat
-            pixrange1 <- state$pixrange1
-            pixrange2 <- state$pixrange2
-            outlier <- state$outlier
-            percent <- state$percent
-            smoothMethod <- state$smoothMethod
-            loessSpan <- state$loessSpan
-            use_weights <- state$use_weights
-            threshcoef <- state$threshcoef
-            t_range <- state$t_range
-            tm_limits <- state$tm_limits
-            ti_limits <- state$ti_limits
-            flag1_lim1 <- state$flag1_lim1
-            flag1_lim2 <- state$flag1_lim2
-            flag2_lim1 <- state$flag2_lim1
-            flag2_lim2 <- state$flag2_lim2
-            ti_threshold = state$ti_threshold
-            tt_threshold = state$tt_threshold
-            rm_bkrnd = state$rm_bkrnd
-            ti_threshold_type = state$ti_threshold_type
-            ti_threshold_constant = state$ti_threshold_constant
-            newpoly = state$newpoly
-            editedpoly = state$editedpoly
-            typedpoly = state$typedpoly
-            fullrunoutput_png <- input$fullrunoutput_png
-            fullrunoutput_statcsv <- input$fullrunoutput_statcsv
-            concentration_type = state$concentration_type
-            cell_size_model1 = state$cell_size_model1
-            cell_size_model2 = state$cell_size_model2
-        })
-        
-        # create column names for parameter table
-        pnames <- pnlist[[fitmethod]]
-        if (fitmethod=="gauss") {
-            pnames <- pnames[[bloomShape]]
-            if (!beta) {pnames <- pnames[!grepl("beta", pnames)]}
-        }
-        
+        d <- reactiveValuesToList(isolate(state))
+        fullrunoutput_png <- isolate(input$fullrunoutput_png)
+        fullrunoutput_statcsv <- isolate(input$fullrunoutput_statcsv)
+        regs <- isolate(state$fullrunboxes)
         year_bounds <- isolate(input$fullrunyears)
         year_list <- (year_bounds[1]):(year_bounds[2])
+        sslat <- reginfo[[d$region]]$lat
+        sslon <- reginfo[[d$region]]$lon
+        polygon_list <- get_polygon_details(regs, d$custom_name, d$region, d$polylat, d$polylon, all_regions,
+                                            full_names, poly_ID, d$newpoly, d$editedpoly, d$typedpoly)
+        
+        # create column names for parameter table
+        pnames <- pnlist[[d$fitmethod]]
+        if (d$fitmethod=="gauss") {
+            pnames <- pnames[[d$bloomShape]]
+            if (!d$beta) {pnames <- pnames[!grepl("beta", pnames)]}
+        }
         
         # grey out the screen while processing, and show progress bar
         show_modal_progress_line(text = paste0("Computing fits for ", year_list[1], "..."))
         
-        # Create output subfolders
-        output_dir <- file.path(tempdir(),
-                                output_str(satellite=satellite,
-                                           region=region,
-                                           algorithm=algorithm,
-                                           year=year_bounds,
-                                           interval=interval,
-                                           log_chla=log_chla,
-                                           fitmethod=fitmethod,
-                                           custom_end=NULL,
-                                           concentration_type=concentration_type,
-                                           cell_size_model1=cell_size_model1,
-                                           cell_size_model2=cell_size_model2))
+        # create output subfolder
+        d$year <- year_bounds
+        ostr <- output_str(d=d[c("sat_alg","region","year","interval","log_chla","fitmethod",
+                                 "concentration_type","cell_size_model1","cell_size_model2")],
+                           custom_end=NULL)
+        output_dir <- file.path(tempdir(), ostr)
         dir.create(output_dir)
         
+        # collect parameters and metrics
         steps <- 100/length(year_list)
         progress_updates <- round(seq(steps[1], 100, by=steps),1)
-        
-        polygon_list <- get_polygon_details(regs, custom_name, region, polylat, polylon, all_regions, full_names, poly_ID, newpoly, editedpoly, typedpoly)
-        
-        total_params_df <- data.frame(matrix(nrow=(length(year_list)*length(polygon_list$full_names)), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
-        colnames(total_params_df) <- c("Region", "Year", pnames)
-        
-        sslat <- reginfo[[region]]$lat
-        sslon <- reginfo[[region]]$lon
-        
+        all_params <- list()
         for (x in 1:length(year_list)) {
-            
-            tmp_par <- full_run(
+            all_params[[x]] <- full_run(
+                d = d,
                 year = year_list[x],
-                satellite = satellite,
-                region = region,
-                algorithm = algorithm,
-                interval = interval,
                 sslat = sslat,
                 sslon = sslon,
                 polygon_list = polygon_list,
-                latlon_method = latlon_method,
                 pnames = pnames,
-                yearday = yearday,
                 doys_per_week = doys_per_week,
                 doy_week_start = doy_week_start,
                 doy_week_end = doy_week_end,
-                dailystat = dailystat,
-                pixrange1 = pixrange1,
-                pixrange2 = pixrange2,
-                outlier = outlier,
-                percent = percent,
-                log_chla = log_chla,
-                fitmethod = fitmethod,
-                bloomShape = bloomShape,
-                smoothMethod = smoothMethod,
-                loessSpan = loessSpan,
-                use_weights = use_weights,
-                threshcoef = threshcoef,
-                tm = tm,
-                beta = beta,
-                t_range = t_range,
-                tm_limits = tm_limits,
-                ti_limits = ti_limits,
                 dir_name = output_dir,
-                flag1_lim1 = flag1_lim1,
-                flag1_lim2 = flag1_lim2,
-                flag2_lim1 = flag2_lim1,
-                flag2_lim2 = flag2_lim2,
-                ti_threshold = ti_threshold,
-                tt_threshold = tt_threshold,
-                rm_bkrnd = rm_bkrnd,
-                ti_threshold_type = ti_threshold_type,
-                ti_threshold_constant = ti_threshold_constant,
                 fullrunoutput_png = fullrunoutput_png,
-                fullrunoutput_statcsv = fullrunoutput_statcsv,
-                concentration_type = concentration_type,
-                cell_size_model1 = cell_size_model1,
-                cell_size_model2 = cell_size_model2)
-            
-            # add to final output dataframe
-            total_params_df[((x-1)*length(polygon_list$full_names)+1):(x*length(polygon_list$full_names)),] <- tmp_par
-            
+                fullrunoutput_statcsv = fullrunoutput_statcsv)
             # update progress bar
             if (x==length(year_list)) {update_text <- "Zipping output files..."
             } else {update_text <- paste0("Computing fits for ", year_list[x+1], "...")}
             update_modal_progress(value = (progress_updates[x]/100), text = update_text)
-            
             gc()
-            
         }
-        
-        write.csv(total_params_df %>% dplyr::arrange(., Region, Year),
+        write.csv(all_params %>% do.call(what=dplyr::bind_rows) %>% dplyr::arrange(., Region, Year),
                   file=file.path(output_dir, "bloom_fit_params.csv"),
                   quote=FALSE, na=" ", row.names=FALSE)
         
         # SAVE SETTINGS
-        if (isolate(state$box)=="custom") {
-            plons <- polylon
-            plats <- polylat
-        } else {
-            plons <- plats <- NA
+        plons <- plats <- NA
+        if (d$box=="custom") {
+            plons <- d$polylon
+            plats <- d$polylat
         }
-        info <- format_settings_to_save(all_inputs=reactiveValuesToList(isolate(input)),
-                                        custom_name=isolate(state$custom_name),
-                                        polylon=plons,
-                                        polylat=plats,
-                                        regions=regions,
-                                        sat_algs=sat_algs)
-        write.table(info, file=file.path(output_dir, "settings.csv"), row.names=FALSE, na=" ", sep="\\")
+        write.table(format_settings_to_save(all_inputs=reactiveValuesToList(isolate(input)),
+                                            custom_name=d$custom_name,
+                                            polylon=plons,
+                                            polylat=plats,
+                                            regions=regions,
+                                            sat_algs=sat_algs),
+                    file=file.path(output_dir, "settings.txt"), row.names=FALSE, na="NA", sep="\\")
         
         gc()
         
-        fname <- paste0(output_str(satellite=satellite,
-                            region=region,
-                            algorithm=algorithm,
-                            year=isolate(input$fullrunyears),
-                            interval=interval,
-                            log_chla=log_chla,
-                            fitmethod=fitmethod,
-                            custom_end=NULL,
-                            concentration_type=concentration_type,
-                            cell_size_model1=cell_size_model1,
-                            cell_size_model2=cell_size_model2),".zip")
-        
         # zip files up to be downloaded
         # j flag prevents files from being sorted into subdirectories inside the zip file (the other flags are defaults)
+        fname <- paste0(ostr,".zip")
         zip(zipfile=file.path(output_dir, fname), files=list.files(output_dir, full.names=TRUE), flags="-r9Xj")
         
         # remove progress bar and return to normal screen
@@ -2378,63 +2267,77 @@ server <- function(input, output, session) {
     # DOWNLOAD OUTPUT ####
     # Map, density plot, bloom fit plot, annual stats, bloom parameters, and settings.
     # Downloads to browser's default downloads folder.
+    # Note: Wrapping filename functions in another function() is necessary to force it to
+    #       re-evaluate the expression at download time (to get a new box name, for example)
     
     # Download the results from "fullrun_process"
     output$fullrun_download <- downloadHandler(
-        filename <- isolate(state$fullrun_fname),
-        content <- function(file) {
-          file.copy(file.path(isolate(state$fullrun_outputdir), isolate(state$fullrun_fname)), file)
-        },
+        filename <- function() isolate(state$fullrun_fname),
+        content <- function(file) file.copy(file.path(isolate(state$fullrun_outputdir), isolate(state$fullrun_fname)), file),
         contentType = "application/zip"
     )
     
     # SAVE MAP (.html)
     output$savemap <- downloadHandler(
-        filename <- filename_map(isolate(state)),
+        filename <- function() output_str(d=isolate(state),custom_end="map.html"),
         content <- function(file) {
-          saveWidget(widget=content_map(d=isolate(state),map=map_reactive()), file=file)
+          isolate({zl <- c(state$zlim1,state$zlim2)})
+          tr_coloradj <- calc(isolate(state$tr), function(x) ifelse(x <= zl[1], zl[1]+(1e-10), ifelse(x >= zl[2], zl[2]-(1e-10), x)))
+          cm <- colorNumeric(palette=map_cols, domain=zl, na.color="#00000000")
+          saveWidget(widget = map_reactive() %>%
+                       clearControls() %>% clearGroup("georaster") %>%
+                       addRasterImage(x=tr_coloradj, colors=cm) %>%
+                       addLegend(position='topright', pal=cm, values=zl, title=isolate(state$leg_title), bins=10, opacity=1) %>%
+                       addControl(tags$div(tag.map.title,HTML(isolate(state$day_label))), position="topleft", className="map-title"),
+                     file=file)
         }
     )
     
     # SAVE DENSITY PLOT (.png)
     output$savedensplot <- downloadHandler(
-        filename <- filename_dens(d=isolate(state)),
-        content <- function(file) {
-          ggsave(file=file, plot=isolate(make_density_plot()), width=12, height=5, units="in")
-        }
+        filename <- function() output_str(d=isolate(state),custom_end="density_plot.png"),
+        content <- function(file) ggsave(file=file, plot=isolate(make_density_plot()), width=12, height=5, units="in")
     )
     
     # SAVE BLOOM FIT PLOT (.png)
     output$savebloomfit <- downloadHandler(
-        filename <- filename_bfp(d=isolate(state)),
-        content <- function(file) {
-          ggsave(file=file, plot=isolate(make_bloom_fit()), width=12, height=5, units="in")
-        }
+        filename <- function() output_str(d=isolate(state),custom_end="bloom_fit.png"),
+        content <- function(file) ggsave(file=file, plot=isolate(make_bloom_fit()), width=12, height=5, units="in")
     )
     
     # SAVE ANNUAL STATS (.csv)
     output$saveannualstats <- downloadHandler(
-        filename <- filename_stats(d=isolate(state)),
+        filename <- function() output_str(d=isolate(state),custom_end="annual_stats.csv"),
         content <- function(file) {
-          sdf <- content_stats(d=isolate(state))
+          stat_cols <- c("doy_vec","chl_mean","chl_median","chl_sd","chl_min","chl_max","nobs","percent_coverage","loess_smooth")
+          sdf <- do.call(dplyr::bind_cols,reactiveValuesToList(isolate(state))[stat_cols])
+          colnames(sdf) <- c("doy","mean_chl","median_chl","stdev_chl","min_chl","max_chl","nobs","percent_coverage","loess_smooth")
           write.csv(sdf, file=file, quote=FALSE, na=" ", row.names=FALSE)
         }
     )
     
     # SAVE BLOOM FIT PARAMETERS (.csv)
     output$savebloomparams <- downloadHandler(
-        filename <- filename_bfparam(d=isolate(state)),
-        content <- function(file) {
-          write.csv(isolate(state$fitparams), file=file, quote=FALSE, na=" ", row.names=FALSE)
-        }
+        filename <- function() output_str(d=isolate(state),custom_end="bloom_parameters.csv"),
+        content <- function(file) write.csv(isolate(state$fitparams), file=file, quote=FALSE, na=" ", row.names=FALSE)
     )
     
     # SAVE CURRENT SETTINGS (.txt)
     output$savesettings <- downloadHandler(
-        filename <- filename_settings(isolate(state)),
+        filename <- function() output_str(d=isolate(state),custom_end="settings.txt"),
         content <- function(file) {
-          info <- content_settings(d=isolate(state), inp=reactiveValuesToList(isolate(input)))
-          write.table(info, file=file, row.names=FALSE, na="NA", sep="\\")
+          plons <- plats <- NA
+          if (isolate(state$box)=="custom") {
+            plons <- isolate(state$polylon)
+            plats <- isolate(state$polylat)
+          }
+          write.table(format_settings_to_save(all_inputs=reactiveValuesToList(isolate(input)),
+                                              custom_name=isolate(state$custom_name),
+                                              polylon=plons,
+                                              polylat=plats,
+                                              regions=regions,
+                                              sat_algs=sat_algs),
+                      file=file, row.names=FALSE, na="NA", sep="\\")
         }
     )
     
