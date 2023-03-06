@@ -105,10 +105,13 @@ get_stats <- function(rchla, outlier) {
   chl_median <- apply(rchla, 2, median, na.rm = TRUE)
   # Note: can't use "min" and "max" functions alone because unlike the mean and median functions,
   # which return NA if all their input is NA, min and max return Inf
-  chl_min <- sapply(1:ncol(rchla), function(i) {ifelse(all(is.na(rchla[,i])), NaN, min(rchla[,i], na.rm = TRUE))})
-  chl_max <- sapply(1:ncol(rchla), function(i) {ifelse(all(is.na(rchla[,i])), NaN, max(rchla[,i], na.rm = TRUE))})
-  nobs <- as.numeric(sapply(1:ncol(rchla), function(i) {sum(!is.na(rchla[,i]))}))
-  percent_coverage <- (nobs/nrow(rchla))*100
+  nobs <- colSums(!is.na(rchla))
+  lennobs <- length(nobs)
+  good <- nobs > 0
+  chl_min <- chl_max <- rep(NaN,lennobs)
+  chl_min[good] <- apply(rchla[,good], MARGIN=2, FUN=min, na.rm = TRUE)
+  chl_max[good] <- apply(rchla[,good], MARGIN=2, FUN=max, na.rm = TRUE)
+  percent_coverage <- (nobs/lennobs)*100
   
   # Limits based on outlier method
   limits <- matrix(nrow = length(chl_sd), ncol = 2)
@@ -127,16 +130,10 @@ get_stats <- function(rchla, outlier) {
     limits <- t(apply(rchla, 2, quantile, probs=c(qnum,1-qnum), na.rm = TRUE))
   }
   
-  if (outlier == "none") {
-    lenok <- apply(!is.na(rchla), 2, sum, na.rm=TRUE)
-    bad <- lenok==0
-    chl_mean[bad] <- chl_median[bad] <- chl_sd[bad] <- chl_min[bad] <- chl_max[bad] <- NA
-    nobs[bad] <- percent_coverage[bad] <- 0
-  } else {
-    lenok <- vector(mode = 'logical', length = ncol(rchla))
-    for (i in 1:ncol(rchla)) {
+  if (outlier != "none") {
+    for (i in which(good)) {
       d <- rchla[,i]
-      ok <- which(d >= limits[i,1] & d <= limits[i,2])
+      ok <- which(d >= limits[i,1] & d <= limits[i,2]) # this filters out NA pixels
       # update stats for this day after removing outliers
       if (length(ok)==0) {
         chl_mean[i] <- chl_median[i] <- chl_sd[i] <- chl_min[i] <- chl_max[i] <- NA
@@ -150,12 +147,11 @@ get_stats <- function(rchla, outlier) {
         nobs[i] <- length(ok)
         percent_coverage[i] <- (nobs[i]/length(d))*100
       }
-      lenok[i] <- length(ok)
     }
   }
   
   return(list(limits=limits,
-              lenok=lenok,
+              lenok=nobs,
               chl_mean=chl_mean,
               chl_median=chl_median,
               chl_sd=chl_sd,
