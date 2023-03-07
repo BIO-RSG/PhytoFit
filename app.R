@@ -819,6 +819,9 @@ server <- function(input, output, session) {
         # set a variable to automatically click "createTypedPoly" after the lats/lons are updated
         state$draw_programmatically <- TRUE
         # if the custom polygon has a name, apply it
+        print(custom_polygon_name)
+        print(str(custom_polygon_name))
+        print(nchar(custom_polygon_name))
         if (nchar(custom_polygon_name) > 0) {
           updateTextInput(session, inputId="custom_name", value=custom_polygon_name)
           state$applyname_programmatically <- TRUE
