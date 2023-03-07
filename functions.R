@@ -106,9 +106,9 @@ get_stats <- function(rchla, outlier) {
   # Note: can't use "min" and "max" functions alone because unlike the mean and median functions,
   # which return NA if all their input is NA, min and max return Inf
   nobs <- colSums(!is.na(rchla))
-  lennobs <- length(nobs)
+  lennobs <- nrow(rchla)
   good <- nobs > 0
-  chl_min <- chl_max <- rep(NaN,lennobs)
+  chl_min <- chl_max <- rep(NaN,ncol(rchla))
   chl_min[good] <- apply(rchla[,good], MARGIN=2, FUN=min, na.rm = TRUE)
   chl_max[good] <- apply(rchla[,good], MARGIN=2, FUN=max, na.rm = TRUE)
   percent_coverage <- (nobs/lennobs)*100
