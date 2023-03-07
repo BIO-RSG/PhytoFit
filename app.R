@@ -734,7 +734,79 @@ server <- function(input, output, session) {
                       # if necessary, update region, sat_alg, concentration type, year, interval, log_chla
                       # otherwise just update secondary settings (if they've changed)
                       if (identical(current_inputs, new_inputs)) {
-                        update_settings2(file_contents[!main_inds,])
+                        
+                        
+                        # update_settings2(file_contents[!main_inds,])
+                        
+                        secondary_settings <- file_contents[!main_inds,]
+                        
+                        extra_inds <- secondary_settings$setting_id %in% c("yearday_slide", "fullrunyears",
+                                                                           "box", "custom_name", "polylon", "polylat")
+                        extra_df <- secondary_settings[extra_inds,]
+                        
+                        # get box details to update later
+                        predefined_polygon <- extra_df$value[extra_df$setting_id=="box"]
+                        custom_polygon_name <- extra_df$value[extra_df$setting_id=="custom_name"]
+                        predefined_custom_lons <- extra_df$value[extra_df$setting_id=="polylon"]
+                        predefined_custom_lats <- extra_df$value[extra_df$setting_id=="polylat"]
+                        
+                        # update yearday_slider with proper choices and selection
+                        yearday_value <- as.numeric(trimws(extra_df$value[extra_df$setting_id=="yearday_slide"]))
+                        if (state$interval=="daily") {
+                          updateSliderInput(session, inputId = "yearday_slide", value = yearday_value, step = 1)
+                        } else if (state$interval=="weekly") {
+                          updateSliderInput(session, inputId = "yearday_slide", value = yearday_value, step = 8)
+                        }
+                        
+                        # update full_run slider input with proper choices and selection
+                        tmp_years <- as.numeric(years[[state$region]][[state$sat_alg]])
+                        fullrunyears_value <- trimws(extra_df$value[extra_df$setting_id=="fullrunyears"])
+                        fullrunyears_value <- as.numeric(strsplit(fullrunyears_value, split=",")[[1]])
+                        updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years), max = max(tmp_years), value = fullrunyears_value)
+                        
+                        # update remaining secondary settings
+                        secondary_settings <- secondary_settings[!extra_inds,]
+                        formatted_settings <- format_settings_to_load(secondary_settings)
+                        tmp_ids <- formatted_settings$ids
+                        tmp_values <- formatted_settings$values
+                        tmp_widgets <- formatted_settings$widgets
+                        lapply(1:sum(tmp_widgets==1), function(i) updateSelectInput(session, inputId = tmp_ids[tmp_widgets==1][i], selected = tmp_values[tmp_widgets==1][[i]]))
+                        lapply(1:sum(tmp_widgets==2), function(i) updateSliderInput(session, inputId = tmp_ids[tmp_widgets==2][i], value = tmp_values[tmp_widgets==2][[i]]))
+                        lapply(1:sum(tmp_widgets==3), function(i) updateNumericInput(session, inputId = tmp_ids[tmp_widgets==3][i], value = tmp_values[tmp_widgets==3][[i]]))
+                        lapply(1:sum(tmp_widgets==4), function(i) updateTextInput(session, inputId = tmp_ids[tmp_widgets==4][i], value = tmp_values[tmp_widgets==4][[i]]))
+                        lapply(1:sum(tmp_widgets==5), function(i) updateRadioButtons(session, inputId = tmp_ids[tmp_widgets==5][i], selected = tmp_values[tmp_widgets==5][[i]]))
+                        lapply(1:sum(tmp_widgets==6), function(i) updateCheckboxInput(session, inputId = tmp_ids[tmp_widgets==6][i], value = tmp_values[tmp_widgets==6][[i]]))
+                        lapply(1:sum(tmp_widgets==7), function(i) updateSwitchInput(session, inputId = tmp_ids[tmp_widgets==7][i], value = tmp_values[tmp_widgets==7][[i]]))
+                        lapply(1:sum(tmp_widgets==8), function(i) updatePickerInput(session, inputId = tmp_ids[tmp_widgets==8][i], selected = tmp_values[tmp_widgets==8][[i]]))
+                        
+                        # now update the box input
+                        updateSelectInput(session, inputId = "box", choices = poly_choices[[isolate(input$region)]], selected=predefined_polygon)
+                        # if it's a custom box, update lat/lon input and add it to the map and stats using the "typeCoords" method
+                        if (predefined_polygon=="custom" & !is.na(predefined_custom_lats) & !is.na(predefined_custom_lons)) {
+                          updateRadioButtons(session, inputId="latlon_method", selected="typeCoords")
+                          updateTextInput(session, inputId="manual_lats", value=predefined_custom_lats)
+                          updateTextInput(session, inputId="manual_lons", value=predefined_custom_lons)
+                          # set a variable to automatically click "createTypedPoly" after the lats/lons are updated
+                          state$draw_programmatically <- TRUE
+                          # if the custom polygon has a name, apply it
+                          if (nchar(custom_polygon_name) > 0) {
+                            updateTextInput(session, inputId="custom_name", value=custom_polygon_name)
+                            state$applyname_programmatically <- TRUE
+                          }
+                        }
+                        
+                        # update the box state variable as well
+                        # this is needed because the input choices/widget will be updated during this round of reactive updates,
+                        # then the stats will be calculated, but the actual box state won't be updated until next round, so it
+                        # won't be calculating the right stats (if you change region, this will make it crash)
+                        state$box <- predefined_polygon
+                        
+                        # now reset secondary_settings
+                        state$secondary_settings <- NULL
+                        
+                        
+                        
+                        
                       } else {
                         sat_alg_choices <- sat_algs[[tmp_values[[1]]]]
                         year_choices <- rev(years[[tmp_values[[1]]]][[tmp_values[[2]]]])
@@ -767,76 +839,73 @@ server <- function(input, output, session) {
                  style = error_text_style)
     })
     
-    # function to apply secondary settings, either after loading the new main settings or without reloading the main settings (assuming they haven't changed)
-    update_settings2 <- function(secondary_settings) {
-      
-      extra_inds <- secondary_settings$setting_id %in% c("yearday_slide", "fullrunyears",
-                                                         "box", "custom_name", "polylon", "polylat")
-      extra_df <- secondary_settings[extra_inds,]
-      
-      # get box details to update later
-      predefined_polygon <- extra_df$value[extra_df$setting_id=="box"]
-      custom_polygon_name <- extra_df$value[extra_df$setting_id=="custom_name"]
-      predefined_custom_lons <- extra_df$value[extra_df$setting_id=="polylon"]
-      predefined_custom_lats <- extra_df$value[extra_df$setting_id=="polylat"]
-      
-      # update yearday_slider with proper choices and selection
-      yearday_value <- as.numeric(trimws(extra_df$value[extra_df$setting_id=="yearday_slide"]))
-      if (state$interval=="daily") {
-        updateSliderInput(session, inputId = "yearday_slide", value = yearday_value, step = 1)
-      } else if (state$interval=="weekly") {
-        updateSliderInput(session, inputId = "yearday_slide", value = yearday_value, step = 8)
-      }
-      
-      # update full_run slider input with proper choices and selection
-      tmp_years <- as.numeric(years[[state$region]][[state$sat_alg]])
-      fullrunyears_value <- trimws(extra_df$value[extra_df$setting_id=="fullrunyears"])
-      fullrunyears_value <- as.numeric(strsplit(fullrunyears_value, split=",")[[1]])
-      updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years), max = max(tmp_years), value = fullrunyears_value)
-      
-      # update remaining secondary settings
-      secondary_settings <- secondary_settings[!extra_inds,]
-      formatted_settings <- format_settings_to_load(secondary_settings)
-      tmp_ids <- formatted_settings$ids
-      tmp_values <- formatted_settings$values
-      tmp_widgets <- formatted_settings$widgets
-      lapply(1:sum(tmp_widgets==1), function(i) updateSelectInput(session, inputId = tmp_ids[tmp_widgets==1][i], selected = tmp_values[tmp_widgets==1][[i]]))
-      lapply(1:sum(tmp_widgets==2), function(i) updateSliderInput(session, inputId = tmp_ids[tmp_widgets==2][i], value = tmp_values[tmp_widgets==2][[i]]))
-      lapply(1:sum(tmp_widgets==3), function(i) updateNumericInput(session, inputId = tmp_ids[tmp_widgets==3][i], value = tmp_values[tmp_widgets==3][[i]]))
-      lapply(1:sum(tmp_widgets==4), function(i) updateTextInput(session, inputId = tmp_ids[tmp_widgets==4][i], value = tmp_values[tmp_widgets==4][[i]]))
-      lapply(1:sum(tmp_widgets==5), function(i) updateRadioButtons(session, inputId = tmp_ids[tmp_widgets==5][i], selected = tmp_values[tmp_widgets==5][[i]]))
-      lapply(1:sum(tmp_widgets==6), function(i) updateCheckboxInput(session, inputId = tmp_ids[tmp_widgets==6][i], value = tmp_values[tmp_widgets==6][[i]]))
-      lapply(1:sum(tmp_widgets==7), function(i) updateSwitchInput(session, inputId = tmp_ids[tmp_widgets==7][i], value = tmp_values[tmp_widgets==7][[i]]))
-      lapply(1:sum(tmp_widgets==8), function(i) updatePickerInput(session, inputId = tmp_ids[tmp_widgets==8][i], selected = tmp_values[tmp_widgets==8][[i]]))
-      
-      # now update the box input
-      updateSelectInput(session, inputId = "box", choices = poly_choices[[isolate(input$region)]], selected=predefined_polygon)
-      # if it's a custom box, update lat/lon input and add it to the map and stats using the "typeCoords" method
-      if (predefined_polygon=="custom" & !is.na(predefined_custom_lats) & !is.na(predefined_custom_lons)) {
-        updateRadioButtons(session, inputId="latlon_method", selected="typeCoords")
-        updateTextInput(session, inputId="manual_lats", value=predefined_custom_lats)
-        updateTextInput(session, inputId="manual_lons", value=predefined_custom_lons)
-        # set a variable to automatically click "createTypedPoly" after the lats/lons are updated
-        state$draw_programmatically <- TRUE
-        # if the custom polygon has a name, apply it
-        print(custom_polygon_name)
-        print(str(custom_polygon_name))
-        print(nchar(custom_polygon_name))
-        if (nchar(custom_polygon_name) > 0) {
-          updateTextInput(session, inputId="custom_name", value=custom_polygon_name)
-          state$applyname_programmatically <- TRUE
-        }
-      }
-      
-      # update the box state variable as well
-      # this is needed because the input choices/widget will be updated during this round of reactive updates,
-      # then the stats will be calculated, but the actual box state won't be updated until next round, so it
-      # won't be calculating the right stats (if you change region, this will make it crash)
-      state$box <- predefined_polygon
-      
-      # now reset secondary_settings
-      state$secondary_settings <- NULL
-    }
+    # # function to apply secondary settings, either after loading the new main settings or without reloading the main settings (assuming they haven't changed)
+    # update_settings2 <- function(secondary_settings) {
+    #   
+    #   extra_inds <- secondary_settings$setting_id %in% c("yearday_slide", "fullrunyears",
+    #                                                      "box", "custom_name", "polylon", "polylat")
+    #   extra_df <- secondary_settings[extra_inds,]
+    #   
+    #   # get box details to update later
+    #   predefined_polygon <- extra_df$value[extra_df$setting_id=="box"]
+    #   custom_polygon_name <- extra_df$value[extra_df$setting_id=="custom_name"]
+    #   predefined_custom_lons <- extra_df$value[extra_df$setting_id=="polylon"]
+    #   predefined_custom_lats <- extra_df$value[extra_df$setting_id=="polylat"]
+    #   
+    #   # update yearday_slider with proper choices and selection
+    #   yearday_value <- as.numeric(trimws(extra_df$value[extra_df$setting_id=="yearday_slide"]))
+    #   if (state$interval=="daily") {
+    #     updateSliderInput(session, inputId = "yearday_slide", value = yearday_value, step = 1)
+    #   } else if (state$interval=="weekly") {
+    #     updateSliderInput(session, inputId = "yearday_slide", value = yearday_value, step = 8)
+    #   }
+    #   
+    #   # update full_run slider input with proper choices and selection
+    #   tmp_years <- as.numeric(years[[state$region]][[state$sat_alg]])
+    #   fullrunyears_value <- trimws(extra_df$value[extra_df$setting_id=="fullrunyears"])
+    #   fullrunyears_value <- as.numeric(strsplit(fullrunyears_value, split=",")[[1]])
+    #   updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years), max = max(tmp_years), value = fullrunyears_value)
+    #   
+    #   # update remaining secondary settings
+    #   secondary_settings <- secondary_settings[!extra_inds,]
+    #   formatted_settings <- format_settings_to_load(secondary_settings)
+    #   tmp_ids <- formatted_settings$ids
+    #   tmp_values <- formatted_settings$values
+    #   tmp_widgets <- formatted_settings$widgets
+    #   lapply(1:sum(tmp_widgets==1), function(i) updateSelectInput(session, inputId = tmp_ids[tmp_widgets==1][i], selected = tmp_values[tmp_widgets==1][[i]]))
+    #   lapply(1:sum(tmp_widgets==2), function(i) updateSliderInput(session, inputId = tmp_ids[tmp_widgets==2][i], value = tmp_values[tmp_widgets==2][[i]]))
+    #   lapply(1:sum(tmp_widgets==3), function(i) updateNumericInput(session, inputId = tmp_ids[tmp_widgets==3][i], value = tmp_values[tmp_widgets==3][[i]]))
+    #   lapply(1:sum(tmp_widgets==4), function(i) updateTextInput(session, inputId = tmp_ids[tmp_widgets==4][i], value = tmp_values[tmp_widgets==4][[i]]))
+    #   lapply(1:sum(tmp_widgets==5), function(i) updateRadioButtons(session, inputId = tmp_ids[tmp_widgets==5][i], selected = tmp_values[tmp_widgets==5][[i]]))
+    #   lapply(1:sum(tmp_widgets==6), function(i) updateCheckboxInput(session, inputId = tmp_ids[tmp_widgets==6][i], value = tmp_values[tmp_widgets==6][[i]]))
+    #   lapply(1:sum(tmp_widgets==7), function(i) updateSwitchInput(session, inputId = tmp_ids[tmp_widgets==7][i], value = tmp_values[tmp_widgets==7][[i]]))
+    #   lapply(1:sum(tmp_widgets==8), function(i) updatePickerInput(session, inputId = tmp_ids[tmp_widgets==8][i], selected = tmp_values[tmp_widgets==8][[i]]))
+    #   
+    #   # now update the box input
+    #   updateSelectInput(session, inputId = "box", choices = poly_choices[[isolate(input$region)]], selected=predefined_polygon)
+    #   # if it's a custom box, update lat/lon input and add it to the map and stats using the "typeCoords" method
+    #   if (predefined_polygon=="custom" & !is.na(predefined_custom_lats) & !is.na(predefined_custom_lons)) {
+    #     updateRadioButtons(session, inputId="latlon_method", selected="typeCoords")
+    #     updateTextInput(session, inputId="manual_lats", value=predefined_custom_lats)
+    #     updateTextInput(session, inputId="manual_lons", value=predefined_custom_lons)
+    #     # set a variable to automatically click "createTypedPoly" after the lats/lons are updated
+    #     state$draw_programmatically <- TRUE
+    #     # if the custom polygon has a name, apply it
+    #     if (nchar(custom_polygon_name) > 0) {
+    #       updateTextInput(session, inputId="custom_name", value=custom_polygon_name)
+    #       state$applyname_programmatically <- TRUE
+    #     }
+    #   }
+    #   
+    #   # update the box state variable as well
+    #   # this is needed because the input choices/widget will be updated during this round of reactive updates,
+    #   # then the stats will be calculated, but the actual box state won't be updated until next round, so it
+    #   # won't be calculating the right stats (if you change region, this will make it crash)
+    #   state$box <- predefined_polygon
+    #   
+    #   # now reset secondary_settings
+    #   state$secondary_settings <- NULL
+    # }
     
     
     # DISABLE/TOGGLE BUTTONS ####
@@ -1374,7 +1443,72 @@ server <- function(input, output, session) {
             updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years),
                               max = max(tmp_years), value = range(tmp_years))
         } else {
-            update_settings2(secondary_settings)
+          
+            # update_settings2(secondary_settings)
+          
+            extra_inds <- secondary_settings$setting_id %in% c("yearday_slide", "fullrunyears",
+                                                               "box", "custom_name", "polylon", "polylat")
+            extra_df <- secondary_settings[extra_inds,]
+            
+            # get box details to update later
+            predefined_polygon <- extra_df$value[extra_df$setting_id=="box"]
+            custom_polygon_name <- extra_df$value[extra_df$setting_id=="custom_name"]
+            predefined_custom_lons <- extra_df$value[extra_df$setting_id=="polylon"]
+            predefined_custom_lats <- extra_df$value[extra_df$setting_id=="polylat"]
+            
+            # update yearday_slider with proper choices and selection
+            yearday_value <- as.numeric(trimws(extra_df$value[extra_df$setting_id=="yearday_slide"]))
+            if (state$interval=="daily") {
+              updateSliderInput(session, inputId = "yearday_slide", value = yearday_value, step = 1)
+            } else if (state$interval=="weekly") {
+              updateSliderInput(session, inputId = "yearday_slide", value = yearday_value, step = 8)
+            }
+            
+            # update full_run slider input with proper choices and selection
+            tmp_years <- as.numeric(years[[state$region]][[state$sat_alg]])
+            fullrunyears_value <- trimws(extra_df$value[extra_df$setting_id=="fullrunyears"])
+            fullrunyears_value <- as.numeric(strsplit(fullrunyears_value, split=",")[[1]])
+            updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years), max = max(tmp_years), value = fullrunyears_value)
+            
+            # update remaining secondary settings
+            secondary_settings <- secondary_settings[!extra_inds,]
+            formatted_settings <- format_settings_to_load(secondary_settings)
+            tmp_ids <- formatted_settings$ids
+            tmp_values <- formatted_settings$values
+            tmp_widgets <- formatted_settings$widgets
+            lapply(1:sum(tmp_widgets==1), function(i) updateSelectInput(session, inputId = tmp_ids[tmp_widgets==1][i], selected = tmp_values[tmp_widgets==1][[i]]))
+            lapply(1:sum(tmp_widgets==2), function(i) updateSliderInput(session, inputId = tmp_ids[tmp_widgets==2][i], value = tmp_values[tmp_widgets==2][[i]]))
+            lapply(1:sum(tmp_widgets==3), function(i) updateNumericInput(session, inputId = tmp_ids[tmp_widgets==3][i], value = tmp_values[tmp_widgets==3][[i]]))
+            lapply(1:sum(tmp_widgets==4), function(i) updateTextInput(session, inputId = tmp_ids[tmp_widgets==4][i], value = tmp_values[tmp_widgets==4][[i]]))
+            lapply(1:sum(tmp_widgets==5), function(i) updateRadioButtons(session, inputId = tmp_ids[tmp_widgets==5][i], selected = tmp_values[tmp_widgets==5][[i]]))
+            lapply(1:sum(tmp_widgets==6), function(i) updateCheckboxInput(session, inputId = tmp_ids[tmp_widgets==6][i], value = tmp_values[tmp_widgets==6][[i]]))
+            lapply(1:sum(tmp_widgets==7), function(i) updateSwitchInput(session, inputId = tmp_ids[tmp_widgets==7][i], value = tmp_values[tmp_widgets==7][[i]]))
+            lapply(1:sum(tmp_widgets==8), function(i) updatePickerInput(session, inputId = tmp_ids[tmp_widgets==8][i], selected = tmp_values[tmp_widgets==8][[i]]))
+            
+            # now update the box input
+            updateSelectInput(session, inputId = "box", choices = poly_choices[[isolate(input$region)]], selected=predefined_polygon)
+            # if it's a custom box, update lat/lon input and add it to the map and stats using the "typeCoords" method
+            if (predefined_polygon=="custom" & !is.na(predefined_custom_lats) & !is.na(predefined_custom_lons)) {
+              updateRadioButtons(session, inputId="latlon_method", selected="typeCoords")
+              updateTextInput(session, inputId="manual_lats", value=predefined_custom_lats)
+              updateTextInput(session, inputId="manual_lons", value=predefined_custom_lons)
+              # set a variable to automatically click "createTypedPoly" after the lats/lons are updated
+              state$draw_programmatically <- TRUE
+              # if the custom polygon has a name, apply it
+              if (nchar(custom_polygon_name) > 0) {
+                updateTextInput(session, inputId="custom_name", value=custom_polygon_name)
+                state$applyname_programmatically <- TRUE
+              }
+            }
+            
+            # update the box state variable as well
+            # this is needed because the input choices/widget will be updated during this round of reactive updates,
+            # then the stats will be calculated, but the actual box state won't be updated until next round, so it
+            # won't be calculating the right stats (if you change region, this will make it crash)
+            state$box <- predefined_polygon
+            
+            # now reset secondary_settings
+            state$secondary_settings <- NULL
         }
         
         remove_modal_spinner()
