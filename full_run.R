@@ -83,15 +83,10 @@ full_run <- function(d, year, sslat, sslon, polygon_list, pnames, doys_per_week,
         em <- NULL
         
         if (is.null(rchla)) {
-            
             em <- "No data in the selected region"
-            
             stats_df <- data.frame(matrix(nrow=1,ncol=7), stringsAsFactors=FALSE)
             colnames(stats_df) <- c("mean_chl", "median_chl", "stdev_chl", "min_chl", "max_chl", "nobs", "percent_coverage")
-            
         } else {
-            
-            # process full annual stats
             all_stats <- get_stats(rchla, d$outlier)
             lenok <- all_stats$lenok
             chl_mean <- all_stats$chl_mean
@@ -105,10 +100,8 @@ full_run <- function(d, year, sslat, sslon, polygon_list, pnames, doys_per_week,
                                    nobs=all_stats$nobs,
                                    percent_coverage=all_stats$percent_coverage,
                                    stringsAsFactors=FALSE)
-            
             first_day <- t_range[1]
             last_day <- t_range[2]
-            
             daily_percov <- 100 * lenok / nrow(rchla)
             ind_percov <- daily_percov > percent
             ind_dayrange <- doy_vec >= first_day & doy_vec <= min(last_day, available_days)
@@ -116,16 +109,12 @@ full_run <- function(d, year, sslat, sslon, polygon_list, pnames, doys_per_week,
             ydays_percov <- doy_vec[ind_percov] # all days with high enough percent coverage
             ydays_dayrange <- doy_vec[ind_dayrange]
             ydays_dayrange_percov <- doy_vec[ind_dayrange_percov] # subset of days used for fit
-            
             # If there is no data available for the fit after removing days outside
             # the day range and with insufficient data, print an error message instead.
             if (sum(ydays_dayrange_percov)==0) {
-                
                 em <- paste0("No data available between day ", first_day, " and ",
                              last_day, " with >= ", percent, "% coverage")
-                
             }
-            
         }
         
         
@@ -133,7 +122,6 @@ full_run <- function(d, year, sslat, sslon, polygon_list, pnames, doys_per_week,
         # Get bloom fitted parameters and create plot, unless there's an error message
         
         if (is.null(em)) {
-        
             bf_data <- get_bloom_fit_data(interval=interval,
                                           p=p,
                                           pnames = pnames,
@@ -153,43 +141,30 @@ full_run <- function(d, year, sslat, sslon, polygon_list, pnames, doys_per_week,
                                           doy_vec = doy_vec,
                                           plot_title = plot_title,
                                           sv = d)
-            
             loess_smooth <- rep(NA,length(daily_percov))
             if (smoothMethod == 'loess') {
                 loess_smooth[ind_dayrange_percov] <- bf_data$y$y
             }
             stats_df$loess_smooth <- loess_smooth
-            
             p <- bf_data$p
             fitparams <- bf_data$fitparams
-            
-            
         } else {
-            
-            p <- p +
-                ggtitle(plot_title) +
-                annotation_custom(grobTree(textGrob(em)))
-            
+            p <- p + ggtitle(plot_title) + annotation_custom(grobTree(textGrob(em)))
             fitparams <- data.frame(matrix(rep(NA, length(pnames)), nrow=1), stringsAsFactors = FALSE)
             colnames(fitparams) <- pnames
-            
         }
         
         
         #***********************************************************************
         # Write stats to csv and ggplot to png, and add fit parameters for the current region to the full dataframe
         
+        basef <- file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind]))
         if (fullrunoutput_statcsv) {
-            write.csv(stats_df,
-                      file=file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind], "_stats.csv")),
-                      quote=FALSE, na=" ", row.names=FALSE)
+            write.csv(stats_df, file=paste0(basef,"_stats.csv"), quote=FALSE, na=" ", row.names=FALSE)
         }
-        
         if (fullrunoutput_png) {
-            ggsave(file=file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind], "_bloomfit.png")),
-                   plot=p, width=12,  height=5, units="in")
+            ggsave(file=paste0(basef,"_bloomfit.png"), plot=p, width=12, height=5, units="in")
         }
-        
         full_fit_params[reg_ind,] <- c(toupper(poly_IDs[reg_ind]), year, as.numeric(fitparams))
         
         gc()
