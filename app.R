@@ -1,8 +1,6 @@
 # clear memory to free up space
 gc()
 
-# LIBRARIES ####
-
 library(fst)            # for speedier data file loading
 library(shiny)
 library(shinyWidgets)   # for updating buttons
@@ -21,11 +19,7 @@ library(gridExtra)      # for creating tableGrobs overlaid on ggplots
 library(dplyr)          # for formatting data tables
 library(geometry)       # to check if user-entered lat/lons make a polygon with area too large (degrees^2)
 library(raster)         # to use rasters on the map instead of binned points (faster, but less accurate)
-library(oceancolouR)    # for shifted_gaussian() and sparkle_fill()
-library(stringr)        # for reading and formatting dataset lists
-# library(htmlTable)      # for making tables in popups
-# library(geosphere)      # for calculating accurate distances between single point click and data point plotted on the map
-
+library(oceancolouR)    # for shifted_gaussian() and sparkle_fill() and pad0()
 source("rateOfChange.R")        # rate of change (ROC) function for bloom fit
 source("threshold.R")           # threshold function for bloom fit
 source("gaussFit.R")            # gaussian function for bloom fit
@@ -666,7 +660,6 @@ server <- function(input, output, session) {
     state$applyname_programmatically <- FALSE
     state$max_area <- reginfo[[default_region]]$max_area
     state$loess_smooth <- NA
-    
     # These are used to check which specific inputs have been updated in the code block
     # below that hides the left panel if any of the main inputs have changed.
     # years are dependant on sat_algs, which is dependent on region
@@ -1736,7 +1729,7 @@ server <- function(input, output, session) {
           }
         }
         
-        if (state$box == "custom" & is.null(coords) | !(state$box %in% poly_ID[[region]])) {
+        if (state$box == "custom" & is.null(coords) | !(state$box %in% c("custom",poly_ID[[region]]))) {
             
             Longitude <- Latitude <- rchla <- NULL
             
