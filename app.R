@@ -1634,7 +1634,9 @@ server <- function(input, output, session) {
     observeEvent(input$createTypedPoly, {
         good_latlons <- check_latlons(input$manual_lats, input$manual_lons, state$nbad_polys)
         state$typedpoly <- good_latlons$coords
-        state$nbad_polys <- good_latlons$nbad_polys
+        if (good_latlons$num_invalid_polygons_drawn > state$nbad_polys) {
+          state$nbad_polys <- good_latlons$num_invalid_polygons_drawn
+        }
         state$latlon_invalid <- good_latlons$latlon_invalid
         state$latlon_toolarge <- good_latlons$latlon_toolarge
         state$help_latlon_txt <- good_latlons$help_latlon_txt
