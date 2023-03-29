@@ -57,13 +57,13 @@ remotes::install_github("BIO-RSG/oceancolouR")
 
 4. To update existing datasets:  
 
-- Similar to the download script in step 3, open `00_update_datasets.R` and set the *ask_user* argument, or run from the command line. This will update the datasets you have already downloaded with the most recent copies (and download any years of data missing from your local directory).  
+- Similar to the download script in step 3, open `00_update_datasets.R` and set the *ask_user* argument, or run from the command line (e.g. `Rscript [script directory]/00_update_datasets.R 'false'`. This will update the datasets you have already downloaded with the most recent copies (and download any years of data missing from your local directory).  
 
 
 **WARNINGS:**  
 - Data files will be downloaded to `data/[region]/` subfolders of the PhytoFit repository - Do NOT move them from there or the app will not be able to read them.  
 - If possible, please keep the data files if you intend to use them in the future, rather than re-downloading them later, to avoid excessive traffic on the ftp server.  
-
+- "Science-quality" products are updated quarterly (Jan 1, Apr 1, Jul 1, and Oct 1 of each year) up to the end of the previous quarter. Any data that is < 3 months old is "Near Real Time" (NRT). More info <a href="https://lance.modaps.eosdis.nasa.gov/data/difference.php">here</a>.  
 
 
 ## Running
