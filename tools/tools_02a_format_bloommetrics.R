@@ -1,17 +1,10 @@
 # Stephanie.Clay@dfo-mpo.gc.ca
 # 2022-09-20
 
-# Format bloom metrics and settings file so they can be used by other tool scripts.
-# 
-# This script can take the output of a set of standard fits (i.e. multiple fits
-# done using the "full run" feature with a single group of settings), and a set
-# of manual fits (i.e. a single fit done using unique settings).
-#
-# WARNING!!! Each box/year must have only ONE fit in the manual_path.
-# After reading manual fits, they will be grouped by box/year and sorted by datetime_fitted,
-# and if any box/year has more than one manual fit, only the most recent fit will be kept.
-# If replace_standard=TRUE and a box/year has both a standard and manual fit, the
-# manual fit will replace the standard fit.
+# Take the stats, metrics, and input settings from multiple fits run in PhytoFit, and pull
+# them together into a single table. This can consolidate the results of both standard fits
+# (i.e. multiple fits done using the "full run" feature with a single group of settings),
+# and manual fits (i.e. fits done using unique settings).
 
 rm(list=ls())
 
@@ -22,30 +15,32 @@ library(stringr)
 #*******************************************************************************
 # VARIABLES TO CHANGE
 
-# Path to standard fits (set standard_path=NULL to exclude them).
+# Path to standard fits (set standard_path=NULL to ignore these).
 # Folder must contain the .zip file that was downloaded from PhytoFit after running
 # multiple fits, along with the following files extracted from the .zip file:
 #   - [year]_[box]_stats.csv files for EACH box/year that was fit
 #   - bloom_fit_params.csv
 #   - settings.txt
-standard_path <- "verified_fits/bloomfits_azmp/standard_fits/"
+standard_path <- "verified_fits/bloomfits_azomp/standard_fits/"
 
-# Path to manual fits (set manual_path=NULL to exclude them).
+# Path to manual fits (set manual_path=NULL to ignore these).
 # Folder must contain the following files from EACH box/year that was fit:
 #   - [fit details]_annual_stats.csv
 #   - [fit details]_bloom_parameters.csv
 #   - [fit details]_settings.txt
-# WARNING!!!! Each box/year must have only ONE set of fits in this folder
-manual_path <- "verified_fits/bloomfits_azmp/manual_fits/"
+# WARNING!!!! Each box/year must have only ONE fit in this folder. Manual fits will
+#   be grouped by box/year and sorted by datetime_fitted, and if any box/year has
+#   more than one fit, only the most recent fit will be kept.
+manual_path <- "verified_fits/bloomfits_azomp/manual_fits/"
 
 # If a box/year was fit with both standard and manual settings, should the manual fit replace the standard fit?
 replace_standard <- TRUE
 
-# Output csv filename that will contain the bloom metrics, parameters, and settings
-output_file <- "verified_fits/bloomfits_azmp/verified_fits_azmp.csv"
+# Output csv filename that will contain the table with bloom metrics, parameters, and settings for each polygon/year that was fit
+output_file <- "verified_fits/bloomfits_azomp/verified_fits_azomp.csv"
 
-# Output Rdata filename that will contain the annual stats in a list in an Rdata file
-output_stats_file <- "verified_fits/bloomfits_azmp/verified_fits_azmp_annual_stats.Rdata"
+# Output Rdata filename that will contain a list of the annual stats for each polygon/year that was fit
+output_stats_file <- "verified_fits/bloomfits_azomp/verified_fits_azomp_annual_stats.Rdata"
 
 
 #*******************************************************************************
