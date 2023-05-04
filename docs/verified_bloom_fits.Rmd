@@ -66,6 +66,8 @@ Below are the annual fits for each of the AZMP polygons (CSS, CS, ESS, GB, HL2, 
 
 ### AZMP
 
+Below are the verified fits for AZMP polygons. Bloom metrics and input parameters from these fits can be downloaded <a href="https://github.com/BIO-RSG/PhytoFit/tree/master/verified_fits/bloomfits_azmp">here</a>.  
+
 <img src="../verified_fits/bloomfits_azmp/verified_fits_azmp_gaussians.png" width="800px">
 
 #### Flags
@@ -75,6 +77,8 @@ Below are the annual fits for each of the AZMP polygons (CSS, CS, ESS, GB, HL2, 
 
 ### AZOMP
 
+Below are the verified fits for AZOMP polygons. Bloom metrics and input parameters from these fits can be downloaded <a href="https://github.com/BIO-RSG/PhytoFit/tree/master/verified_fits/bloomfits_azomp">here</a>.  
+
 <img src="../verified_fits/bloomfits_azomp/verified_fits_azomp_gaussians.png" width="800px">
 
 #### Flags
@@ -82,13 +86,5 @@ Below are the annual fits for each of the AZMP polygons (CSS, CS, ESS, GB, HL2, 
 <img src="../verified_fits/bloomfits_azomp/verified_fits_azomp_flags.png" width="800px">
 
 <br>
-
-
-
-## Metrics
-
-Input parameters and bloom metrics for each year and each of the polygons listed above can be downloaded from <a href="https://github.com/BIO-RSG/PhytoFit/tree/master/verified_fits/bloomfits_azmp">here (for AZMP polygons)</a> and <a href="https://github.com/BIO-RSG/PhytoFit/tree/master/verified_fits/bloomfits_azomp">here (for AZOMP polygons)</a>.  
-
-
 
 
