@@ -34,10 +34,18 @@ README.html
 troubleshooting_and_help.html
 updates.html
 data_filesize_speed_tests/
+verified_fits/bloomfits_azmp/manual_fits/*
+verified_fits/bloomfits_azmp/standard_fits/*
+verified_fits/bloomfits_azomp/manual_fits/*
+verified_fits/bloomfits_azomp/standard_fits/*
 
 # 2022-01-02 change - ignore the dataset folder, they should be treated separately and not tracked
 data/atlantic/*
 data/pacific/*
+data/baffin/*
+data/gosl1km/*
+data/gosl4km/*
+data/testregion/*
 
 # 2022-04-05 ignore volumes that are mounted by Docker
 data/
