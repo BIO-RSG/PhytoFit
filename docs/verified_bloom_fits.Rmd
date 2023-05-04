@@ -1,0 +1,94 @@
+---
+title: "Verified bloom fits"
+date: "`r Sys.Date()`"
+output:
+  github_document:
+    toc: true
+    toc_depth: 5
+    df_print: kable
+    hard_line_breaks: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE, comment=NA)
+```
+
+## Background
+
+<img src="../docs/verified_bloom_fits_map.png" align="right" width="500px">
+
+<br>
+
+Time series of phytoplankton blooms, particularly in spring, often follow an approximate Gaussian curve. The Northwest Atlantic (NWA) is grouped into a series of polygons to investigate each region's unique interannual bloom dynamics. Several polygons of interest are plotted to the right.  
+
+Daily mean chlorophyll-a (*chl-a*) is calculated within each polygon, and a Gaussian is fitted to the data using the PhytoFit app. The Gaussian parameters and other metrics are extracted from the fit and compared to the metrics retrieved within the same polygon in other years, in order to monitor changes in the timing and intensity of the bloom. These parameters and metrics are stored for future use in our set of "verified fits".  
+
+For most fits, a standard group of PhytoFit input settings are used, found in the settings file `phytofit_settings_AZMP_2021AZMPmeeting.txt` (for AZMP polygons) or `phytofit_settings_AZOMP_2021AZMPmeeting.txt` (for AZOMP polygons). However, each fit is inspected manually to judge the "goodness" of fit, and if it can be improved the settings are tweaked manually.  
+
+<br clear="right"/>
+<br>
+
+### Bloom metrics
+
+<img src="../docs/gaussian_diagram.png" align="right" width="500px">
+
+The four main metrics monitored regularly are <b>initiation</b> (the timing of the start of the bloom), <b>duration</b>, <b>amplitude</b> (difference between the peak concentration and "background" *chl-a*), and <b>magnitude</b> (area under the Gaussian curve between the start and end of the bloom, or the total *chl-a* produced during the bloom period). For the amplitude and magnitude calculations, we use the real data points rather than the Gaussian curve - i.e. the maximum *chl-a* concentration within the bloom period, and the area under the real data points, linearly interpolating between days with missing data.  
+
+<br>
+
+### Flags
+
+Gaussian bloom fits are flagged if they meet any of the criteria below. For amplitude and magnitude, "fit" refers to the metrics calculated using the Gaussian curve, and "real" refers to metrics calculated using the real data points. *Sigma* is a Gaussian curve parameter controlling the width of the curve. *t* "sliders" are the controls used to restrict the days used in the Gaussian fit.  
+
+```{r}
+flag_df <- data.frame(
+  Flag = paste0("Flag",1:6),
+  Name = c("Amplitude ratio","Magnitude ratio","Small sigma",
+           "t<sub>start</sub> on boundary",
+           "t<sub>max</sub> on boundary",
+           "t<sub>end</sub> on boundary"),
+  Description = c("Flagged if (amplitude<sub>fit</sub> / amplitude<sub>real</sub>) is outside the selected range (default 0.75-1.25).",
+                  "Flagged if (magnitude<sub>fit</sub> / magnitude<sub>real</sub>) is outside the selected range (default 0.85-1.15).",
+                  "Flagged if sigma <= time resolution (1 for daily data, 8 for weekly data).",
+                  "Flagged if the calculated t<sub>start</sub> is on the boundary of the t<sub>start</sub> slider.",
+                  "Flagged if the calculated t<sub>max</sub> is on the boundary of the t<sub>max</sub> slider.",
+                  "Flagged if the calculated t<sub>end</sub> is on the boundary of the t<sub>range</sub> slider."))
+knitr::kable(flag_df,escape=FALSE)
+```
+
+
+
+<br>
+
+## Gaussian fits
+
+Below are the annual fits for each of the AZMP polygons (CSS, CS, ESS, GB, HL2, LS, P5, and WSS) and AZOMP (CLS, GS, and LAS, as well as a temporary "custom" box encompassing most of the Lab Sea). Panels outlined in red were fit by manually changing the standard settings to improve the fit. The "flags" barplots below each grid of Gaussians show the number of times each polygon was marked by flags 1-6, separated by whether the Gaussian was fit using the "standard" settings or if the settings were tweaked manually.  
+
+### AZMP
+
+<a href="verified_fits/bloomfits_azmp/verified_fits_azmp_gaussians.png"><img src="../verified_fits/bloomfits_azmp/verified_fits_azmp_gaussians.png" width="800px"></a>
+
+#### Flags
+
+<img src="../verified_fits/bloomfits_azmp/verified_fits_azmp_flags.png" width="800px">
+
+
+### AZOMP
+
+<a href="verified_fits/bloomfits_azomp/verified_fits_azomp_gaussians.png"><img src="../verified_fits/bloomfits_azomp/verified_fits_azomp_gaussians.png" width="800px"></a>
+
+#### Flags
+
+<img src="../verified_fits/bloomfits_azomp/verified_fits_azomp_flags.png" width="800px">
+
+<br>
+
+
+
+## Metrics
+
+Input parameters and bloom metrics for each year and each of the polygons listed above can be downloaded from <a href="">here (for AZMP polygons)</a> and <a href="">here (for AZOMP polygons)</a>.  
+
+
+
+
