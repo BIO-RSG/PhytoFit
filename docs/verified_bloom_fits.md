@@ -90,7 +90,7 @@ settings were tweaked manually.
 
 ### AZMP
 
-<a href="verified_fits/bloomfits_azmp/verified_fits_azmp_gaussians.png"><img src="../verified_fits/bloomfits_azmp/verified_fits_azmp_gaussians.png" width="800px"></a>
+<img src="../verified_fits/bloomfits_azmp/verified_fits_azmp_gaussians.png" width="800px">
 
 #### Flags
 
@@ -98,7 +98,7 @@ settings were tweaked manually.
 
 ### AZOMP
 
-<a href="verified_fits/bloomfits_azomp/verified_fits_azomp_gaussians.png"><img src="../verified_fits/bloomfits_azomp/verified_fits_azomp_gaussians.png" width="800px"></a>
+<img src="../verified_fits/bloomfits_azomp/verified_fits_azomp_gaussians.png" width="800px">
 
 #### Flags
 
@@ -109,5 +109,8 @@ settings were tweaked manually.
 ## Metrics
 
 Input parameters and bloom metrics for each year and each of the
-polygons listed above can be downloaded from <a href="">here (for AZMP
-polygons)</a> and <a href="">here (for AZOMP polygons)</a>.
+polygons listed above can be downloaded from
+<a href="https://github.com/BIO-RSG/PhytoFit/tree/master/verified_fits/bloomfits_azmp">here
+(for AZMP polygons)</a> and
+<a href="https://github.com/BIO-RSG/PhytoFit/tree/master/verified_fits/bloomfits_azomp">here
+(for AZOMP polygons)</a>.
