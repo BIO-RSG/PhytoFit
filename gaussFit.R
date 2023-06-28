@@ -1,21 +1,16 @@
 asymm_gaussian <- function(t, tm_value, beta_valueL, beta_valueR, B0L, B0R, sigmaL, sigmaR, hL, hR) {
-  
-    # from bloom_fitting.R
     # Created by A.R. Hanke , May 2nd, 2016
     # Edits by C. Fuentes-Yaco, May 10th, 2016
-    # Edits by Stephanie Clay, March/April 2017 and August 2018, and March 2020
-    #       for use in the bloom fitting app
-    
+    # Edits by Stephanie Clay, March/April 2017 and August 2018, and March 2020 for use in the bloom fitting app
     tL <- t[t <= tm_value]
     tR <- t[t > tm_value]
-    
-    c({B0L + beta_valueL * tL + hL / (sqrt(2*pi) * sigmaL) * exp(- (tL - tm_value)^2 / (2 * sigmaL^2))}, # vector of values from the left side of the curve
-      {B0R + beta_valueR * tR + hR / (sqrt(2*pi) * sigmaR) * exp(- (tR - tm_value)^2 / (2 * sigmaR^2))}) # vector of values from the right side of the curve
-    
+    # vector of values from the left side, and the right side of the curve
+    c({B0L + beta_valueL * tL + hL / (sqrt(2*pi) * sigmaL) * exp(- (tL - tm_value)^2 / (2 * sigmaL^2))},
+      {B0R + beta_valueR * tR + hR / (sqrt(2*pi) * sigmaR) * exp(- (tR - tm_value)^2 / (2 * sigmaR^2))})
 }
 
 # Calculate the background line between ti and tt in the asymmetric case
-get_asymm_bkrnd <- function(B0L, B0R, beta_valueL, beta_valueR, yday) {
+asymm_bkrnd <- function(B0L, B0R, beta_valueL, beta_valueR, yday) {
   bkrndL <- B0L + beta_valueL * yday[1]
   bkrndR <- B0R + beta_valueR * yday[length(yday)]
   bloom_bkrnd_line <- find_line(yday[1], bkrndL, yday[length(yday)], bkrndR)
@@ -57,7 +52,7 @@ get_failure_msg <- function(code) {
 # user chose the asymmetric shape.
 gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE,
                      tm_limits = c(2,364), ti_limits = c(1,363), t_range = c(1,365),
-                     log_chla = FALSE, interval = "daily", flag1_lim1 = 0.75,
+                     log_chla = FALSE, composite = 1, flag1_lim1 = 0.75,
                      flag1_lim2 = 1.25, flag2_lim1 = 0.85, flag2_lim2 = 1.15,
                      ti_threshold = 0.2, tt_threshold = 0.2, ydays_dayrange, rm_bkrnd=FALSE,
                      ti_threshold_type="percent_thresh", ti_threshold_constant=0.1){
@@ -91,19 +86,18 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     nls_data = list(B = y, t = yday)
     
     # these are for the curve and background line, they will be filled in and returned to use in the plots
-    yfit <- NULL
-    ybkrnd <- NULL
+    yfit <- ybkrnd <- NULL
     
     # error code to return if the points can't be fit with the current parameters and restrictions
     nofit_code <- 0
     
     # To collect output later
-    vnames <- c("t[start]","t[max]","t[end]","t[duration]","Magnitude[real]","Magnitude[fit]","Amplitude[real]","Amplitude[fit]","Flags")
+    vnames <- c("t[start]","t[max_real]","t[max_fit]","t[end]","t[duration]","Magnitude[real]","Magnitude[fit]","Amplitude[real]","Amplitude[fit]","Flags")
     if (bloomShape=="symmetric") {
-      values <- data.frame(matrix(nrow=1,ncol=14), stringsAsFactors = FALSE)
+      values <- data.frame(matrix(nrow=1,ncol=15), stringsAsFactors = FALSE)
       colnames(values) <- c(vnames, "B0", "h", "sigma", "beta", "failure_code")
     } else if (bloomShape=="asymmetric") {
-      values <- data.frame(matrix(nrow=1,ncol=18), stringsAsFactors = FALSE)
+      values <- data.frame(matrix(nrow=1,ncol=19), stringsAsFactors = FALSE)
       colnames(values) <- c(vnames, paste0(rep(c("B0","h","sigma","beta"),2),c(rep("[left]",4),rep("[right]",4))), "failure_code")
     }
     
@@ -141,24 +135,17 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     # beta changes slope of straight line on either side of the bell curve
     # if beta = TRUE, set its lower/upper bounds and starting guess for nls
     if (beta) {
-      
       lower$beta_value <- -0.02
       upper$beta_value <- 0.01
       params[[1]]$beta_value <- params[[2]]$beta_value <- -0.002
       params[[3]]$beta_value <- params[[4]]$beta_value <- -0.001
-      
     } else {
-      
       beta_value <- 0
-      if (bloomShape=="symmetric") {
-        #nls_data$beta_value <- 0
-      } else if (bloomShape=="asymmetric") {
+      if (bloomShape=="asymmetric") {
         beta_valueL <- beta_valueR <- 0
       }
-      
       # remove beta column(s)
-      values <- values[,!startsWith(colnames(values), "beta")]
-      
+      values <- values[1,!startsWith(colnames(values), "beta")]
     }
     
     # Get the range of possible days for the timing of max concentration (tm_value)
@@ -167,7 +154,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     # User can then manually adjust the restrictions on day of max concentration or initiation of bloom.
     if (sum(limited_yday)==0) {
       nofit_code <- 1
-      values[,"failure_code"] <- nofit_code
+      values$failure_code <- nofit_code
       return(list(fit = NULL, values = values,
                   yfit = yfit, ybkrnd = ybkrnd,
                   nofit_msg = get_failure_msg(nofit_code),
@@ -178,7 +165,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     # Check again if no data available
     if (length(tm_value)==0) {
       nofit_code <- 1
-      values[,"failure_code"] <- nofit_code
+      values$failure_code <- nofit_code
       return(list(fit = NULL, values = values,
                   yfit = yfit, ybkrnd = ybkrnd,
                   nofit_msg = get_failure_msg(nofit_code),
@@ -188,11 +175,9 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     # if tm = TRUE, make tm_value a parameter in the nonlinear least squares
     # regression, and set its lower/upper bounds and initial estimates
     if (tm) {
-      
       lower$tm_value <- tm_limits[1]
       upper$tm_value <- tm_limits[2]
       params[[1]]$tm_value <- params[[2]]$tm_value <- params[[3]]$tm_value <- params[[4]]$tm_value <- tm_value
-      
     }
     
     # if the bloom starting day should be restricted, do that here
@@ -202,21 +187,17 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     # if tm = TRUE, can't do this because both tmax and sigma vary in the nls regression
     # so there's no way to use either one to restrict ti
     if (!tm & !all(ti_limits==c(1,365))) {
-      
       sigma_limit2 <- (tm_value - ti_limits[1])/ti_width
       sigma_limit1 <- (tm_value - ti_limits[2])/ti_width
-      
       if (sigma_limit1 < 0) {sigma_limit1 <- 0}
-      
       lower$sigma <- sigma_limit1
       upper$sigma <- sigma_limit2
-      
     }
     
     # need at least 3 points to attempt to fit a gaussian curve
     if (length(yday)<3) {
       nofit_code <- 1
-      values[,"failure_code"] <- nofit_code
+      values$failure_code <- nofit_code
       return(list(fit = NULL, values = values,
                   yfit = yfit, ybkrnd = ybkrnd,
                   nofit_msg = get_failure_msg(nofit_code),
@@ -313,7 +294,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
         } else {
           
           if (beta) {
-            values[1,"beta"] <- beta_value
+            values$beta <- beta_value
           }
           
           tiidx <- which.min(abs(yday - ti))
@@ -364,6 +345,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           # calculate magnitude and amplitude using real values
           mag_real <- sum(diff(yday) * (head(chlorophyll, -1) + tail(chlorophyll, -1))/2)
           amp_real <- max(chlorophyll, na.rm=TRUE)
+          tmax_real <- yday[chlorophyll==amp_real][1]
           # calculate magnitude and amplitude using fitted values
           mag_fit <- sum(diff(fitted_yday) * (head(fitted_chlorophyll, -1) + tail(fitted_chlorophyll, -1))/2)
           amp_fit <- fitted_chlorophyll[which.min(abs(fitted_yday - tm_value))[1]]
@@ -373,7 +355,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                               amp_real=amp_real,
                               amp_fit=amp_fit,
                               sigma=sigma,
-                              time_res=ifelse(interval=="daily", 1, 8),
+                              time_res=composite,
                               flag1_lim1=flag1_lim1,
                               flag1_lim2=flag1_lim2,
                               flag2_lim1=flag2_lim1,
@@ -385,7 +367,19 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                               tt=tt,
                               t_range=t_range)
           
-          values[1,1:12] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit, flags, B0, h, sigma)
+          values$`t[start]` <- ti
+          values$`t[max_real]` <- tmax_real
+          values$`t[max_fit]` <- tm_value
+          values$`t[end]` <- tt
+          values$`t[duration]` <- td
+          values$`Magnitude[real]` <- mag_real
+          values$`Magnitude[fit]` <- mag_fit
+          values$`Amplitude[real]` <- amp_real
+          values$`Amplitude[fit]` <- amp_fit
+          values$Flags <- flags
+          values$B0 <- B0
+          values$h <- h
+          values$sigma <- sigma
           
         }
         
@@ -528,11 +522,11 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           
           # update the background using ti and tt
           bloom_ind <- ydays_dayrange >= ti & ydays_dayrange <= tt
-          ybkrnd[bloom_ind] <- get_asymm_bkrnd(B0L, B0R, beta_valueL, beta_valueR, ydays_dayrange[bloom_ind])
+          ybkrnd[bloom_ind] <- asymm_bkrnd(B0L, B0R, beta_valueL, beta_valueR, ydays_dayrange[bloom_ind])
           
           if (beta) {
-            values[1,"beta[left]"] <- beta_valueL
-            values[1,"beta[right]"] <- beta_valueR
+            values$`beta[left]` <- beta_valueL
+            values$`beta[right]` <- beta_valueR
           }
           
           tiidx <- which.min(abs(yday - ti))
@@ -560,13 +554,13 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           chlorophyll <- chlorophyll[tiidx:ttidx]
           
           # calculate background chla corresponding to the real vector, between ti and tt
-          bkrnd <- get_asymm_bkrnd(B0L, B0R, beta_valueL, beta_valueR, yday)
+          bkrnd <- asymm_bkrnd(B0L, B0R, beta_valueL, beta_valueR, yday)
           
           # get higher res curve and background to calculate "fit" amplitude and magnitude
           fitted_yday <- seq(ti, tt, by=(tt-ti)/200)
           fitted_chlorophyll <- c(shifted_gaussian(fitted_yday[fitted_yday <= tm_value], B0L, beta_valueL, hL, sigmaL, tm_value),
                                   shifted_gaussian(fitted_yday[fitted_yday > tm_value], B0R, beta_valueR, hR, sigmaR, tm_value))
-          fitted_bkrnd <- get_asymm_bkrnd(B0L, B0R, beta_valueL, beta_valueR, fitted_yday)
+          fitted_bkrnd <- asymm_bkrnd(B0L, B0R, beta_valueL, beta_valueR, fitted_yday)
           
           # transform back to linear space to do amplitude and magnitude calculations
           if (log_chla) {
@@ -584,6 +578,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
           # calculate magnitude and amplitude using real values
           mag_real <- sum(diff(yday) * (head(chlorophyll, -1) + tail(chlorophyll, -1))/2)
           amp_real <- max(chlorophyll, na.rm=TRUE)
+          tmax_real <- yday[chlorophyll==amp_real][1]
           # calculate magnitude and amplitude using fitted values
           mag_fit <- sum(diff(fitted_yday) * (head(fitted_chlorophyll, -1) + tail(fitted_chlorophyll, -1))/2)
           amp_fit <- max(fitted_chlorophyll[plus_minus(which.min(abs(fitted_yday - tm_value))[1], 1)], na.rm=TRUE)
@@ -593,7 +588,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                               amp_real=amp_real,
                               amp_fit=amp_fit,
                               sigma=min(sigmaL, sigmaR),
-                              time_res=ifelse(interval=="daily", 1, 8),
+                              time_res=composite,
                               flag1_lim1=flag1_lim1,
                               flag1_lim2=flag1_lim2,
                               flag2_lim1=flag2_lim1,
@@ -605,9 +600,22 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
                               tt=tt,
                               t_range=t_range)
           
-          val_inds <- ifelse(beta, list(c(1:12,14:16)), list(1:15))
-          values[1,val_inds[[1]]] <- c(ti, tm_value, tt, td, mag_real, mag_fit, amp_real, amp_fit,
-                                       flags, B0L, hL, sigmaL, B0R, hR, sigmaR)
+          values$`t[start]` <- ti
+          values$`t[max_real]` <- tmax_real
+          values$`t[max_fit]` <- tm_value
+          values$`t[end]` <- tt
+          values$`t[duration]` <- td
+          values$`Magnitude[real]` <- mag_real
+          values$`Magnitude[fit]` <- mag_fit
+          values$`Amplitude[real]` <- amp_real
+          values$`Amplitude[fit]` <- amp_fit
+          values$Flags <- flags
+          values$`B0[left]` <- B0L
+          values$`h[left]` <- hL
+          values$`sigma[left]` <- sigmaL
+          values$`B0[right]` <- B0R
+          values$`h[right]` <- hR
+          values$`sigma[right]` <- sigmaR
           
         }
         
@@ -615,7 +623,9 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
       
     }
     
-    values[,"failure_code"] <- nofit_code
+    if (is.null(yfit)) {yfit <- rep(NA,length(yday))}
+    if (is.null(ybkrnd)) {ybkrnd <- rep(NA,length(yday))}
+    values$failure_code <- nofit_code
     return(list(fit = fit, values = values, yfit = yfit, ybkrnd = ybkrnd,
                 nofit_msg = get_failure_msg(nofit_code), nofit_code))
     

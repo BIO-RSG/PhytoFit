@@ -1,117 +1,60 @@
-# return stats and bloom fit for a selected year
+# return stats and model fit for a selected year
 
-full_run <- function(d, year, sslat, sslon, polygon_list, pnames, doys_per_week, doy_week_start,
-                     doy_week_end, dir_name, fullrunoutput_png=TRUE, fullrunoutput_statcsv=TRUE) {
+full_run <- function(d, year, sscoords, polygon_list, pnames, dvecs, variable, dir_name, fullrunoutput_png=TRUE, fullrunoutput_statcsv=TRUE, tab_theme) {
     
-    interval = d$interval
+    composite = d$composite
     dailystat = d$dailystat
-    pixrange1 = d$pixrange1
-    pixrange2 = d$pixrange2
     percent = d$percent
     log_chla = d$log_chla
-    smoothMethod = d$smoothMethod
     t_range = d$t_range
-
+    concentration_type <- d$concentration_type
+    cell_size_model1 <- d$cell_size_model1
+    cell_size_model2 <- d$cell_size_model2
+    poly_names <- polygon_list$name
+    poly_IDs <- polygon_list$poly_id
+    
     #***************************************************************************
-    # load data and create base plot and plot title
     
-    all_data <- get_data(d$region, d$sat_alg, year, d$yearday, interval,
-                         log_chla, length(sslat), doys_per_week, doy_week_start, doy_week_end,
-                         d$concentration_type, d$cell_size_model1, d$cell_size_model2)
+    all_data <- get_data(d$region, d$sat_alg, year, d$yearday, composite, log_chla, length(sscoords), dvecs,
+                         concentration_type, cell_size_model1, cell_size_model2)
+    doy_vec <- all_data$doy_vec # days of the year, whether you're using daily, 4-day, or 8-day data
     
-    sschla <- all_data$sschla
-    available_days <- all_data$available_days
-    day_label <- all_data$day_label
-    time_ind <- all_data$time_ind
-    doy_vec <- all_data$doy_vec # days of the year, whether you're using daily or weekly data
-    
-    poly_names <- polygon_list$full_names
-    poly_IDs <- polygon_list$poly_ID
-    all_lons <- polygon_list$longitudes
-    all_lats <- polygon_list$latitudes
-    
-    # create output dataframe for fitted coefficients
-    full_fit_params <- data.frame(matrix(nrow=length(poly_names), ncol=(length(pnames)+2)), stringsAsFactors = FALSE)
-    colnames(full_fit_params) <- c("Region", "Year", pnames)
-    
+    full_fit_params <- list()
     
     for (reg_ind in 1:length(poly_names)) {
         
         poly_name <- poly_names[reg_ind]
+        spdf <- polygon_list[reg_ind,]
+        basef <- file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind]))
         
-        Latitude <- all_lats[[reg_ind]]
-        Longitude <- all_lons[[reg_ind]]
-        
-        plot_title <- paste0("Time series of ", interval, " ", dailystat, " Chlorophyll concentration for ", year, ", ", poly_name)
-        
-        # create base plot
-        p <- ggplot() + theme_bw()
-        
-        
-        #***********************************************************************
-        # Subset by lats, lons of the current region
-        
-        # Create the mask for the subregion
-        mask <- point.in.polygon(sslon, sslat, Longitude, Latitude)
-        mask <- as.logical(mask)
-        
-        if (sum(mask)==0) {
-            rchla <- NULL
-        } else if (sum(mask)==1) {
-            # make sure rchla is in matrix format
-            rchla <- matrix(sschla[mask,], nrow=1)
-        } else {
-            rchla <- sschla[mask,]
-        }
-        
-        # Should the range of pixel values used in the stats be restricted?
-        # (i.e. set pixels beyond a threshold to NA?)
-        if (!is.na(pixrange1)) {
-            rchla[rchla < pixrange1] <- NA
-        }
-        if (!is.na(pixrange2)) {
-            rchla[rchla > pixrange2] <- NA
-        }
-        if (all(is.na(rchla))) {rchla <- NULL}
-        
+        # Extract pixels that are within the polygon
+        rchla <- subset_data(spdf,sscoords,all_data$sschla,d$pixrange1,d$pixrange2)
         
         #***********************************************************************
         # If data exists, get its statistics
         
         # Reset error message to NULL, then check if it should be changed and
-        # printed instead of doing the density plot
+        # printed instead of doing the model fit plot
         em <- NULL
         
         if (is.null(rchla)) {
             em <- "No data in the selected region"
-            stats_df <- data.frame(matrix(nrow=1,ncol=7), stringsAsFactors=FALSE)
-            colnames(stats_df) <- c("mean_chl", "median_chl", "stdev_chl", "min_chl", "max_chl", "nobs", "percent_coverage")
+            stats_df <- data.frame(matrix(nrow=1,ncol=13), stringsAsFactors=FALSE)
+            colnames(stats_df) <- c("doy_vec", "lower_limit", "upper_limit", "mean_chl", "median_chl",
+                                    "stdev_chl", "min_chl", "max_chl", "nobs", "percent_coverage", "model","background","loess")
         } else {
-            all_stats <- get_stats(rchla, d$outlier)
-            lenok <- all_stats$lenok
-            chl_mean <- all_stats$chl_mean
-            chl_median <- all_stats$chl_median
-            stats_df <- data.frame(doy=doy_vec,
-                                   mean_chl=chl_mean,
-                                   median_chl=chl_median,
-                                   stdev_chl=all_stats$chl_sd,
-                                   min_chl=all_stats$chl_min,
-                                   max_chl=all_stats$chl_max,
-                                   nobs=all_stats$nobs,
-                                   percent_coverage=all_stats$percent_coverage,
-                                   stringsAsFactors=FALSE)
+            stats_df <- dplyr::bind_cols(data.frame(doy=doy_vec), get_stats(rchla, d$outlier)) %>%
+              dplyr::mutate(model=NA, background=NA, loess=NA)
+            nobs <- stats_df$nobs
             first_day <- t_range[1]
             last_day <- t_range[2]
-            daily_percov <- 100 * lenok / nrow(rchla)
+            daily_percov <- 100 * nobs / nrow(rchla)
             ind_percov <- daily_percov > percent
-            ind_dayrange <- doy_vec >= first_day & doy_vec <= min(last_day, available_days)
+            ind_dayrange <- doy_vec >= first_day & doy_vec <= min(last_day, all_data$available_days)
             ind_dayrange_percov <- ind_percov & ind_dayrange
-            ydays_percov <- doy_vec[ind_percov] # all days with high enough percent coverage
-            ydays_dayrange <- doy_vec[ind_dayrange]
-            ydays_dayrange_percov <- doy_vec[ind_dayrange_percov] # subset of days used for fit
             # If there is no data available for the fit after removing days outside
             # the day range and with insufficient data, print an error message instead.
-            if (sum(ydays_dayrange_percov)==0) {
+            if (sum(ind_dayrange_percov)==0) {
                 em <- paste0("No data available between day ", first_day, " and ",
                              last_day, " with >= ", percent, "% coverage")
             }
@@ -119,57 +62,84 @@ full_run <- function(d, year, sslat, sslon, polygon_list, pnames, doys_per_week,
         
         
         #***********************************************************************
-        # Get bloom fitted parameters and create plot, unless there's an error message
+        # Get model fitted parameters and create plot, unless there's an error message
         
         if (is.null(em)) {
-            bf_data <- get_bloom_fit_data(interval=interval,
-                                          p=p,
-                                          pnames = pnames,
-                                          dailystat = dailystat,
-                                          chl_mean = chl_mean,
-                                          chl_median = chl_median,
-                                          lenok = lenok,
-                                          ind_dayrange_percov = ind_dayrange_percov,
-                                          ind_percov = ind_percov,
-                                          ydays_dayrange_percov = ydays_dayrange_percov,
-                                          ydays_percov = ydays_percov,
-                                          ydays_dayrange = ydays_dayrange,
-                                          rchla_nrow = nrow(rchla),
-                                          daily_percov = daily_percov,
-                                          t_range = t_range,
-                                          log_chla = log_chla,
-                                          doy_vec = doy_vec,
-                                          plot_title = plot_title,
-                                          sv = d)
-            loess_smooth <- rep(NA,length(daily_percov))
-            if (smoothMethod == 'loess') {
-                loess_smooth[ind_dayrange_percov] <- bf_data$y$y
+            if(dailystat == 'average'){
+              chl_to_use <- stats_df$mean
+            } else if(dailystat == 'median'){
+              chl_to_use <- stats_df$median
             }
-            stats_df$loess_smooth <- loess_smooth
-            p <- bf_data$p
+            bf_data <- bf_data_calc(composite=composite,
+                                    chl_to_use = chl_to_use,
+                                    ind_dayrange_percov = ind_dayrange_percov,
+                                    ind_percov = ind_percov,
+                                    ind_dayrange = ind_dayrange,
+                                    daily_percov = daily_percov,
+                                    t_range = c(first_day, last_day),
+                                    log_chla = log_chla,
+                                    doy_vec = doy_vec,
+                                    variable = variable,
+                                    sv = d)
+            df_percov <- bf_data$df_percov
+            df_dayrange <- bf_data$df_dayrange
+            df_dayrange_percov <- bf_data$df_dayrange_percov
+            # for output in annual stats csv, leave values in log space (if selected)
+            stats_df$model[ind_dayrange] <- df_dayrange$yfit
+            stats_df$background[ind_dayrange] <- df_dayrange$ybkrnd
+            stats_df$loess[ind_dayrange_percov] <- df_dayrange_percov$loess
             fitparams <- bf_data$fitparams
         } else {
-            p <- p + ggtitle(plot_title) + annotation_custom(grobTree(textGrob(em)))
-            fitparams <- data.frame(matrix(rep(NA, length(pnames)), nrow=1), stringsAsFactors = FALSE)
-            colnames(fitparams) <- pnames
+            fitparams <- rep(NA,length(pnames))
+        }
+        
+        if (fullrunoutput_png) {
+          p <- ggplot() + theme_bw() +
+            ggtitle(paste0(ifelse(concentration_type=="model1", paste(proper(cell_size_model1),"cell size: "),
+                                 ifelse(concentration_type=="model2", paste(proper(cell_size_model2),"cell size: "), "")),
+                          "Time series of ", dailystat, " ", tolower(names(composites)[composites==composite]),
+                          " chlorophyll concentration for ", year, ", ", poly_name))
+          if (is.null(em)) {
+            # for display on the plot, transform values back to linear space if necessary
+            if (log_chla) {
+              df_dayrange$yfit <- 10^df_dayrange$yfit
+              df_dayrange$ybkrnd <- 10^df_dayrange$ybkrnd
+              df_dayrange_percov$loess <- 10^df_dayrange_percov$loess
+              df_percov$y <- 10^df_percov$y
+            }
+            bdf <- data.frame(Stat=gsub("beta","\u03B2",colnames(fitparams)),Value=as.character(round(unlist(fitparams),3)))
+            p <- bf_data_plot(p=p,
+                              nofit_msg=bf_data$nofit_msg,
+                              composite=composite,
+                              dailystat=dailystat,
+                              log_chla=log_chla,
+                              smoothMethod=d$smoothMethod,
+                              fitmethod=d$fitmethod,
+                              variable=variable,
+                              fitparams=fitparams, # vertical model timing bars, threshold line, metrics table
+                              df_percov=df_percov, # for individual points
+                              df_dayrange=df_dayrange, # for loess line
+                              df_dayrange_percov=df_dayrange_percov) + # for gaussian line
+              geom_table_npc(data=bdf, aes(npcx=0.95, npcy=0.5), label=list(bdf),
+                             table.theme=tab_theme,table.colnames=FALSE,table.rownames=FALSE)
+          } else {
+            p <- p + geom_text_npc(aes(npcx=0.5,npcy=0.5,label=em))
+          }
+          ggsave(file=paste0(basef,"_modelfit.png"), plot=p, width=13, height=5.5, units="in")
         }
         
         
         #***********************************************************************
-        # Write stats to csv and ggplot to png, and add fit parameters for the current region to the full dataframe
+        # Write stats to csv and add fit parameters for the current region to the full dataframe
         
-        basef <- file.path(dir_name, paste0(year, "_", poly_IDs[reg_ind]))
-        if (fullrunoutput_statcsv) {
-            write.csv(stats_df, file=paste0(basef,"_stats.csv"), quote=FALSE, na=" ", row.names=FALSE)
-        }
-        if (fullrunoutput_png) {
-            ggsave(file=paste0(basef,"_bloomfit.png"), plot=p, width=12, height=5, units="in")
-        }
-        full_fit_params[reg_ind,] <- c(toupper(poly_IDs[reg_ind]), year, as.numeric(fitparams))
-        
+        if (fullrunoutput_statcsv) write.csv(stats_df, file=paste0(basef,"_stats.csv"), quote=FALSE, na=" ", row.names=FALSE)
+        full_fit_params[[reg_ind]] <- data.frame(matrix(c(toupper(poly_IDs[reg_ind]), year, as.numeric(fitparams)),nrow=1)) %>%
+          setNames(c("Region", "Year", pnames))
         gc()
         
     }
+    
+    full_fit_params <- do.call(dplyr::bind_rows,full_fit_params)
     
     return(full_fit_params)
     

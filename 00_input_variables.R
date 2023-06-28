@@ -1,17 +1,16 @@
 # Variable options in the sidebar
-# Note: Regions and polygons are created using 00_create_new_region.R, and stored in reginfo.rds
 
 #*******************************************************************************
-# VARIABLES THAT CAN BE CHANGED - vectors of potential sensors and variables
+# VARIABLES THAT CAN BE CHANGED ####
 
-# The vector values (i.e. modisaquar2018.1, seawifsr2022.0, chloci, chlpoly4...) must match the "sensor" and "variable"
-# in the fst filenames.
-# The vector names (i.e. MODIS-Aqua R2018.1, OCI chl-a...) are the full names of the sensor and variable,
-# which will appear in the drop-down menus in the app.
-# Note: if you don't have any data files for these stored in your "data" folder, they won't
+# Note: if you don't have any data files for these sensors/variables stored in your "data" folder, they won't
 # appear in the drop-down menus when you load the app.
-# Note: SENSOR NAMES INCLUDE THE DATA VERSION (i.e. the reprocessing)
 
+# The vector values (i.e. modisaquar2018.1, seawifsr2022.0...) must match the "sensor"
+# in the fst filenames, and must NOT contain any dashes or underscores (only letters, numbers, or periods).
+# The vector names (i.e. MODIS-Aqua R2018.1...) are the full names of the sensor,
+# which will appear in the drop-down menu in the app.
+# INCLUDE THE DATA VERSION (i.e. the reprocessing, for example R2022.0).
 sensor_names <- c("MODIS-Aqua R2022.0" = "modisaquar2022.0",
                   "MODIS-Aqua R2018.1" = "modisaquar2018.1",
                   "SeaWiFS R2022.0" = "seawifsr2022.0",
@@ -21,10 +20,68 @@ sensor_names <- c("MODIS-Aqua R2022.0" = "modisaquar2022.0",
                   "OLCI-S3A R2022.0" = "olcis3ar2022.0",
                   "OLCI-S3B R2022.0" = "olcis3br2022.0")
 
-variable_names <- c("OCI chl-a (global, band ratio)" = "chloci",
-                    "POLY4 chl-a (regional, band ratio)" = "chlpoly4",
-                    "GSM_GS chl-a (regional, semi-analytical)" = "chlgsmgs",
-                    "EOF chl-a (regional, empirical)" = "chleof")
+# List your variables here.
+# The list element name (e.g. chloci, chlpoly4, sst...) must match the "variable" in your fst
+# filenames, and must NOT contain any dashes or underscores (only letters, numbers, or periods).
+#   - name_dropdown is the name that appears in the drop-down menu of the app.
+#   - name_plottitle is the variable name appearing in the density plot and time series plot titles
+#   - map_legend_title is a string formatted with HTML
+#   - timeseries_ytitle is the y-axis title on the time series plot, formatted using bquote()
+#   - colscale is a vector of values on the adjustable color scale below the map.
+#   - zlim is a vector, length 2, with the default selected values on colscale
+#   - If log=FALSE, the data logging switch is set to FALSE and disabled when that variable is selected.
+#   - If cell_model_option=TRUE (e.g. for chlorophyll) you have the option of splitting the value into small, medium, or large cell sizes
+cscale_log <- c(seq(1e-3, 5e-3, by=1e-3),
+                seq(1e-2, 5e-2, by=1e-2),
+                seq(0.1, 0.5, by=0.1),
+                seq(1, 5, by=1),
+                seq(10, 50, by=10),
+                100)
+variables <- list("chloci"=list(name_dropdown="OCI chl-a (global, band ratio)",
+                                name_plottitle="Chlorophyll-a",
+                                abbrev="Chl-a",
+                                map_legend_title="<center>Chl-a</br>[ mg/m<sup>3</sup> ]</center>",
+                                timeseries_ytitle=bquote("Chl-a [" * mg/m^3 * "]"),
+                                colscale=cscale_log,
+                                zlim=c(0.05,10),
+                                log=TRUE,
+                                cell_model_option=TRUE),
+                  "chlpoly4"=list(name_dropdown="POLY4 chl-a (regional, band ratio)",
+                                  name_plottitle="Chlorophyll-a",
+                                  abbrev="Chl-a",
+                                  map_legend_title="<center>Chl-a</br>[ mg/m<sup>3</sup> ]</center>",
+                                  timeseries_ytitle=bquote("Chl-a [" * mg/m^3 * "]"),
+                                  colscale=cscale_log,
+                                  zlim=c(0.05,10),
+                                  log=TRUE,
+                                  cell_model_option=TRUE),
+                  "chlgsmgs"=list(name_dropdown="GSM_GS chl-a (regional, semi-analytical)",
+                                  name_plottitle="Chlorophyll-a",
+                                  abbrev="Chl-a",
+                                  map_legend_title="<center>Chl-a</br>[ mg/m<sup>3</sup> ]</center>",
+                                  timeseries_ytitle=bquote("Chl-a [" * mg/m^3 * "]"),
+                                  colscale=cscale_log,
+                                  zlim=c(0.05,10),
+                                  log=TRUE,
+                                  cell_model_option=TRUE),
+                  "chleof"=list(name_dropdown="EOF chl-a (regional, empirical)",
+                                name_plottitle="Chlorophyll-a",
+                                abbrev="Chl-a",
+                                map_legend_title="<center>Chl-a</br>[ mg/m<sup>3</sup> ]</center>",
+                                timeseries_ytitle=bquote("Chl-a [" * mg/m^3 * "]"),
+                                colscale=cscale_log,
+                                zlim=c(0.05,10),
+                                log=TRUE,
+                                cell_model_option=TRUE),
+                  "sst"=list(name_dropdown="Sea Surface Temperature",
+                             name_plottitle="Sea Surface Temperature",
+                             abbrev="SST",
+                             map_legend_title="<center>SST</br>[ &deg;C ]</center>",
+                             timeseries_ytitle=bquote("SST [°C]"),
+                             colscale=-3:35,
+                             zlim=c(1,20),
+                             log=FALSE,
+                             cell_model_option=FALSE))
 
 
 #*******************************************************************************
@@ -39,16 +96,17 @@ cell_sizes_model2 <- list("Small"="small",
                           "Medium"="medium",
                           "Large"="large")
 
-intervals <- c("Daily"="daily",
-               "Weekly (8day)"="weekly")
+composites <- c("Daily"="1",
+                "4-day"="4",
+                "8-day"="8")
 
 latlon_methods <- c("Draw polygon on map" = "drawPoly",
                     "Type coordinates" = "typeCoords",
                     "Load shapefile" = "loadShapefile")
 
 outliers <- c('None' = 'none',
-              '+/- 2 SD' = 'sd2',
-              '+/- 3 SD' = 'sd3',
+              '+/- 2 StDev' = 'sd2',
+              '+/- 3 StDev' = 'sd3',
               '1.5 IQR' = 'iqr15',
               'Outer 0.01%' = 'q0001',
               'Outer 0.05%' = 'q0005',
@@ -72,64 +130,62 @@ bloomShapes <- c("Symmetric" = "symmetric",
 smoothMethods <- c("No smoothing" = "nofit",
                    "LOESS" = "loess")
 
-ti_threshold_types <- c("20% amplitude" = "percent_thresh",
+ti_threshold_types <- c("% amplitude" = "percent_thresh",
                         "Constant threshold" = "constant_thresh")
 
-# bloom fit table parameter names, depending on fitmethod, bloomShape, beta (code \u03B2 to get the symbol)
-pnlist <- list("gauss"=list("symmetric"=c("Mean", "Median", "StDev", "t[start]", "t[max]", "t[end]", "t[duration]",
+# model fit table parameter names, depending on fitmethod, bloomShape, beta (code \u03B2 to get the symbol)
+pnlist <- list("gauss"=list("symmetric"=c("Mean", "Median", "StDev", "t[start]", "t[max_real]", "t[max_fit]", "t[end]", "t[duration]",
                                           "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
                                           "B0", "h", "sigma", "beta", "failure_code", "RMSE"),
-                            "asymmetric"=c("Mean", "Median", "StDev", "t[start]", "t[max]", "t[end]", "t[duration]",
+                            "asymmetric"=c("Mean", "Median", "StDev", "t[start]", "t[max_real]", "t[max_fit]", "t[end]", "t[duration]",
                                            "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
                                            "B0[left]", "h[left]", "sigma[left]", "beta[left]",
                                            "B0[right]", "h[right]", "sigma[right]", "beta[right]", "failure_code", "RMSE")),
-               "roc"=c("Mean", "Median", "StDev", "t[start]", "t[max]", "t[end]", "t[duration]", "Magnitude", "Amplitude"),
-               "thresh"=c("Mean", "Median", "StDev", "t[start]", "t[max]", "t[end]", "t[duration]", "Magnitude", "Amplitude", "Threshold"))
+               "roc"=c("Mean", "Median", "StDev", "t[start]", "t[max_real]", "t[end]", "t[duration]", "Magnitude", "Amplitude"),
+               "thresh"=c("Mean", "Median", "StDev", "t[start]", "t[max_real]", "t[end]", "t[duration]", "Magnitude", "Amplitude", "Threshold"))
+
+# formatting for tables overlaid on density and model fit plots when they are exported to png
+tab_theme <- ttheme_gtminimal(core=list(fg_params=list(parse=TRUE,hjust=0,x=0.01),
+                                        bg_params=list(fill="white",alpha=0.6)),
+                              base_size=10,padding=unit(c(1,1), "mm"))
 
 
 #*******************************************************************************
-# Variables in settings.csv file (each vector must be in the same order)
+# Variables in settings.txt file (each vector must be in the same order)
 
 # inputId for each widget to save in the settings
-# (note that polylon and polylat will be manually added at the end because they are actually part of the "state" reactive list, not "input")
-input_ids_to_save <- c("region", "sat_alg", "concentration_type", "cell_size_model1", "cell_size_model2", "year", "interval", "log_chla",
+# (note that polystr will be manually added at the end because it's actually part of the "state" reactive list, not "input")
+input_ids_to_save <- c("region", "sat_alg", "concentration_type", "cell_size_model1", "cell_size_model2", "year", "composite", "log_chla",
                        "yearday_slide", "percent", "outlier", "dailystat", "pixrange1", "pixrange2",
-                       "fitmethod", "bloomShape", "smoothMethod", "loessSpan",
-                       "t_range", "ti_limits", "tm_limits",
-                       "ti_threshold_type", "ti_threshold_constant",
-                       "tm", "beta", "use_weights", "rm_bkrnd",
+                       "fitmethod", "bloomShape", "smoothMethod", "loessSpan", "t_range", "ti_limits", "tm_limits",
+                       "ti_threshold_type", "ti_threshold_percent", "ti_threshold_constant", "tm", "beta", "use_weights", "rm_bkrnd",
                        "flag1_lim1", "flag1_lim2", "flag2_lim1", "flag2_lim2", "threshcoef",
-                       "fullrunoutput_png", "fullrunoutput_statcsv",
-                       "fullrunyears", "fullrunboxes", "box", "custom_name", "polylon", "polylat")
+                       "fullrunoutput_png", "fullrunoutput_statcsv", "fullrunyears", "fullrunboxes", "box", "custom_name", "polystr")
 
 # how should the input be coerced when reloaded? 1 = numeric, 2 = character, 3 = logical
 # note that some number inputs are actually character-type to get the textInput formatting
-input_ids_variable_type <- c(2,2,2,2,2,1,2,3,1,1,2,2,2,2,2,2,2,1,1,1,1,2,1,3,3,3,3,2,2,2,2,1,3,3,1,2,2,2,1,1)
-
-# types of widgets used for each input (need this to update them properly)
-# selectInput=1, sliderInput=2, numericInput=3, textInput=4, radioButtons=5,
-# checkboxInput=6, switchInput=7, pickerInput=8, radioGroupButtons=9
-input_ids_widget_type <- c(1,1,5,9,9,1,1,7,2,3,1,1,4,4,1,1,1,3,2,2,2,5,3,7,7,7,6,4,4,4,4,3,6,6,2,8,1,0,0,0)
+input_ids_variable_type <- c(2,2,2,2,2,1,2,3,1,1,2,2,2,2,2,2,2,1,1,1,1,2,1,1,3,3,3,3,2,2,2,2,1,3,3,1,2,2,2,2)
 
 # longer description of each inputId
-input_ids_description <- c("Region", "Sensor and Chlorophyll-a Algorithm",
+input_ids_description <- c("Region", "Sensor and variable",
                            "Full chl-a concentration or subset based on cell size using one of two models",
                            "Cell size using model 1", "Cell size using model 2",
-                           "Year", "Temporal binning", "Chlorophyll-a logged",
-                         "Day of year (or first day of 8day period if weekly data selected)",
-                         "Minimum daily (or weekly) percent coverage",
-                         "Outlier detection method", "Daily (or weekly) statistic",
+                           "Year", "Temporal binning", "Was the data log10-transformed?",
+                         "Day of year (or first day of composite period)",
+                         "Minimum composite percent coverage",
+                         "Outlier detection method", "Composite statistic",
                          "Minimum value used in statistics and fit",
                          "Maximum value used in statistics and fit",
-                         "Fit method", "Bloom fit shape", "Smoothing method", "LOESS span",
-                         "Allowed range of days for bloom fitting",
-                         "Allowed range of days for bloom initiation",
-                         "Allowed range of days for maximum concentration of bloom",
+                         "Fit method", "Model fit shape", "Smoothing method", "LOESS span",
+                         "Allowed range of days for model fitting",
+                         "Allowed range of days for model initiation",
+                         "Allowed range of days for peak amplitude of model",
                          "Gaussian t[start] threshold method",
+                         "Gaussian t[start] percent threshold",
                          "Gaussian t[start] constant threshold",
-                         "Set t[max] as variable parameter in Gaussian",
+                         "Set t[max_fit] as variable parameter in Gaussian",
                          "Use beta parameter for linear background in Gaussian",
-                         "Weight fit points by daily (or weekly) percent coverage for Gaussian",
+                         "Weight fit points by composite percent coverage for Gaussian",
                          "Remove background of Gaussian",
                          "Gaussian fit flag 1 lower limit",
                          "Gaussian fit flag 1 upper limit",
@@ -137,14 +193,18 @@ input_ids_description <- c("Region", "Sensor and Chlorophyll-a Algorithm",
                          "Gaussian fit flag 2 upper limit",
                          "Coefficient for threshold method",
                          "For full run, create png of each fit?",
-                         "For full run, create csv of the daily (or weekly) stats for each year?",
+                         "For full run, create csv of composite stats for each year?",
                          "For full run, earliest and latest years in the list of years to process",
                          "For full run, list of boxes to process",
-                         "Polygon name", "Custom polygon name", "Custom polygon longitudes", "Custom polygon latitudes")
+                         "Polygon name", "Custom polygon name", "Custom polygon string")
 
 
 #*******************************************************************************
-# DEFINE/CALCULATE EXTRA VARIABLES ####
+# DEFINE EXTRA VARIABLES ####
+
+# maximum number of pixels allowed in a polygon, to prevent overloading memory
+# or significantly slowing down calculations
+max_pixels <- 5e5
 
 # colors used in the map
 # from "oceColorsJet" in "oce" package
@@ -152,42 +212,40 @@ input_ids_description <- c("Region", "Sensor and Chlorophyll-a Algorithm",
 # from "roma" palette in "scico" package (colorblind-friendly)
 map_cols <- colorRampPalette(c("#1A3399", "#2F5FAC", "#428FC0", "#5FC2D4", "#AEE8D5", "#E3EBB1", "#D9D26A", "#BA9532", "#9E5B19", "#7E1900"))(100)
 
-# variables for using weekly data rather than daily
-doy_week_start <- as.integer(8*(0:45)+1) # note: this is the same for leap years, using NASA's system
-doy_week_end <- c(doy_week_start[2:length(doy_week_start)] - 1, 365)
-doys_per_week <- lapply(1:length(doy_week_start), function(i) {doy_week_start[i]:doy_week_end[i]})
+# variable for using longer composites (4 or 8-day) data rather than daily
+dvecs <- lapply(composites, function(x) {
+  x <- as.numeric(x)
+  sdoy_vec <- as.integer(seq(1,365,by=x))
+  edoy_vec <- sdoy_vec+(x-1)
+  sdoy_vec_len <- length(sdoy_vec)
+  edoy_vec[sdoy_vec_len] <- min(edoy_vec[sdoy_vec_len],365)
+  dlist <- lapply(1:length(sdoy_vec), function(i) {sdoy_vec[i]:edoy_vec[i]})
+  list(sdoy_vec=sdoy_vec,dlist=dlist)
+}) %>% setNames(paste0("X",composites))
 
-# Load region data (name, existing polygons, lat/lon vectors, resolution)
+# Load region data and predefined polygon data
 reginfo <- readRDS("reginfo.rds")
+predefined_polys <- readRDS("polygons.rds")
 
-# Extract region and polygon info
+# Choices for main region
 regions <- names(reginfo)
 names(regions) <- sapply(reginfo, "[[", "name")
-poly_choices <- lapply(reginfo, function(x) {v=c("custom",names(x$poly)); names(v)=c("Custom",sapply(x$poly,"[[","name")); v})
-multipoly_choices <- lapply(reginfo, function(x) {v=c("custom",names(x$poly)); names(v)=c("Custom",names(x$poly)); v})
-names(poly_choices) <- names(multipoly_choices) <- regions
 
-# variables from the original 00_regionBoxes.R, for easier transition to new code
-all_regions <- lapply(reginfo, function(x) lapply(x$poly, function(y) y[c("lat","lon")]))
-full_names <- lapply(reginfo, function(x) sapply(x$poly, "[[", "name"))
-poly_ID <- lapply(reginfo, function(x) names(x$poly))
-abbrev <- lapply(reginfo, function(x) sapply(x$poly, "[[", "label"))
-names(all_regions) <- names(full_names) <- names(poly_ID) <- names(abbrev) <- regions
+# Make sure predefined_polys is in the same order as reginfo, and that each region
+# has either a list of polygons or an empty list associated with it.
+predefined_polys <- lapply(1:length(reginfo), function(i) {
+  rname <- names(reginfo)[i]
+  polys <- predefined_polys[[rname]]
+  if (is.null(polys)) return(list())
+  return(polys)
+}) %>% setNames(names(reginfo))
+# Make a separate variable with subregions merged within each region, for easier access to polygons.
+ppolys_merged <- lapply(predefined_polys, FUN=do.call, what=rbind) %>% setNames(regions)
 
-# Make polygon objects to plot on the leaflet map for each region
-original_polylist <- lapply(regions, function(reg) {
-  poly_coord_list <- all_regions[[reg]]
-  if (length(poly_coord_list) > 0) {
-    original_polys <- lapply(1:length(poly_coord_list), function(k) {
-      Polygon(coords=cbind(poly_coord_list[[k]]$lon, poly_coord_list[[k]]$lat), hole=TRUE)
-    })
-    original_polyIDs <- lapply(1:length(original_polys), function(k) {
-      Polygons(list(original_polys[[k]]), toupper(poly_ID[[reg]][k]))
-    })
-    return(SpatialPolygons(original_polyIDs, 1:length(poly_coord_list)))
-  } else {
-    return(NULL)
-  }
+# Choices for polygon and "full run" set of multiple polygons
+poly_choices <- multipoly_choices <- lapply(predefined_polys, function(x) {
+  c(list(Custom=c(Custom="custom")),
+    lapply(x, function(y) {v=y$poly_id; names(v)=y$name; v}))
 }) %>% setNames(regions)
 
 # Get a list of data files in your "data" folder and extract region/sensor/variable/year info from them
@@ -197,30 +255,34 @@ datasets <- data.frame(filename = list.files("data", recursive=TRUE, full.names=
   tidyr::separate(col=basename, into=c("region","sensor","variable","year"), sep="_") %>%
   tidyr::drop_na() %>% # remove rows with missing values
   # list of possible datasets is restricted to the user-defined sensors and variables at the top of this script, and regions in reginfo
-  dplyr::filter(region %in% regions & sensor %in% sensor_names & variable %in% variable_names)
+  dplyr::filter(region %in% regions & sensor %in% sensor_names & variable %in% names(variables))
 
 if (nrow(datasets)==0) {
   
-  # user has no datasets to view
-  sat_algs <- c(" " = "")
-  years <- list(" " = "")
+  # user has no datasets to view - set up some defaults so app doesn't crash
   data_last_updated <- "NEVER"
+  default_region <- regions[1]
+  sat_algs <- list(list("No datasets in storage"="empty_sat_alg")) %>% setNames(default_region)
+  default_sat_algs <- sat_algs[[default_region]]
+  years <- list(list(empty_sat_alg=c(0) %>% setNames(0))) %>% setNames(regions[1])
+  default_years <- years[[regions[1]]]$empty_sat_alg
+  default_variable <- variables$chloci
   
 } else {
   
   # get the date that the data was last updated
-  data_last_updated <- file.info(datasets$filename)$mtime
+  data_last_updated <- fs::file_info(datasets$filename)$modification_time
   most_recent <- which.max(as.numeric(data_last_updated))
   data_last_updated <- data_last_updated[most_recent]
   
   # for ordering sensor and variable names
   sensor_num <- 1:length(sensor_names) %>% pad0(len=3) %>% setNames(sensor_names)
-  variable_num <- 1:length(variable_names) %>% pad0(len=3) %>% setNames(variable_names)
+  variable_num <- 1:length(variables) %>% pad0(len=3) %>% setNames(names(variables))
   datasets <- datasets %>%
     dplyr::mutate(year = as.numeric(gsub(".fst","",year)),
                   region_name = sapply(reginfo, "[[", "name")[match(region,names(reginfo))],
                   sensor_name = names(sensor_names)[match(sensor,sensor_names)],
-                  variable_name = names(variable_names)[match(variable,variable_names)],
+                  variable_name = sapply(variables,FUN="[[","name_dropdown")[match(variable,names(variables))],
                   sensor_num = sensor_num[match(sensor,names(sensor_num))],
                   variable_num = variable_num[match(variable,names(variable_num))]) %>%
     tidyr::unite(col="sat_alg", sensor, variable, sep="_", remove=FALSE) %>%
@@ -249,12 +311,16 @@ if (nrow(datasets)==0) {
     }) %>% setNames(tmp_sat_algs)
   }) %>% setNames(regions)
   
+  # set up defaults
+  default_region <- regions[1]
+  default_sat_algs <- sat_algs[[default_region]]
+  default_years <- years[[default_region]][[default_sat_algs[1]]]
+  default_variable <- variables[[strsplit(default_sat_algs[1],split="_")[[1]][2]]]
+  
 }
 
-# set up defaults
-default_region <- regions[1]
-default_sat_algs <- sat_algs[[default_region]]
-default_years <- years[[default_region]][[default_sat_algs[1]]]
+default_colscale <- default_variable$colscale
+default_zlim <- default_variable$zlim
 
 
 #*******************************************************************************
@@ -321,16 +387,76 @@ sidebar_tags_style <- "hr {border-top: 1px solid #bbbbbb;}
                        .radio-inline {margin-right: -5px;}"
 
 
+
+#*******************************************************************************
+# BUTTON/WIDGET HELP TEXT ####
+
+# helptext messages that appear above some of the buttons
+bhelp <- list(
+  settings_file = paste0("<font style=\"font-size: 18px; color: #555555; font-weight: bold;\">Option 1: </font><br>",
+                         "Load a file with predefined settings (.txt, created in PhytoFit): Browse to select, then click \"Apply settings\" and \"Load data\" below."),
+  main_settings = paste0("<font style=\"font-size: 18px; color: #555555; font-weight: bold;\">Option 2: </font><br>",
+                         "Start selecting your settings below, then click \"Load data\" and adjust remaining settings as needed."),
+  concentration_type = "View full satellite [chla], or use one of two models to separate satellite [chla] into concentrations of different phytoplankton cell sizes, and choose the cell size to view:",
+  box_custom = "(Optional) Enter a name (use only alphanumeric characters, underscores, or periods) and click \"Apply\".",
+  box_method = "Choose the method to create your polygon.",
+  box_draw = "Draw polygon using the toolbar at the top left corner of the map.",
+  box_type = paste0("Enter decimal latitudes and longitudes for vertices of polygon, separated by commas, then click \"Create polygon\". ",
+                    "Use lon/lat < 0 for west/south. Lists must be the same length, with >2 values each, in the same order so that each latitude is paired with longitude.</br>"),
+  box_shp = "Click \"Browse\" to find a shapefile. Select the \"shp\" file and all files with the same name but different extensions (e.g. dbf, prj, sbx...), then \"Open\". Shapefile must contain a Simple Features (sf) object. If the sf contains multiple polygons, a button will appear below to select the polygon you want to use. <b>WARNING: polygons with a large number of vertices may take several seconds to load.</b>",
+  percent = paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Minimum % coverage.</font></br>",
+                   "Composites with lower coverage in the selected polygon will not be plotted on the density plot or time series, or used in the model fit."),
+  outlier = paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Outlier detection method</font></br>",
+                   "SD = standard deviation</br>",
+                   "IQR = interquartile range"),
+  dailystat = paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Statistic</font></br>",
+                     "Calculate either the mean or median value of each composite, to be used in the time series and model fit."),
+  pixrange = paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Range of pixel values</font></br>",
+                    "Choose the range of values allowed in the calculation of the statistics and model fit (pixels outside this range will be omitted).</br>",
+                    "If a limit is left blank, it will be ignored."),
+  bf_desc = "Fit a model to the points on the time series.",
+  bf = "Choose fit method, model shape, and point smoothing method.",
+  loessSpan = paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">LOESS span</font></br>",
+                     "Controls the degree of smoothing."),
+  fit_days = "Set the range of days to use in the model fit, and the limits of the day of peak amplitude and the first day of the bloom.",
+  fit_tstart_method = "Select the method used to calculate t<sub>start</sub> :<br>Either a percentage of the curve amplitude between 0.01 and 90 (peak minus background), or a constant threshold between 0.01 and 5 (difference between the fitted curve and background value, calculated in linear space).",
+  fit_ti_threshold_percent = "Set % curve amplitude to mark start of bloom.",
+  fit_ti_threshold_constant = "Set increase over background to mark start of bloom.",
+  fit_tmax = "Switch to ON to consider t<sub>max_fit</sub> a parameter in the regression.<br><b>WARNING: This will disable t<sub>start</sub> limits.</b>",
+  fit_beta = "Switch to ON to allow background values to vary linearly as a function of day.",
+  fit_weights = "Switch to ON to weight each point in the time series by percent coverage.",
+  fit_bkrnd = "When calculating magnitude (area under the curve between t<sub>start</sub> and t<sub>end</sub>) and amplitude of the curve, should the background be removed first?",
+  fit_flags = paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flags</font></br>",
+                     "Fits will be flagged if they meet certain criteria that indicate potential problems with the fit (NOTE: this does not affect the fit itself). Combinations of flags will be written as a single number (for example, 13 for flags 1 and 3). Click below for details. Optionally adjust the parameters of some flags."),
+  fit_flag1 = "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 1: Amplitude ratio limits</font>",
+  fit_flag2 = "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 2: Magnitude ratio limits</font>",
+  fit_threshcoef = paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Threshold coefficient</font></br>",
+                          "The start of the phytoplankton bloom is considered to be the point before t<sub>max</sub> ",
+                          "when [chla] drops below a threshold for > 14 days.</br>",
+                          "Threshold = chla<sub>median</sub> * threshold coefficient</br>"),
+  fit_threshcoefnote = "NOTE: If you opted to log the data when loading, chla<sub>median</sub> is calculated by taking the median of the logged data and transforming it back to linear space to compute the threshold. The threshold itself is then logged again to determine the bloom initiation.",
+  fullrun1 = paste0("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">Time series</font></br>",
+                    "Select a series of years and the polygons you would like to process using the current settings, ",
+                    "then click \"Run time series\" to generate the following:</br>"),
+  fullrun2 = paste0("Files will be zipped to a folder following the naming convention ",
+                    "<i>satellite_ region_ compositeLength_ years_ cellSizes_ variable_ fitmethod_ timecreated</i>.</br>",
+                    "Make sure at least one polygon is selected.<br>",
+                    "<b>When processing is complete and the new filename appears over the download button, click \"Download results (.zip)\".</b>")
+)
+
+
+
 #*******************************************************************************
 # POPUP MESSAGES ####
 
 # start screen popup
-startup_popup <- paste0("This app can be used to display satellite chlorophyll concentration and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for DFO regions of interest or draw your own, and export data and graphs.<br><br>",
+startup_popup <- paste0("This app can be used to display satellite data such as Chlorophyll-a and Sea Surface Temperature (SST), and model phytoplankton blooms. Use the controls in the left panel to visualize statistics for regions of interest or draw your own, and export data and graphs.<br><br>",
+                      "<b>WARNING:</b> Any data that is < 3 months old is \"Near Real Time\" (NRT) quality. NRT data is replaced with \"Science quality\" data after it becomes available, following the 3-month lag. More info <a href=\"https://lance.modaps.eosdis.nasa.gov/data/difference.php\">here</a>.<br><br>",
                       "<a href=\"https://github.com/BIO-RSG/PhytoFit\">Github repository</a> (All code and data can be accessed here)<br><br>",
                       "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md\">User guide</a> (In progress)<br><br>",
                       "<a href=\"https://bio-rsg.github.io/chla_model_performance_summary.html\">Chl-a model performance evaluation</a><br><br>",
-                      "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/fst_tutorial.md\">Using the raw (binned) data</a><br>This is a quick tutorial explaining how the raw satellite chlorophyll data used in PhytoFit can be read into R and manipulated for other purposes.<br><br>",
-                      "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/updates.md\">Code updates affecting the algorithms</a><br>Summary of updates that affect the way the bloom metrics are calculated.<br><br>",
+                      "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/fst_tutorial.md\">Using the raw data (.fst format, for R users only)</a><br>This is a quick tutorial explaining how the raw satellite chlorophyll data used in PhytoFit can be read into R and manipulated for other purposes.<br><br>",
+                      "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/updates.md\">Code updates affecting the algorithms</a><br>Summary of past updates that affected the way the bloom metrics were calculated.<br><br>",
                       "<a href=\"https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md#references-and-data-sources\">References and data sources</a><br><br>",
                       "<b>How to cite:</b><br>",
                       "In publications, please include acknowledgments to <a href=\"https://oceancolor.gsfc.nasa.gov/\">NASA OBPG</a> for the raw satellite data and the <a href=\"https://github.com/BIO-RSG\">BIO remote sensing group</a> for the application, and use this citation in the references:<br>",
@@ -345,7 +471,7 @@ gauss_flag_popup <- paste0("<font style=\"font-size: 12px; color: #555555; font-
                            "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 2: Magnitude ratio</font></br>",
                            "Flagged if (magnitude<sub>fit</sub> / magnitude<sub>real</sub>) is outside the selected range (default 0.85-1.15).</br></br>",
                            "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 3: Small sigma</font></br>",
-                           "Flagged if sigma <= time resolution (1 for daily data, 8 for weekly data).</br></br>",
+                           "Flagged if sigma <= time resolution (time resolution = number of days in composite).</br></br>",
                            "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 4: t<sub>start</sub> on boundary</font></br>",
                            "Flagged if the calculated t<sub>start</sub> is on the boundary of the t<sub>start</sub> slider.</br></br>",
                            "<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Flag 5: t<sub>max</sub> on boundary</font></br>",

@@ -30,7 +30,7 @@ BibTeX format:
 
 2. Install the necessary packages:
 ```r
-install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "htmlwidgets", "leaflet", "leafem", "leafpm", "quantreg", "minpack.lm", "sp", "ggplot2", "grid", "gridExtra", "dplyr", "tidyr", "geometry", "raster", "curl"))
+install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "leaflet", "stars", "leafem", "leafpm", "quantreg", "minpack.lm", "sp", "ggplot2", "ggpp", "dplyr", "tidyr", "raster", "curl", "sf", "fs"))
 remotes::install_github("BIO-RSG/oceancolouR")
 # if the line above doesn't work, try devtools::install_github("BIO-RSG/oceancolouR")
 # if that doesn't work, try either install.packages("remotes") or install.packages("devtools") and then run the oceancolouR installation line again
@@ -63,7 +63,7 @@ remotes::install_github("BIO-RSG/oceancolouR")
 **WARNINGS:**  
 - Data files will be downloaded to `data/[region]/` subfolders of the PhytoFit repository - Do NOT move them from there or the app will not be able to read them.  
 - If possible, please keep the data files if you intend to use them in the future, rather than re-downloading them later, to avoid excessive traffic on the ftp server.  
-- "Science-quality" products are updated quarterly (Jan 1, Apr 1, Jul 1, and Oct 1 of each year) up to the end of the previous quarter. Any data that is < 3 months old is "Near Real Time" (NRT). More info <a href="https://lance.modaps.eosdis.nasa.gov/data/difference.php">here</a>.  
+- Any data that is < 3 months old is "Near Real Time" (NRT) quality. NRT data is replaced with "Science quality" data after it becomes available, following the 3-month lag. More info <a href="https://lance.modaps.eosdis.nasa.gov/data/difference.php">here</a>.  
 
 
 ## Running
