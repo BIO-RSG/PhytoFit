@@ -1383,6 +1383,18 @@ server <- function(input, output, session) {
         state$help_latlon_txt <- ""
     })
     
+    get_custom_polygon <- reactive({
+      spdf <- NULL
+      if (state$latlon_method=="drawPoly") {
+        spdf <- draw_polygon()
+      } else if (state$latlon_method=="typeCoords") {
+        spdf <- type_polygon()
+      } else if (state$latlon_method=="loadShapefile") {
+        spdf <- get_shapefile_polygon()
+      }
+      return(spdf)
+    })
+    
     get_polygon <- reactive({
       # reset/erase polygons if state$box/latlon_method/region have changed
       delete_polygon()
@@ -1390,13 +1402,7 @@ server <- function(input, output, session) {
       polystr <- NA
       # Retrieve Simple features collection for selected polygon
       if (state$box=="custom") {
-        if (state$latlon_method=="drawPoly") {
-          spdf <- draw_polygon()
-        } else if (state$latlon_method=="typeCoords") {
-          spdf <- type_polygon()
-        } else if (state$latlon_method=="loadShapefile") {
-          spdf <- get_shapefile_polygon()
-        }
+        spdf <- get_custom_polygon()
         if (!is.null(spdf)) {polystr <- st_as_text(spdf$geometry)}
       } else {
         ppm <- ppolys_merged[[state$region]]
@@ -1718,6 +1724,7 @@ server <- function(input, output, session) {
         ppm <- ppolys_merged[[d$region]]
         polygon_list <- ppm[ppm$poly_id %in% regs,]
         if ("custom" %in% regs & !(is.null(d$newpoly) & is.null(d$editedpoly) & is.null(d$typedpoly))) {
+          d$spdf <- get_custom_polygon()
           polygon_list <- dplyr::bind_rows(polygon_list,d$spdf)
         }
         
