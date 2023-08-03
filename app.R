@@ -1724,8 +1724,7 @@ server <- function(input, output, session) {
         ppm <- ppolys_merged[[d$region]]
         polygon_list <- ppm[ppm$poly_id %in% regs,]
         if ("custom" %in% regs & !(is.null(d$newpoly) & is.null(d$editedpoly) & is.null(d$typedpoly))) {
-          d$spdf <- get_custom_polygon()
-          polygon_list <- dplyr::bind_rows(polygon_list,d$spdf)
+          polygon_list <- dplyr::bind_rows(polygon_list,get_custom_polygon())
         }
         
         # get column names for parameter table
