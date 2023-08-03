@@ -15,6 +15,7 @@ library(ggplot2)        # for the density and time series plots
 library(ggpp)           # for overlaying tables and text on plots
 library(dplyr)          # for formatting data tables
 library(oceancolouR)    # for shifted_gaussian() and pad0()
+
 # other required packages: raster, leafem, quantreg, fs (functions called using :: notation)
 source("rateOfChange.R")        # rate of change (ROC) function for model fit
 source("threshold.R")           # threshold function for model fit
@@ -67,7 +68,15 @@ ui <- fluidPage(
             selectInput(inputId="region", label=NULL, choices=regions, selected=default_region, width=widget_width),
             helpText("Satellite and variable", width=widget_width, style=label_text_style_main_options),
             selectInput(inputId="sat_alg", label=NULL, choices=default_sat_algs, selected=default_sat_algs[1], width=widget_width),
-            uiOutput(outputId="cell_size_panel"),
+            helpText(bhelp$concentration_type, width=widget_width, style=paste(label_text_style_main_options, "margin-bottom: 20px;")),
+            radioButtons(inputId="concentration_type", label=NULL, choices=concentration_types, selected="full", width=widget_width),
+            conditionalPanel(condition = "input.concentration_type == 'model1'",
+                             radioGroupButtons(inputId = "cell_size_model1", label=NULL,
+                                               choices=cell_sizes_model1, selected = "small", width=widget_width)),
+            conditionalPanel(condition = "input.concentration_type == 'model2'",
+                             radioGroupButtons(inputId = "cell_size_model2", label=NULL,
+                                               choices=cell_sizes_model2, selected = "small", width=widget_width)),
+            br(),
             helpText("Year", width=widget_width, style=label_text_style_main_options),
             selectInput(inputId = "year", label=NULL, choices=rev(default_years), width=widget_width),
             helpText("Data composite length", width=widget_width, style=label_text_style_main_options),
@@ -567,25 +576,16 @@ server <- function(input, output, session) {
           updateSwitchInput(session, inputId="log_chla", value=FALSE, disabled=TRUE)
         }
         state$cell_model_option <- v$cell_model_option
-        if (!state$cell_model_option) {
+        if (state$cell_model_option) {
+          enable("concentration_type")
+          enable("cell_size_model1")
+          enable("cell_size_model2")
+        } else {
+          disable("concentration_type")
+          disable("cell_size_model1")
+          disable("cell_size_model2")
           state$concentration_type <- "full"
         }
-      }
-    })
-    
-    output$cell_size_panel <- renderUI({
-      if (state$cell_model_option) {
-        tagList(
-          helpText(bhelp$concentration_type, width=widget_width, style=paste(label_text_style_main_options, "margin-bottom: 20px;")),
-          radioButtons(inputId="concentration_type", label=NULL, choices=concentration_types, selected="full", width=widget_width),
-          conditionalPanel(condition = "input.concentration_type == 'model1'",
-                           radioGroupButtons(inputId = "cell_size_model1", label=NULL,
-                                             choices=cell_sizes_model1, selected = "small", width=widget_width)),
-          conditionalPanel(condition = "input.concentration_type == 'model2'",
-                           radioGroupButtons(inputId = "cell_size_model2", label=NULL,
-                                             choices=cell_sizes_model2, selected = "small", width=widget_width)),
-          br()
-        )
       }
     })
     
@@ -1126,6 +1126,11 @@ server <- function(input, output, session) {
                 
             } else {
                 
+                # Get colour scale and legend title for map
+                zlim <- state$zlim
+                mypal <- colorNumeric(palette=map_cols, domain=zlim, na.color="#00000000")
+                lt <- state$variable$map_legend_title
+                
                 # Update raster for leaflet map
                 df_bins <- state$ssbin[chla_ind]
                 ext <- state$ext
@@ -1134,17 +1139,15 @@ server <- function(input, output, session) {
                 newmat <- rep(NA, length(binGrid))
                 newmat[binGrid %in% df_bins] <- sschla_time_ind[chla_ind][match(binGrid, df_bins, nomatch=0)]
                 tr <- raster::raster(ncols=bg_dim[2], nrows=bg_dim[1], xmn=ext[1], xmx=ext[2], ymn=ext[3], ymx=ext[4], vals=matrix(newmat, nrow=bg_dim[1]))
-                
-                # Get colour scale and legend title for map
-                zlim <- state$zlim
-                mypal <- colorNumeric(palette=map_cols, domain=zlim, na.color="#00000000")
-                lt <- state$variable$map_legend_title
+                # tr <- terra::rast(ncols=bg_dim[2], nrows=bg_dim[1], xmin=ext[1], xmax=ext[2], ymin=ext[3], ymax=ext[4], vals=matrix(newmat, nrow=bg_dim[1]))
+                # tr <- terra::clamp(tr, lower=zlim[1]-1e-10, upper=zlim[2]+1e-10, values=TRUE)
                 
                 # Update map based on choices of date
                 lfp <- leafletProxy("fullmap", session) %>%
                     clearPopups() %>% clearControls() %>% clearGroup("georaster") %>%
                     leafem::addGeoRaster(x=tr, group="georaster", autozoom=FALSE, project=TRUE,
                                  colorOptions = leafem::colorOptions(palette=map_cols,domain=zlim,na.color="#00000000")) %>%
+                    # addRasterImage(x=tr, group="georaster", project=TRUE, colors=mypal) %>%
                     # Label map with current year and day of year
                     addControl(tags$div(tag.map.title, HTML(day_label)), position="topleft", className="map-title")
                 
