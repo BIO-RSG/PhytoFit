@@ -19,28 +19,32 @@ library(stringr)
 # Folder must contain the .zip file that was downloaded from PhytoFit after running
 # multiple fits, along with the following files extracted from the .zip file:
 #   - [year]_[box]_stats.csv files for EACH box/year that was fit
-#   - bloom_fit_params.csv
+#   - model_fit_params.csv
 #   - settings.txt
-standard_path <- "verified_fits/bloomfits_azomp/standard_fits/"
+standard_path <- "MPANetwork/time_series/sst/"
+# standard_path <- "verified_fits/bloomfits_azomp/standard_fits/"
 
 # Path to manual fits (set manual_path=NULL to ignore these).
 # Folder must contain the following files from EACH box/year that was fit:
 #   - [fit details]_annual_stats.csv
-#   - [fit details]_bloom_parameters.csv
+#   - [fit details]_model_parameters.csv
 #   - [fit details]_settings.txt
 # WARNING!!!! Each box/year must have only ONE fit in this folder. Manual fits will
 #   be grouped by box/year and sorted by datetime_fitted, and if any box/year has
 #   more than one fit, only the most recent fit will be kept.
-manual_path <- "verified_fits/bloomfits_azomp/manual_fits/"
+manual_path <- NULL
+# manual_path <- "verified_fits/bloomfits_azomp/manual_fits/"
 
 # If a box/year was fit with both standard and manual settings, should the manual fit replace the standard fit?
 replace_standard <- TRUE
 
-# Output csv filename that will contain the table with bloom metrics, parameters, and settings for each polygon/year that was fit
-output_file <- "verified_fits/bloomfits_azomp/verified_fits_azomp.csv"
+# Output csv filename that will contain the table with model metrics, parameters, and settings for each polygon/year that was fit
+output_file <- "MPANetwork/time_series/MPANetwork_sst.csv"
+# output_file <- "verified_fits/bloomfits_azomp/verified_fits_azomp.csv"
 
 # Output Rdata filename that will contain a list of the annual stats for each polygon/year that was fit
-output_stats_file <- "verified_fits/bloomfits_azomp/verified_fits_azomp_annual_stats.Rdata"
+output_stats_file <- "MPANetwork/time_series/MPANetwork_sst.Rdata"
+# output_stats_file <- "verified_fits/bloomfits_azomp/verified_fits_azomp_annual_stats.Rdata"
 
 
 #*******************************************************************************
@@ -50,13 +54,13 @@ df_standard <- NULL
 df_manual <- NULL
 
 if (!is.null(standard_path)) {
-  zp_file <- list.files(path=standard_path,pattern=".zip")
-  if (!file.exists(paste0(standard_path,zp_file))) stop(".zip file missing from standard_path")
-  dt_created <- strsplit(zp_file,split="_")[[1]]
+  zp_file <- list.files(path=standard_path, pattern=".zip", full.names=TRUE)
+  if (!file.exists(zp_file)) stop(".zip file missing from standard_path")
+  dt_created <- strsplit(basename(zp_file),split="_")[[1]]
   dt_created <- substr(dt_created[which(grepl("created",dt_created))],start=8,stop=24)
   dt_created <- format(as_datetime(dt_created,format="%Y-%m-%d-%H%M%S"),"%Y%m%d_%H%M%S")
   df_standard <- dplyr::bind_cols(
-    read.csv(paste0(standard_path,"bloom_fit_params.csv")) %>%
+    read.csv(paste0(standard_path,"model_fit_params.csv")) %>%
       dplyr::mutate(manual_fit=FALSE, datetime_fitted=dt_created),
     read.table(paste0(standard_path,"settings.txt"), header = TRUE, sep="\\") %>%
       dplyr::select(setting_id,value) %>%
@@ -87,19 +91,19 @@ if (!is.null(manual_path)) {
       years <- as.numeric(sapply(manual_fits,FUN=tail,1))
       boxes <- manual_fits %>% lapply(FUN=head,-1) %>% sapply(FUN=paste0,collapse="_")}, silent=TRUE)
     if (class(mf_try)=="try-error") {
-      stop("manual_path must contain ONLY the annual_stats.csv, bloom_parameters.csv, and settings.txt files for the manually fitted box(es)/year(s). Make sure no files are missing and that there are no extra files or subfolders within that folder.\n")
+      stop("manual_path must contain ONLY the annual_stats.csv, model_parameters.csv, and settings.txt files for the manually fitted box(es)/year(s). Make sure no files are missing and that there are no extra files or subfolders within that folder.\n")
     }
     manual_fits <- data.frame(Region=boxes,Year=years,File=manual_files) %>%
-      dplyr::mutate(File_type=ifelse(endsWith(File,"_bloom_parameters.csv"), "bf_file",
+      dplyr::mutate(File_type=ifelse(endsWith(File,"_model_parameters.csv"), "bf_file",
                                      ifelse(endsWith(File,"_settings.txt"), "set_file",
                                             ifelse(endsWith(File,"_stats.csv"), "st_file", NA)))) %>%
       tidyr::pivot_wider(names_from=File_type, values_from=File) %>%
       dplyr::distinct()
     if (is.null(manual_fits$bf_file) | is.null(manual_fits$set_file) | is.null(manual_fits$st_file)) {
-      stop("manual_path is missing annual_stats.csv, bloom_parameters.csv, or settings.txt files.\n")
+      stop("manual_path is missing annual_stats.csv, model_parameters.csv, or settings.txt files.\n")
     }
     if (any(is.na(unlist(manual_fits[,c("bf_file","set_file","st_file")])))) {
-      stop("manual_path is missing annual_stats.csv, bloom_parameters.csv, or settings.txt files for some box(es)/year(s).\n")
+      stop("manual_path is missing annual_stats.csv, model_parameters.csv, or settings.txt files for some box(es)/year(s).\n")
     }
     df_manual <- lapply(1:nrow(manual_fits), FUN=function(i) {
       mf <- manual_fits[i,]
