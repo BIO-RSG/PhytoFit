@@ -34,10 +34,19 @@ README.html
 troubleshooting_and_help.html
 updates.html
 data_filesize_speed_tests/
-verified_fits/bloomfits_azmp/manual_fits/
-verified_fits/bloomfits_azmp/standard_fits/
-verified_fits/bloomfits_azomp/manual_fits/
-verified_fits/bloomfits_azomp/standard_fits/
+verified_fits/labrador_sea_fall/standard_fits/*
+verified_fits/labrador_sea_fall/symmetric_fits/*
+verified_fits/labrador_sea_spring/manual_fits/*
+verified_fits/labrador_sea_spring/manual_fits_fixed_settings_files/*
+verified_fits/labrador_sea_spring/standard_fits/*
+verified_fits/scotian_shelf_fall/standard_fits/*
+verified_fits/scotian_shelf_fall/symmetric_fits/*
+verified_fits/scotian_shelf_spring/manual_fits/*
+verified_fits/scotian_shelf_spring/manual_fits_fixed_settings_files/*
+verified_fits/scotian_shelf_spring/standard_fits/*
+verified_fits/verified_fits_backup.zip
+verified_fits/gaussian_fits.zip
+verified_fits/good_vs_bad_fits.png
 
 # 2022-01-02 change - ignore the dataset folder, they should be treated separately and not tracked
 data/atlantic/*
