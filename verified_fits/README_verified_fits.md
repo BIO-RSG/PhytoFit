@@ -1,7 +1,7 @@
 
 This folder contains parameters of the Gaussian curves fitted to polygons that are used in annual reporting (see map below), and the metrics derived from those curves (e.g. amplitude, magnitude) as well as basic annual statistics.
 
-![](verified_fits/polygon_map_all.png)  
+<img src="polygon_map_all.png" alt="polygon map" width="600"/>  
 
 LS = Labrador Sea  
 SS = Scotian Shelf  
