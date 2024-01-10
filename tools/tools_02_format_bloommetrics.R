@@ -15,16 +15,17 @@ library(stringr)
 #*******************************************************************************
 # VARIABLES TO CHANGE
 
-# Path to standard fits (set standard_path=NULL to ignore these).
-# Folder must contain the .zip file that was downloaded from PhytoFit after running
-# multiple fits, along with the following files extracted from the .zip file:
+# Path to fits done using a standard group of settings (set standard_path=NULL to ignore these).
+# Folder must contain the following files extracted from the .zip file downloaded from PhytoFit:
 #   - [year]_[box]_stats.csv files for EACH box/year that was fit
-#   - model_fit_params.csv
+#   - model_fit_params.csv, with an extra column "datetime_fitted" that must be added manually (format: YYYYMMDD_HHMMSS)
 #   - settings.txt
-standard_path <- "MPANetwork/time_series/sst/"
-# standard_path <- "verified_fits/bloomfits_azomp/standard_fits/"
+standard_path <- "verified_fits/scotian_shelf_fall/standard_fits/"
+# TO ADD STANDARD FITS FOR SUBSEQUENT YEARS:
+# - Use the settings.txt file from the standard_path (i.e. load it into PhytoFit and run it with the next year)
+# - Add the rows from the new model_fit_params.csv file to the original model_fit_params.csv file
 
-# Path to manual fits (set manual_path=NULL to ignore these).
+# Path to fits done with manual adjustments per fit (set manual_path=NULL to ignore these).
 # Folder must contain the following files from EACH box/year that was fit:
 #   - [fit details]_annual_stats.csv
 #   - [fit details]_model_parameters.csv
@@ -32,19 +33,23 @@ standard_path <- "MPANetwork/time_series/sst/"
 # WARNING!!!! Each box/year must have only ONE fit in this folder. Manual fits will
 #   be grouped by box/year and sorted by datetime_fitted, and if any box/year has
 #   more than one fit, only the most recent fit will be kept.
-manual_path <- NULL
-# manual_path <- "verified_fits/bloomfits_azomp/manual_fits/"
+manual_path <- NULL#"verified_fits/scotian_shelf_spring/manual_fits/"
 
 # If a box/year was fit with both standard and manual settings, should the manual fit replace the standard fit?
 replace_standard <- TRUE
 
-# Output csv filename that will contain the table with model metrics, parameters, and settings for each polygon/year that was fit
-output_file <- "MPANetwork/time_series/MPANetwork_sst.csv"
-# output_file <- "verified_fits/bloomfits_azomp/verified_fits_azomp.csv"
+# Output csv filename that will contain the table with model metrics, parameters, and settings for each polygon/year that was fit.
+# Full daily statistic tables for each fit will be written to an Rdata file with the same name.
+output_file <- "verified_fits/scotian_shelf_fall/verified_fits_scotian_shelf_fall.csv"
 
-# Output Rdata filename that will contain a list of the annual stats for each polygon/year that was fit
-output_stats_file <- "MPANetwork/time_series/MPANetwork_sst.Rdata"
-# output_stats_file <- "verified_fits/bloomfits_azomp/verified_fits_azomp_annual_stats.Rdata"
+# include fits for these polygons
+# polys <- c("CLS","GS","LAS") # labrador sea
+polys <- c("CSS_V02","ESS_V02","WSS_V02","LS_V02","GB_V02","HL2","P5") # scotian shelf
+# polys <- c("CS_V02","MS_V02","NEGSL_V02","NWGSL_V02") # gulf of saint lawrence
+# polys <- c("AC","FP","HB","HIB","NENS","SAB","SES","SPB") # newfoundland
+
+# include fits for these years
+years <- 2003:2023
 
 
 #*******************************************************************************
@@ -54,14 +59,9 @@ df_standard <- NULL
 df_manual <- NULL
 
 if (!is.null(standard_path)) {
-  zp_file <- list.files(path=standard_path, pattern=".zip", full.names=TRUE)
-  if (!file.exists(zp_file)) stop(".zip file missing from standard_path")
-  dt_created <- strsplit(basename(zp_file),split="_")[[1]]
-  dt_created <- substr(dt_created[which(grepl("created",dt_created))],start=8,stop=24)
-  dt_created <- format(as_datetime(dt_created,format="%Y-%m-%d-%H%M%S"),"%Y%m%d_%H%M%S")
+  # get the model fit parameters and metrics, and the settings used to create them
   df_standard <- dplyr::bind_cols(
-    read.csv(paste0(standard_path,"model_fit_params.csv")) %>%
-      dplyr::mutate(manual_fit=FALSE, datetime_fitted=dt_created),
+    read.csv(paste0(standard_path,"model_fit_params.csv")) %>% dplyr::mutate(manual_fit=FALSE),
     read.table(paste0(standard_path,"settings.txt"), header = TRUE, sep="\\") %>%
       dplyr::select(setting_id,value) %>%
       tidyr::pivot_wider(names_from=setting_id,values_from=value) %>%
@@ -73,20 +73,20 @@ if (!is.null(standard_path)) {
   df_standard <- dplyr::bind_cols(df_standard, stats %>% tibble() %>% dplyr::rename(stats="."))
 }
 
-
 if (!is.null(manual_path)) {
   manual_files <- list.files(manual_path)
   if (length(manual_files)==0) {
     cat("No manual fits found.\n")
   } else {
     mf_try <- try({
+      # get the list of years and polygons/boxes
       manual_fits <- strsplit(manual_files,split="_") %>%
         lapply(FUN="[",3:6) %>%
         lapply(FUN=function(x) {
           year_loc <- str_locate(x,"\\d{4}")
           year_loc <- which((year_loc[,2]-year_loc[,1])==3)
           x <- x[1:year_loc]
-          x <- x[!(x %in% c("daily","weekly"))]
+          x <- x[!(x %in% c("daily","4day","8day"))]
           return(x)})
       years <- as.numeric(sapply(manual_fits,FUN=tail,1))
       boxes <- manual_fits %>% lapply(FUN=head,-1) %>% sapply(FUN=paste0,collapse="_")}, silent=TRUE)
@@ -142,9 +142,13 @@ if (replace_standard) {
     dplyr::ungroup()
 }
 
+# reduce to the polygons and years you want
+df <- df %>% dplyr::filter(Region %in% polys & Year %in% years)
+
+# separate the full table of daily stats from each fit/row so it can be written to an Rdata file
 df <- df %>% dplyr::arrange(Region,Year)
 stats <- df$stats
 names(stats) <- paste0(df$Region,"_",df$Year)
 
 write.csv(df %>% dplyr::select(-stats), file=output_file, row.names=FALSE)
-save(stats, file=output_stats_file, compress=TRUE)
+save(stats, file=gsub(".csv",".Rdata",output_file), compress=TRUE)
