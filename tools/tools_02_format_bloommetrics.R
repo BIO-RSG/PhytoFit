@@ -20,7 +20,7 @@ library(stringr)
 #   - [year]_[box]_stats.csv files for EACH box/year that was fit
 #   - model_fit_params.csv, with an extra column "datetime_fitted" that must be added manually (format: YYYYMMDD_HHMMSS)
 #   - settings.txt
-standard_path <- "verified_fits/scotian_shelf_fall/standard_fits/"
+standard_path <- "verified_fits/labrador_sea_spring/standard_fits/"
 # TO ADD STANDARD FITS FOR SUBSEQUENT YEARS:
 # - Use the settings.txt file from the standard_path (i.e. load it into PhytoFit and run it with the next year)
 # - Add the rows from the new model_fit_params.csv file to the original model_fit_params.csv file
@@ -33,18 +33,18 @@ standard_path <- "verified_fits/scotian_shelf_fall/standard_fits/"
 # WARNING!!!! Each box/year must have only ONE fit in this folder. Manual fits will
 #   be grouped by box/year and sorted by datetime_fitted, and if any box/year has
 #   more than one fit, only the most recent fit will be kept.
-manual_path <- NULL#"verified_fits/scotian_shelf_spring/manual_fits/"
+manual_path <- "verified_fits/labrador_sea_spring/manual_fits/"
 
 # If a box/year was fit with both standard and manual settings, should the manual fit replace the standard fit?
 replace_standard <- TRUE
 
 # Output csv filename that will contain the table with model metrics, parameters, and settings for each polygon/year that was fit.
 # Full daily statistic tables for each fit will be written to an Rdata file with the same name.
-output_file <- "verified_fits/scotian_shelf_fall/verified_fits_scotian_shelf_fall.csv"
+output_file <- "verified_fits/labrador_sea_spring/verified_fits_labrador_sea_spring.csv"
 
 # include fits for these polygons
-# polys <- c("CLS","GS","LAS") # labrador sea
-polys <- c("CSS_V02","ESS_V02","WSS_V02","LS_V02","GB_V02","HL2","P5") # scotian shelf
+polys <- c("CLS","GS","LAS") # labrador sea
+# polys <- c("CSS_V02","ESS_V02","WSS_V02","LS_V02","GB_V02","HL2","P5") # scotian shelf
 # polys <- c("CS_V02","MS_V02","NEGSL_V02","NWGSL_V02") # gulf of saint lawrence
 # polys <- c("AC","FP","HB","HIB","NENS","SAB","SES","SPB") # newfoundland
 
@@ -88,12 +88,12 @@ if (!is.null(manual_path)) {
           x <- x[1:year_loc]
           x <- x[!(x %in% c("daily","4day","8day"))]
           return(x)})
-      years <- as.numeric(sapply(manual_fits,FUN=tail,1))
-      boxes <- manual_fits %>% lapply(FUN=head,-1) %>% sapply(FUN=paste0,collapse="_")}, silent=TRUE)
+      years_manual <- as.numeric(sapply(manual_fits,FUN=tail,1))
+      boxes_manual <- manual_fits %>% lapply(FUN=head,-1) %>% sapply(FUN=paste0,collapse="_")}, silent=TRUE)
     if (class(mf_try)=="try-error") {
       stop("manual_path must contain ONLY the annual_stats.csv, model_parameters.csv, and settings.txt files for the manually fitted box(es)/year(s). Make sure no files are missing and that there are no extra files or subfolders within that folder.\n")
     }
-    manual_fits <- data.frame(Region=boxes,Year=years,File=manual_files) %>%
+    manual_fits <- data.frame(Region=boxes_manual,Year=years_manual,File=manual_files) %>%
       dplyr::mutate(File_type=ifelse(endsWith(File,"_model_parameters.csv"), "bf_file",
                                      ifelse(endsWith(File,"_settings.txt"), "set_file",
                                             ifelse(endsWith(File,"_stats.csv"), "st_file", NA)))) %>%
@@ -147,8 +147,6 @@ df <- df %>% dplyr::filter(Region %in% polys & Year %in% years)
 
 # separate the full table of daily stats from each fit/row so it can be written to an Rdata file
 df <- df %>% dplyr::arrange(Region,Year)
-stats <- df$stats
-names(stats) <- paste0(df$Region,"_",df$Year)
 
 write.csv(df %>% dplyr::select(-stats), file=output_file, row.names=FALSE)
-save(stats, file=gsub(".csv",".Rdata",output_file), compress=TRUE)
+save(df, file=gsub(".csv",".Rdata",output_file), compress=TRUE)
