@@ -35,7 +35,7 @@
 "fullrunoutput_png"\"TRUE"\"For full run, create png of each fit?"\NA\"3"
 "fullrunoutput_statcsv"\"TRUE"\"For full run, create csv of composite stats for each year?"\NA\"3"
 "fullrunyears"\"2002,2023"\"For full run, earliest and latest years in the list of years to process"\NA\"1"
-"fullrunboxes"\"CSS_V01,CSS_V02,ESS_V01,ESS_V02,GB_V01,GB_V02,LS_V01,LS_V02,WSS_V01,WSS_V02"\"For full run, list of boxes to process"\"See user guide for full names and boundaries of polygons"\"2"
+"fullrunboxes"\"CS_V02,CSS_V02,ESS_V02,GB_V02,HL2,LS_V02,P5,WSS_V02"\"For full run, list of boxes to process"\"See user guide for full names and boundaries of polygons"\"2"
 "box"\"custom"\"Polygon name"\"See user guide for full names and boundaries of polygons"\"2"
 "custom_name"\""\"Custom polygon name"\NA\"2"
 "polystr"\"NA"\"Custom polygon string"\"Decimal degrees"\"2"
