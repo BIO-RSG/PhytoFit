@@ -210,7 +210,7 @@ poly$atlantic <- lapply(1:length(poly$atlantic), function(i) {
 }) %>% setNames(pnames)
 
 # Load MPA polygons shapefile, transform to same geographic CRS as other polygons
-network <- read_sf("MPANetwork/maritimes_draft_network_2023.shp") %>% st_transform(crs=st_crs(4326))
+network <- read_sf("../MPA_work/MPANetwork/maritimes_draft_network_2023.shp") %>% st_transform(crs=st_crs(4326))
 nw <- c("MPA","OECM","AOI")
 network <- network[which(network$mar_type %in% nw),] # remove draft regions
 # make abbreviations, remove dashes, fix duplicated abbreviations, and add to coords
@@ -374,6 +374,17 @@ if (any(dup_ids)) {
 #          width=img_width)
 # })
 
-# SAVE POLYGON INFO TO RDS FILEs
-saveRDS(poly, file="polygons.rds", compress=TRUE)
+
+
+# collapse list of polygons into an sfc object to write to a shp file
+poly <- lapply(1:length(poly), function(i) {
+  if (length(poly[[i]])==0) {
+    emptysf <- data.frame(poly_id=NA,group=NA,name=NA,label=NA,geometry=st_sfc(st_geometrycollection()),region=names(poly[i])) %>% st_as_sf(crs=st_crs(poly$atlantic$AZMP))
+    return(emptysf)
+  }
+  ptmp <- do.call(dplyr::bind_rows,poly[[i]])
+  ptmp$region <- names(poly)[i]
+  return(ptmp)
+}) %>% do.call(what=dplyr::bind_rows)
+sf::st_write(poly,dsn="polygons.shp",append=FALSE)
 

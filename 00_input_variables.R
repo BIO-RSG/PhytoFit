@@ -225,7 +225,17 @@ dvecs <- lapply(composites, function(x) {
 
 # Load region data and predefined polygon data
 reginfo <- readRDS("reginfo.rds")
-predefined_polys <- readRDS("polygons.rds")
+predefined_polys <- sf::st_read("polygons.shp")
+# restructure polygons into a list of simple features objects
+allregs <- unique(predefined_polys$region)
+predefined_polys <- lapply(1:length(allregs), function(i) {
+  ptmp <- predefined_polys %>% dplyr::filter(region==allregs[i]) %>% dplyr::select(-region)
+  if (is.na(ptmp$poly_id[1])) return(list())
+  allgroups <- unique(ptmp$group)
+  lapply(1:length(allgroups), function(j) {
+    ptmp %>% dplyr::filter(group==allgroups[j])
+  }) %>% setNames(allgroups)
+}) %>% setNames(allregs)
 
 # Choices for main region
 regions <- names(reginfo)
