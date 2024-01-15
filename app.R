@@ -1416,7 +1416,7 @@ server <- function(input, output, session) {
     # Add highlighted polygons to map
     observe({
       spdf <- get_polygon()
-      if (!is.null(spdf)) {
+      if (!is.null(spdf) & state$latlon_method!="drawPoly") {
         leafletProxy("fullmap", session) %>%
           addPolygons(layerId = "highlighted_box", data = spdf,
                       stroke = TRUE, color = "yellow", weight = 2.5, opacity = 1,
