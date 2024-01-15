@@ -15,6 +15,7 @@ library(ggplot2)        # for the density and time series plots
 library(ggpp)           # for overlaying tables and text on plots
 library(dplyr)          # for formatting data tables
 library(oceancolouR)    # for shifted_gaussian() and pad0()
+library(terra)          # for making rasters
 
 # other required packages: raster, leafem, quantreg, fs (functions called using :: notation)
 source("rateOfChange.R")        # rate of change (ROC) function for model fit
@@ -1138,16 +1139,16 @@ server <- function(input, output, session) {
                 bg_dim <- dim(binGrid)
                 newmat <- rep(NA, length(binGrid))
                 newmat[binGrid %in% df_bins] <- sschla_time_ind[chla_ind][match(binGrid, df_bins, nomatch=0)]
-                tr <- raster::raster(ncols=bg_dim[2], nrows=bg_dim[1], xmn=ext[1], xmx=ext[2], ymn=ext[3], ymx=ext[4], vals=matrix(newmat, nrow=bg_dim[1]))
-                # tr <- terra::rast(ncols=bg_dim[2], nrows=bg_dim[1], xmin=ext[1], xmax=ext[2], ymin=ext[3], ymax=ext[4], vals=matrix(newmat, nrow=bg_dim[1]))
-                # tr <- terra::clamp(tr, lower=zlim[1]-1e-10, upper=zlim[2]+1e-10, values=TRUE)
+                # tr <- raster::raster(ncols=bg_dim[2], nrows=bg_dim[1], xmn=ext[1], xmx=ext[2], ymn=ext[3], ymx=ext[4], vals=matrix(newmat, nrow=bg_dim[1]))
+                tr <- terra::rast(ncols=bg_dim[2], nrows=bg_dim[1], xmin=ext[1], xmax=ext[2], ymin=ext[3], ymax=ext[4], vals=matrix(newmat, nrow=bg_dim[1]))
+                tr <- terra::clamp(tr, lower=zlim[1]+1e-6, upper=zlim[2]-1e-6, values=TRUE)
                 
                 # Update map based on choices of date
                 lfp <- leafletProxy("fullmap", session) %>%
                     clearPopups() %>% clearControls() %>% clearGroup("georaster") %>%
-                    leafem::addGeoRaster(x=tr, group="georaster", autozoom=FALSE, project=TRUE,
-                                 colorOptions = leafem::colorOptions(palette=map_cols,domain=zlim,na.color="#00000000")) %>%
-                    # addRasterImage(x=tr, group="georaster", project=TRUE, colors=mypal) %>%
+                    # leafem::addGeoRaster(x=tr, group="georaster", autozoom=FALSE, project=TRUE,
+                    #              colorOptions = leafem::colorOptions(palette=map_cols,domain=zlim,na.color="#00000000")) %>%
+                    addRasterImage(x=tr, group="georaster", project=TRUE, colors=mypal) %>%
                     # Label map with current year and day of year
                     addControl(tags$div(tag.map.title, HTML(day_label)), position="topleft", className="map-title")
                 
