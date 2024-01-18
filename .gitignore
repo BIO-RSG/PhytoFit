@@ -44,6 +44,14 @@ verified_fits/scotian_shelf_fall/symmetric_fits/*
 verified_fits/scotian_shelf_spring/manual_fits/*
 verified_fits/scotian_shelf_spring/manual_fits_fixed_settings_files/*
 verified_fits/scotian_shelf_spring/standard_fits/*
+verified_fits/gosl_spring/manual_fits/*
+verified_fits/gosl_spring/standard_fits/*
+verified_fits/gosl_fall/manual_fits/*
+verified_fits/gosl_fall/standard_fits/*
+verified_fits/nfld_spring/manual_fits/*
+verified_fits/nfld_spring/standard_fits/*
+verified_fits/nfld_fall/manual_fits/*
+verified_fits/nfld_fall/standard_fits/*
 verified_fits/verified_fits_backup.zip
 verified_fits/gaussian_fits.zip
 verified_fits/good_vs_bad_fits.png
