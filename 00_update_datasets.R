@@ -12,7 +12,6 @@
 library(dplyr)
 library(lubridate)
 library(RCurl)
-library(curl)
 source("readYN.R")
 
 # should the script ask before downloading updates for each data subset?
