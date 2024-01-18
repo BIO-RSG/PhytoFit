@@ -81,8 +81,7 @@ for (i in 1:nrow(stats)) {
             panel.border = element_rect(colour="black", fill=NA, linewidth=0.4))
     # add tstart/tend/tmax and gaussian curve, if available
     if (is.na(st$B0)) {
-      p <- p + annotation_custom(grobTree(textGrob("NO FIT", x=0.1, y=0.9,vjust=1,hjust=0,
-                                                   gp=gpar(fontsize=16, col="red"))))
+      p <- p + annotation_custom(grobTree(textGrob("NO FIT", x=0.1, y=0.9,vjust=1,hjust=0, gp=gpar(fontsize=16, col="red"))))
       tstart <- tend <- tmax_fit <- tmax_real <- NA
     } else {
       # plot the fitted line in the range of days used in the fit (i.e. given by tmp_t_range)
