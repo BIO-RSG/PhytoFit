@@ -20,7 +20,7 @@ library(stringr)
 #   - [year]_[box]_stats.csv files for EACH box/year that was fit
 #   - model_fit_params.csv, with an extra column "datetime_fitted" that must be added manually (format: YYYYMMDD_HHMMSS)
 #   - settings.txt
-standard_path <- "verified_fits/labrador_sea_spring/standard_fits/"
+standard_path <- "verified_fits/scotian_shelf_spring/standard_fits/"
 # TO ADD STANDARD FITS FOR SUBSEQUENT YEARS:
 # - Use the settings.txt file from the standard_path (i.e. load it into PhytoFit and run it with the next year)
 # - Add the rows from the new model_fit_params.csv file to the original model_fit_params.csv file
@@ -33,18 +33,18 @@ standard_path <- "verified_fits/labrador_sea_spring/standard_fits/"
 # WARNING!!!! Each box/year must have only ONE fit in this folder. Manual fits will
 #   be grouped by box/year and sorted by datetime_fitted, and if any box/year has
 #   more than one fit, only the most recent fit will be kept.
-manual_path <- "verified_fits/labrador_sea_spring/manual_fits/"
+manual_path <- "verified_fits/scotian_shelf_spring/manual_fits/"
 
 # If a box/year was fit with both standard and manual settings, should the manual fit replace the standard fit?
 replace_standard <- TRUE
 
 # Output csv filename that will contain the table with model metrics, parameters, and settings for each polygon/year that was fit.
 # Full daily statistic tables for each fit will be written to an Rdata file with the same name.
-output_file <- "verified_fits/labrador_sea_spring/verified_fits_labrador_sea_spring.csv"
+output_file <- "verified_fits/scotian_shelf_spring/verified_fits_scotian_shelf_spring.csv"
 
 # include fits for these polygons
-polys <- c("CLS","GS","LAS") # labrador sea
-# polys <- c("CSS_V02","ESS_V02","WSS_V02","LS_V02","GB_V02","HL2","P5") # scotian shelf
+# polys <- c("CLS","GS","LAS") # labrador sea
+polys <- c("CSS_V02","ESS_V02","WSS_V02","LS_V02","GB_V02","HL2","P5") # scotian shelf
 # polys <- c("CS_V02","MS_V02","NEGSL_V02","NWGSL_V02") # gulf of saint lawrence
 # polys <- c("AC","FP","HB","HIB","NENS","SAB","SES","SPB") # newfoundland
 
@@ -73,32 +73,59 @@ if (!is.null(standard_path)) {
   df_standard <- dplyr::bind_cols(df_standard, stats %>% tibble() %>% dplyr::rename(stats="."))
 }
 
+
 if (!is.null(manual_path)) {
-  manual_files <- list.files(manual_path)
+  
+  manual_files <- list.files(manual_path,full.names=TRUE)
+  manual_files <- manual_files[!endsWith(manual_files,".png")]
+  
   if (length(manual_files)==0) {
+    
     cat("No manual fits found.\n")
+    
   } else {
-    mf_try <- try({
-      # get the list of years and polygons/boxes
-      manual_fits <- strsplit(manual_files,split="_") %>%
-        lapply(FUN="[",3:6) %>%
-        lapply(FUN=function(x) {
-          year_loc <- str_locate(x,"\\d{4}")
-          year_loc <- which((year_loc[,2]-year_loc[,1])==3)
-          x <- x[1:year_loc]
-          x <- x[!(x %in% c("daily","4day","8day"))]
-          return(x)})
-      years_manual <- as.numeric(sapply(manual_fits,FUN=tail,1))
-      boxes_manual <- manual_fits %>% lapply(FUN=head,-1) %>% sapply(FUN=paste0,collapse="_")}, silent=TRUE)
-    if (class(mf_try)=="try-error") {
-      stop("manual_path must contain ONLY the annual_stats.csv, model_parameters.csv, and settings.txt files for the manually fitted box(es)/year(s). Make sure no files are missing and that there are no extra files or subfolders within that folder.\n")
+    
+    # FIGURE OUT THE FILENAMING SCHEME
+    fname_short <- !is.na(as.numeric(strsplit(basename(manual_files[1]),split="_")[[1]][1]))
+    if (fname_short) {
+      manual_fits <- gsub("_model_fit_params.csv|_settings.txt|_stats.csv","",basename(manual_files)) %>% strsplit(split="_")
+      years_manual <- as.numeric(sapply(manual_fits,FUN=head,1))
+      boxes_manual <- manual_fits %>% lapply(FUN=tail,-1) %>% sapply(FUN=paste0,collapse="_")
+      manual_fits <- data.frame(Region=boxes_manual,Year=years_manual,File=manual_files) %>%
+        dplyr::mutate(File_type=ifelse(endsWith(File,"_model_fit_params.csv"), "bf_file",
+                                       ifelse(endsWith(File,"_settings.txt"), "set_file",
+                                              ifelse(endsWith(File,"_stats.csv"), "st_file", NA)))) %>%
+        tidyr::pivot_wider(names_from=File_type, values_from=File) %>%
+        dplyr::distinct()
+      dt_created <- file.info(manual_fits$bf_file)
+      manual_fits$datetime_created <- ifelse(dt_created$mtime < dt_created$ctime, dt_created$mtime, dt_created$ctime) %>% as_datetime() %>% format("%Y%m%d_%H%M%S")
+    } else {
+        mf_try <- try({
+          # get the list of years and polygons/boxes
+          manual_fits <- strsplit(basename(manual_files),split="_") %>%
+            lapply(FUN="[",3:6) %>%
+            lapply(FUN=function(x) {
+              year_loc <- str_locate(x,"\\d{4}")
+              year_loc <- which((year_loc[,2]-year_loc[,1])==3)
+              x <- x[1:year_loc]
+              x <- x[!(x %in% c("daily","4day","8day"))]
+              return(x)})
+          years_manual <- as.numeric(sapply(manual_fits,FUN=tail,1))
+          boxes_manual <- manual_fits %>% lapply(FUN=head,-1) %>% sapply(FUN=paste0,collapse="_")}, silent=TRUE)
+        if (class(mf_try)=="try-error") {
+          stop("manual_path must contain ONLY the annual_stats.csv, model_parameters.csv, and settings.txt files for the manually fitted box(es)/year(s). Make sure no files are missing and that there are no extra files or subfolders within that folder.\n")
+        }
+        manual_fits <- data.frame(Region=boxes_manual,Year=years_manual,File=manual_files) %>%
+          dplyr::mutate(File_type=ifelse(endsWith(File,"_model_parameters.csv"), "bf_file",
+                                         ifelse(endsWith(File,"_settings.txt"), "set_file",
+                                                ifelse(endsWith(File,"_stats.csv"), "st_file", NA)))) %>%
+          tidyr::pivot_wider(names_from=File_type, values_from=File) %>%
+          dplyr::distinct() %>%
+          dplyr::mutate(datetime_created=strsplit(bf_file,split="_") %>% lapply(FUN=function(x) x[which(grepl("created",x))]) %>% sapply(FUN=substr,start=8,stop=24) %>% as_datetime(format="%Y-%m-%d-%H%M%S") %>% format("%Y%m%d_%H%M%S"))
+        
     }
-    manual_fits <- data.frame(Region=boxes_manual,Year=years_manual,File=manual_files) %>%
-      dplyr::mutate(File_type=ifelse(endsWith(File,"_model_parameters.csv"), "bf_file",
-                                     ifelse(endsWith(File,"_settings.txt"), "set_file",
-                                            ifelse(endsWith(File,"_stats.csv"), "st_file", NA)))) %>%
-      tidyr::pivot_wider(names_from=File_type, values_from=File) %>%
-      dplyr::distinct()
+    
+    # READ THE FILES
     if (is.null(manual_fits$bf_file) | is.null(manual_fits$set_file) | is.null(manual_fits$st_file)) {
       stop("manual_path is missing annual_stats.csv, model_parameters.csv, or settings.txt files.\n")
     }
@@ -107,19 +134,17 @@ if (!is.null(manual_path)) {
     }
     df_manual <- lapply(1:nrow(manual_fits), FUN=function(i) {
       mf <- manual_fits[i,]
-      dt_created <- strsplit(mf$bf_file,split="_")[[1]]
-      dt_created <- dt_created[which(grepl("created",dt_created))] %>% substr(start=8,stop=24)
-      dt_created <- format(as_datetime(dt_created,format="%Y-%m-%d-%H%M%S"),"%Y%m%d_%H%M%S")
+      dt_created <- mf$datetime_created
       df <- dplyr::bind_cols(
-        read.csv(paste0(manual_path,mf$bf_file)) %>%
+        read.csv(mf$bf_file) %>%
           dplyr::mutate(manual_fit=TRUE, datetime_fitted=dt_created, Region=mf$Region, Year=mf$Year),
-        read.table(paste0(manual_path,mf$set_file), header = TRUE, sep="\\") %>%
+        read.table(mf$set_file, header = TRUE, sep="\\") %>%
           dplyr::select(setting_id,value) %>%
           tidyr::pivot_wider(names_from=setting_id,values_from=value) %>%
           dplyr::rename_with(function(x) paste0("settings_", x))) %>%
         dplyr::relocate(datetime_fitted,manual_fit,Region,Year) %>%
         tibble()
-      stats <- list(read.csv(paste0(manual_path,mf$st_file)))
+      stats <- list(read.csv(mf$st_file))
       df <- dplyr::bind_cols(df, stats %>% tibble() %>% dplyr::rename(stats="."))
       return(df)
     }) %>%
@@ -129,7 +154,9 @@ if (!is.null(manual_path)) {
       dplyr::group_by(Region,Year) %>%
       dplyr::slice_head(n=1) %>%
       dplyr::ungroup()
+    
   }
+  
 }
 
 df <- dplyr::bind_rows(df_standard,df_manual)
