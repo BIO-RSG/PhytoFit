@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/277295931.svg)](https://zenodo.org/badge/latestdoi/277295931)
 
-This app can be used to display satellite chlorophyll concentration, and calculate statistics and model phytoplankton blooms for regions within custom polygons. See below for example in screen capture.
+This app can be used to display satellite chlorophyll concentration, and calculate statistics and model phytoplankton blooms for regions within custom polygons. See below for example in screen capture.  
 
 <a target="_blank" href="images/screencap01.png">
 <img src="images/screencap01.png" alt="screencap" width="200"/>
@@ -30,7 +30,7 @@ BibTeX format:
 
 2. Install the necessary packages:
 ```r
-install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "leaflet", "stars", "leafem", "leafpm", "quantreg", "minpack.lm", "sp", "ggplot2", "ggpp", "dplyr", "tidyr", "raster", "curl", "sf", "fs"))
+install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "leaflet", "stars", "leafem", "leafpm", "quantreg", "minpack.lm", "sp", "ggplot2", "ggpp", "dplyr", "tidyr", "raster", "RCurl", "sf", "fs"))
 remotes::install_github("BIO-RSG/oceancolouR")
 # if the line above doesn't work, try devtools::install_github("BIO-RSG/oceancolouR")
 # if that doesn't work, try either install.packages("remotes") or install.packages("devtools") and then run the oceancolouR installation line again
