@@ -9,7 +9,7 @@
 
 library(dplyr)
 library(lubridate)
-library(curl)
+library(RCurl)
 source("readYN.R")
 
 # should the script ask before downloading each data subset?
@@ -34,7 +34,6 @@ if (length(all_args) > 0) {
 cat("Retrieving list of files in local directory...\n")
 
 local_df <- data.frame(location=character(),
-                       reg_sens_var=character(),
                        region=character(),
                        sensor=character(),
                        variable=character(),
@@ -48,16 +47,9 @@ if (length(local_regions) > 0) {
   local_file_list <- local_file_list[endsWith(local_file_list,".fst")]
   
   if (length(local_file_list) > 0) {
-    
-    # convert to a dataframe
     local_df <- data.frame(do.call(rbind, strsplit(basename(local_file_list), split="_")), stringsAsFactors = FALSE)
     colnames(local_df) <- c("region","sensor","variable","year")
-    local_df <- local_df %>%
-      dplyr::mutate(location = "local") %>%
-      dplyr::select(-year) %>%
-      tidyr::unite(col="reg_sens_var", region, sensor, variable, remove=FALSE) %>%
-      dplyr::distinct()
-    
+    local_df <- local_df %>% dplyr::select(-year) %>% dplyr::distinct() %>% dplyr::mutate(local_exists=TRUE)
   }
   
 }
@@ -70,19 +62,10 @@ base_ftp <- "ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit_datasets/"
 
 cat("Retrieving list of files from",base_ftp,"...\n")
 
-# get list of regions
-con <- curl(base_ftp)
-ftp_reg_list <- readLines(con)
-close(con)
-ftp_reg_list <- sapply(strsplit(ftp_reg_list, split="\\s+"), "[[", 4)
-
-# get list of datasets/files from each region
-ftp_res <- lapply(ftp_reg_list, function(x) {
-  con <- curl(paste0(base_ftp, x, "/"))
-  ftp_file_list <- readLines(con)
-  close(con)
-  return(ftp_file_list)
-}) %>% do.call(what=c)
+# get list of regions (subfolders)
+ftp_reg_list <- sapply(strsplit(strsplit(getURL(base_ftp), split="\\r\\n")[[1]], split="\\s+"), "[[", 4)
+# get list of files per region/subfolder
+ftp_res <- sapply(paste0(base_ftp, ftp_reg_list, "/"), FUN=getURL) %>% strsplit(split="\\r\\n") %>% unlist() %>% unname()
 # remove any non-.fst files
 ftp_res <- ftp_res[endsWith(ftp_res,".fst")]
 # convert to a dataframe
@@ -92,44 +75,45 @@ metadata_df <- do.call(rbind, strsplit(ftp_df$filename, split="_")) %>% data.fra
 colnames(metadata_df) <- c("region","sensor","variable","year")
 ftp_df <- dplyr::bind_cols(ftp_df, metadata_df)
 ftp_df <- ftp_df %>%
-  dplyr::mutate(location = "ftp",
-                filename = paste0(region,"/",filename),
+  dplyr::mutate(filename = paste0(region,"/",filename),
                 size_mb = round(as.numeric(size_mb) * conv_factor_file, 2)) %>%
-  dplyr::select(location, filename, size_mb, region, sensor, variable) %>%
-  tidyr::unite(col="reg_sens_var", region, sensor, variable, remove=FALSE)
+  dplyr::select(filename, size_mb, region, sensor, variable)
 
 
 #*******************************************************************************
-# COMPARE FTP AND LOCAL FILENAMES ####
+# COMPARE FTP AND LOCAL FILENAMES AND DOWNLOAD ####
 
-# subset ftp_df to the files from the existing local datasets
-ftp_df <- ftp_df %>% dplyr::filter(!(reg_sens_var %in% local_df$reg_sens_var))
+# get the list of datasets missing from the local copy
+missing_data <- dplyr::left_join(ftp_df, local_df, by=c("region","sensor","variable")) %>%
+  dplyr::group_by(region,sensor,variable) %>%
+  dplyr::mutate(local_exists=any(!is.na(local_exists))) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(!local_exists) %>%
+  dplyr::select(-local_exists)
 
-ftp_sets <- sort(unique(ftp_df$reg_sens_var))
-
-
-#*******************************************************************************
-# DOWNLOAD FILES ####
-
-if (length(ftp_sets) > 0) {
+if (nrow(missing_data) > 0) {
   
-  tmp_df <- ftp_df %>%
-    dplyr::group_by(reg_sens_var) %>%
+  # prevent timeouts if download takes too long by increasing the timeout value (in seconds)
+  # (timeout value will be reset after downloads are complete)
+  current_timeout <- getOption("timeout")
+  options(timeout=200)
+  
+  tmpmd <- missing_data %>%
+    dplyr::group_by(region,sensor,variable) %>%
     dplyr::summarize(total_size_mb = sum(size_mb,na.rm=TRUE),
                      num_files_available = n()) %>%
-    dplyr::ungroup() %>%
-    dplyr::rename(region_sensor_variable=reg_sens_var) %>%
-    as.data.frame()
+    dplyr::ungroup()
   
   cat("Datasets to download:\n")
-  print(tmp_df)
+  print(tmpmd)
   cat("\n\n")
   
-  for (i in 1:length(ftp_sets)) {
-    current_set <- ftp_sets[i]
-    tmp_df <- ftp_df %>% dplyr::filter(reg_sens_var==current_set)
+  for (i in 1:nrow(tmpmd)) {
+    current_set <- tmpmd[i,]
+    tmp_df <- dplyr::inner_join(missing_data,current_set,by=c("region","sensor","variable"))
     if (ask_user) {
-      msg <- paste0("Download ",current_set," (",nrow(tmp_df)," files, ",
+      msg <- paste0("Download ",paste0(unlist(current_set[,1:3]),collapse="_"),
+                    " (",nrow(tmp_df)," files, ",
                     sum(tmp_df$size_mb,na.rm=TRUE),"mb total)? Y/N ")
       ans <- readYN(msg)
       while (is.null(ans)) {
@@ -140,21 +124,26 @@ if (length(ftp_sets) > 0) {
     }
     if (ans=="Y") {
       # create output directory for the region, if necessary
-      current_region <- strsplit(current_set,"_")[[1]][1]
-      dir.create(paste0(base_local,current_region), showWarnings=FALSE, recursive=TRUE)
+      dir.create(paste0(base_local,current_set$region), showWarnings=FALSE, recursive=TRUE)
       # download each file for the region and dataset
       for (j in 1:nrow(tmp_df)) {
         filename <- tmp_df$filename[j]
         cat(paste0("Downloading ", filename, "...\n"))
-        curl_download(url = paste0(base_ftp, filename),
-                      destfile = paste0(base_local, filename))
+        download.file(url = paste0(base_ftp, filename),
+                      destfile = paste0(base_local, filename),
+                      method = "libcurl",
+                      quiet = TRUE,
+                      mode = "wb")
       }
       cat("\n")
     }
     
   }
   
-  cat("DONE!")
+  cat("DONE!\n")
+  
+  # reset download timeout value
+  options(timeout=current_timeout)
   
 } else {
   cat("No new datasets to download.")
