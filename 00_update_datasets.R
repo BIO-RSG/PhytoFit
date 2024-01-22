@@ -121,6 +121,12 @@ outdated <- total_df %>%
 # DOWNLOAD FILES ####
 
 if (nrow(outdated) > 0) {
+  
+  # prevent timeouts if download takes too long by increasing the timeout value (in seconds)
+  # (timeout value will be reset after downloads are complete)
+  current_timeout <- getOption("timeout")
+  options(timeout=600)
+  
   ftp_sets <- outdated %>% dplyr::distinct(dataset) %>% unlist()
   for (i in 1:length(ftp_sets)) {
     current_set <- ftp_sets[i]
@@ -150,6 +156,10 @@ if (nrow(outdated) > 0) {
       cat("\n")
     }
   }
+  
+  # reset download timeout value
+  options(timeout=current_timeout)
+  
 } else {
   cat("Everything up-to-date.")
 }

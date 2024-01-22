@@ -96,7 +96,7 @@ if (nrow(missing_data) > 0) {
   # prevent timeouts if download takes too long by increasing the timeout value (in seconds)
   # (timeout value will be reset after downloads are complete)
   current_timeout <- getOption("timeout")
-  options(timeout=200)
+  options(timeout=600)
   
   tmpmd <- missing_data %>%
     dplyr::group_by(region,sensor,variable) %>%
