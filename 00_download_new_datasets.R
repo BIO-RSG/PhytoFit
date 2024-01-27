@@ -33,10 +33,7 @@ if (length(all_args) > 0) {
 
 cat("Retrieving list of files in local directory...\n")
 
-local_df <- data.frame(location=character(),
-                       region=character(),
-                       sensor=character(),
-                       variable=character(),
+local_df <- data.frame(location=NA, region=NA, sensor=NA, variable=NA, local_exists=FALSE,
                        stringsAsFactors = FALSE)
 
 local_regions <- list.files(base_local)
@@ -85,6 +82,7 @@ ftp_df <- ftp_df %>%
 
 # get the list of datasets missing from the local copy
 missing_data <- dplyr::left_join(ftp_df, local_df, by=c("region","sensor","variable")) %>%
+  tidyr::drop_na(region) %>%
   dplyr::group_by(region,sensor,variable) %>%
   dplyr::mutate(local_exists=any(!is.na(local_exists))) %>%
   dplyr::ungroup() %>%
