@@ -81,9 +81,9 @@ base_ftp <- "ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit_datasets/"
 cat("Retrieving list of files from",base_ftp,"...\n")
 
 # get list of regions (subfolders)
-ftp_reg_list <- sapply(strsplit(strsplit(getURL(base_ftp), split="\\r\\n")[[1]], split="\\s+"), "[[", 4)
+ftp_reg_list <- sapply(strsplit(strsplit(getURL(base_ftp), split="\\r?\\n")[[1]], split="\\s+"), "[[", 4)
 # get list of files per region/subfolder
-ftp_res <- sapply(paste0(base_ftp, ftp_reg_list, "/"), FUN=getURL) %>% strsplit(split="\\r\\n") %>% unlist() %>% unname()
+ftp_res <- sapply(paste0(base_ftp, ftp_reg_list, "/"), FUN=getURL) %>% strsplit(split="\\r?\\n") %>% unlist() %>% unname()
 # remove any non-.fst files
 ftp_res <- ftp_res[endsWith(ftp_res,".fst")]
 # convert to a dataframe
