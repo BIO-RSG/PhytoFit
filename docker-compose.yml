@@ -40,7 +40,7 @@ services:
     image: cioosatlantic/phytofit
     command: >
       /bin/sh -c '
-      cd /srv/shiny-server/phytofit && yes | Rscript download_new_datasets.R
+      cd /srv/shiny-server/phytofit && yes | Rscript 00_download_new_datasets.R
       '
     volumes:
       - "./data:/srv/shiny-server/phytofit/data"
