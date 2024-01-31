@@ -9,5 +9,5 @@ RUN apt update && apt install -y \
     r-base-dev r-cran-sf r-cran-raster r-cran-rjava
 
 # Install R libraries
-RUN Rscript -e 'install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "leaflet", "stars", "leafem", "leafpm", "quantreg", "minpack.lm", "sp", "ggplot2", "ggpp", "dplyr", "tidyr", "raster", "RCurl", "sf", "fs"))'
+RUN Rscript -e 'install.packages(c("remotes", "fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "leaflet", "stars", "leafem", "leafpm", "quantreg", "minpack.lm", "sp", "ggplot2", "ggpp", "dplyr", "tidyr", "raster", "RCurl", "sf", "fs"))'
 RUN Rscript -e 'remotes::install_github("BIO-RSG/oceancolouR")'
