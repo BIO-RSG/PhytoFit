@@ -18,7 +18,8 @@ sensor_names <- c("MODIS-Aqua R2022.0" = "modisaquar2022.0",
                   "VIIRS-SNPP R2022.0" = "viirssnppr2022.0",
                   "VIIRS-SNPP R2018.0" = "viirssnppr2018.0",
                   "OLCI-S3A R2022.0" = "olcis3ar2022.0",
-                  "OLCI-S3B R2022.0" = "olcis3br2022.0")
+                  "OLCI-S3B R2022.0" = "olcis3br2022.0",
+                  "CZCS R2014.0" = "czcsnimbus7r2014.0")
 
 # List your variables here.
 # The list element name (e.g. chloci, chlpoly4, sst...) must match the "variable" in your fst
