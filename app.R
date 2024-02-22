@@ -1722,10 +1722,10 @@ server <- function(input, output, session) {
         year_list <- (year_bounds[1]):(year_bounds[2])
         ppm <- ppolys_merged[[d$region]]
         polygon_list <- ppm[ppm$poly_id %in% regs,]
-        if ("custom" %in% regs & !(is.null(d$newpoly) & is.null(d$editedpoly) & is.null(d$typedpoly))) {
-          polygon_list <- dplyr::bind_rows(polygon_list,get_custom_polygon())
+        custom_poly <- get_custom_polygon()
+        if ("custom" %in% regs & !is.null(custom_poly)) {
+          polygon_list <- dplyr::bind_rows(polygon_list,custom_poly)
         }
-        
         # get column names for parameter table
         pnames <- get_pnames()
         

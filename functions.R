@@ -521,12 +521,14 @@ make_custom_spdf <- function(lats,lons,name) {
 }
 # Check size of sfc (spdf is an sfc, pixels is a SpatialPointsDataframe)
 check_custom_spdf_size <- function(spdf,pixels) {
-  polygon_area <- length(over(x=as_Spatial(spdf),y=pixels,returnList=TRUE)[[1]])
   latlon_toolarge <- FALSE
   help_latlon_txt <- ""
-  if (polygon_area > max_pixels) {
-    latlon_toolarge <- TRUE
-    help_latlon_txt <- paste0("Polygon is too large (max allowed pixels = ",max_pixels,").")
+  if (nrow(spdf)>0) {
+    polygon_area <- length(over(x=as_Spatial(spdf),y=pixels,returnList=TRUE)[[1]])
+    if (polygon_area > max_pixels) {
+      latlon_toolarge <- TRUE
+      help_latlon_txt <- paste0("Polygon is too large (max allowed pixels = ",max_pixels,").")
+    }
   }
   return(list(latlon_toolarge=latlon_toolarge,
               help_latlon_txt=help_latlon_txt))
