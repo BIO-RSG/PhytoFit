@@ -16,7 +16,7 @@ library(quantreg)
 
 # file containing the bloom metrics/settings and the annual stats for each fit,
 # created by tools_01a_format_bloommetrics_for_plotting.R
-file <- "verified_fits/labrador_sea_fall/verified_fits_labrador_sea_fall.Rdata"
+file <- "verified_fits/occci/labrador_sea_fall/verified_fits_labrador_sea_fall.Rdata"
 
 output_file <- gsub(".Rdata",".png",file)
 
@@ -25,9 +25,10 @@ polys <- c("CLS","GS","LAS") # labrador sea
 # polys <- c("CSS_V02","ESS_V02","WSS_V02","LS_V02","GB_V02","HL2","P5") # scotian shelf
 # polys <- c("CS_V02","MS_V02","NEGSL_V02","NWGSL_V02") # gulf of saint lawrence
 # polys <- c("AC","FP","HB","HIB","NENS","SAB","SES","SPB") # newfoundland
+# polys <- c("SABMPA")
 
 # include fits for these years
-years <- 2003:2023
+years <- 1997:2024
 
 
 #*******************************************************************************
@@ -53,16 +54,23 @@ for (i in 1:nrow(stats)) {
     next
   }
   if (dailystat=="average") {
-    df$y <- df$mean
+    if (logchla) {
+      df$y <- df$mean_log10
+    } else {
+      df$y <- df$mean
+    }
   } else if (dailystat=="median") {
-    df$y <- df$median
+    if (logchla) {
+      df$y <- df$median_log10
+    } else {
+      df$y <- df$median
+    }
   }
   df[df$percent_coverage <= fitcov, "y"] <- NA
   if (all(!is.finite(df$y))) {
     plot_list[[paste0(year,"_",region)]] <- ggplot()
     next
   }
-  if (logchla) {df$y <- 10^df$y}
   # plot all real data points that have sufficient percent coverage, sized by percent coverage
   p <- ggplot(df) +
     geom_point(aes(x=doy, y=y, size=percent_coverage), alpha=0.6) +
@@ -87,15 +95,13 @@ for (i in 1:nrow(stats)) {
   } else {
     # plot the fitted line in the range of days used in the fit (i.e. given by tmp_t_range)
     if (all(is.na(df$model))) {
-      
       # from threshold.R
       tall <- df$doy[df$percent_coverage >= fitcov]
       yall <- df$mean[df$percent_coverage >= fitcov]
       # use quantile regression to model the line of background chla
       rqfit <- quantreg::rq(yall ~ tall, tau = 0.25)
       bkrnd <- predict(rqfit, newdata = data.frame(tall = xlim[1]:xlim[2]))
-      if (logchla) {bkrnd <- 10^bkrnd}
-      df$background[dplyr::between(df$doy,xlim[1],xlim[2])] <- bkrnd
+      df$background[dplyr::between(df$doy,xlim[1],xlim[2])] <- as.numeric(bkrnd)
       p <- p + geom_line(data=df, aes(x=doy, y=background), color="red", linetype="dashed")
     }
     p <- p + geom_vline(data=tdf, aes(xintercept=value, color=Timing), linetype="dashed", linewidth=1)
@@ -117,7 +123,8 @@ ggsave(filename=output_file,
        dpi=100,
        units="px",
        width=(300*length(polys)),
-       height=(180*(length(years)+1)))
+       height=(180*(length(years)+1)),
+       limitsize=FALSE)
 
 cat("% manual fits:",(100*(sum(stats$manual_fit)/nrow(stats))),"\n")
 cat("Num manual fits:",sum(stats$manual_fit),"/",nrow(stats),"\n")
