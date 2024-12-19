@@ -1,4 +1,4 @@
-# Variable options in the sidebar
+
 
 #*******************************************************************************
 # VARIABLES THAT CAN BE CHANGED ####
@@ -11,12 +11,8 @@
 # The vector names (i.e. MODIS-Aqua R2018.1...) are the full names of the sensor,
 # which will appear in the drop-down menu in the app.
 # INCLUDE THE DATA VERSION (i.e. the reprocessing, for example R2022.0).
-sensor_names <- c("MODIS-Aqua R2022.0" = "modisaquar2022.0",
-                  "MODIS-Aqua R2018.1" = "modisaquar2018.1",
-                  "SeaWiFS R2022.0" = "seawifsr2022.0",
-                  "SeaWiFS R2018.0" = "seawifsr2018.0",
-                  "VIIRS-SNPP R2022.0" = "viirssnppr2022.0",
-                  "VIIRS-SNPP R2018.0" = "viirssnppr2018.0",
+sensor_names <- c("OC-CCI v6.0" = "occciv6.0",
+                  "MODIS-Aqua R2022.0" = "modisaquar2022.0",
                   "OLCI-S3A R2022.0" = "olcis3ar2022.0",
                   "OLCI-S3B R2022.0" = "olcis3br2022.0",
                   "CZCS R2014.0" = "czcsnimbus7r2014.0")
@@ -29,31 +25,19 @@ sensor_names <- c("MODIS-Aqua R2022.0" = "modisaquar2022.0",
 #   - map_legend_title is a string formatted with HTML
 #   - timeseries_ytitle is the y-axis title on the time series plot, formatted using bquote()
 #   - colscale is a vector of values on the adjustable color scale below the map.
-#   - zlim is a vector, length 2, with the default selected values on colscale
-#   - If log=FALSE, the data logging switch is set to FALSE and disabled when that variable is selected.
+#   - colscale_log is the vector used in the case of a logged color scale. Values should be LINEAR, but spaced as though they are on a log scale.
+#   - If log=FALSE, the data logging switches are set to FALSE and disabled when that variable is selected. If it's set to TRUE, the switches are enabled and you can change back and forth, with the scale defaulting to the log scale option (i.e. color scale and plot axes are displayed in log format, AND the data are logged to fit a time series model). Note that if log=TRUE, values <=0 are filtered out when the data is initially loaded.
 #   - If cell_model_option=TRUE (e.g. for chlorophyll) you have the option of splitting the value into small, medium, or large cell sizes
-cscale_log <- c(seq(1e-3, 5e-3, by=1e-3),
-                seq(1e-2, 5e-2, by=1e-2),
-                seq(0.1, 0.5, by=0.1),
-                seq(1, 5, by=1),
-                seq(10, 50, by=10),
-                100)
-variables <- list("chloci"=list(name_dropdown="OCI chl-a (global, band ratio)",
-                                name_plottitle="Chlorophyll-a",
-                                abbrev="Chl-a",
-                                map_legend_title="<center>Chl-a</br>[ mg/m<sup>3</sup> ]</center>",
-                                timeseries_ytitle=bquote("Chl-a [" * mg/m^3 * "]"),
-                                colscale=cscale_log,
-                                zlim=c(0.05,10),
-                                log=TRUE,
-                                cell_model_option=TRUE),
-                  "chlpoly4"=list(name_dropdown="POLY4 chl-a (regional, band ratio)",
+
+chla_colscale <- seq(0,100,by=0.5)
+chla_colscale_log <- c(0.005, seq(0.01, 0.05, by=0.01), seq(0.1, 0.5, by=0.1), seq(1, 5, by=1), seq(10, 50, by=10), 100)
+variables <- list("chlpoly4"=list(name_dropdown="POLY4 chl-a (regional, band ratio)",
                                   name_plottitle="Chlorophyll-a",
                                   abbrev="Chl-a",
                                   map_legend_title="<center>Chl-a</br>[ mg/m<sup>3</sup> ]</center>",
                                   timeseries_ytitle=bquote("Chl-a [" * mg/m^3 * "]"),
-                                  colscale=cscale_log,
-                                  zlim=c(0.05,10),
+                                  colscale=chla_colscale,
+                                  colscale_log=chla_colscale_log,
                                   log=TRUE,
                                   cell_model_option=TRUE),
                   "chlgsmgs"=list(name_dropdown="GSM_GS chl-a (regional, semi-analytical)",
@@ -61,8 +45,8 @@ variables <- list("chloci"=list(name_dropdown="OCI chl-a (global, band ratio)",
                                   abbrev="Chl-a",
                                   map_legend_title="<center>Chl-a</br>[ mg/m<sup>3</sup> ]</center>",
                                   timeseries_ytitle=bquote("Chl-a [" * mg/m^3 * "]"),
-                                  colscale=cscale_log,
-                                  zlim=c(0.05,10),
+                                  colscale=chla_colscale,
+                                  colscale_log=chla_colscale_log,
                                   log=TRUE,
                                   cell_model_option=TRUE),
                   "chleof"=list(name_dropdown="EOF chl-a (regional, empirical)",
@@ -70,8 +54,8 @@ variables <- list("chloci"=list(name_dropdown="OCI chl-a (global, band ratio)",
                                 abbrev="Chl-a",
                                 map_legend_title="<center>Chl-a</br>[ mg/m<sup>3</sup> ]</center>",
                                 timeseries_ytitle=bquote("Chl-a [" * mg/m^3 * "]"),
-                                colscale=cscale_log,
-                                zlim=c(0.05,10),
+                                colscale=chla_colscale,
+                                colscale_log=chla_colscale_log,
                                 log=TRUE,
                                 cell_model_option=TRUE),
                   "sst"=list(name_dropdown="Sea Surface Temperature",
@@ -80,7 +64,6 @@ variables <- list("chloci"=list(name_dropdown="OCI chl-a (global, band ratio)",
                              map_legend_title="<center>SST</br>[ &deg;C ]</center>",
                              timeseries_ytitle=bquote("SST [°C]"),
                              colscale=-3:35,
-                             zlim=c(1,20),
                              log=FALSE,
                              cell_model_option=FALSE))
 
@@ -135,15 +118,10 @@ ti_threshold_types <- c("% amplitude" = "percent_thresh",
                         "Constant threshold" = "constant_thresh")
 
 # model fit table parameter names, depending on fitmethod, bloomShape, beta (code \u03B2 to get the symbol)
-pnlist <- list("gauss"=list("symmetric"=c("Mean", "Median", "StDev", "t[start]", "t[max_real]", "t[max_fit]", "t[end]", "t[duration]",
-                                          "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
-                                          "B0", "h", "sigma", "beta", "failure_code", "RMSE"),
-                            "asymmetric"=c("Mean", "Median", "StDev", "t[start]", "t[max_real]", "t[max_fit]", "t[end]", "t[duration]",
-                                           "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags",
-                                           "B0[left]", "h[left]", "sigma[left]", "beta[left]",
-                                           "B0[right]", "h[right]", "sigma[right]", "beta[right]", "failure_code", "RMSE")),
-               "roc"=c("Mean", "Median", "StDev", "t[start]", "t[max_real]", "t[end]", "t[duration]", "Magnitude", "Amplitude"),
-               "thresh"=c("Mean", "Median", "StDev", "t[start]", "t[max_real]", "t[end]", "t[duration]", "Magnitude", "Amplitude", "Threshold"))
+pnlist <- list("gauss"=list("symmetric"=c("Annual_Mean", "Annual_Median", "Annual_StDev", "t[start]", "t[max_real]", "t[max_fit]", "t[end]", "t[duration]", "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags", "B0", "h", "sigma", "beta", "failure_code", "RMSE", "RMSLE"),
+                            "asymmetric"=c("Annual_Mean", "Annual_Median", "Annual_StDev", "t[start]", "t[max_real]", "t[max_fit]", "t[end]", "t[duration]", "Magnitude[real]", "Magnitude[fit]", "Amplitude[real]", "Amplitude[fit]", "Flags", "B0[left]", "h[left]", "sigma[left]", "beta[left]", "B0[right]", "h[right]", "sigma[right]", "beta[right]", "failure_code", "RMSE", "RMSLE")),
+               "roc"=c("Annual_Mean", "Annual_Median", "Annual_StDev", "t[start]", "t[max_real]", "t[end]", "t[duration]", "Magnitude", "Amplitude"),
+               "thresh"=c("Annual_Mean", "Annual_Median", "Annual_StDev", "t[start]", "t[max_real]", "t[end]", "t[duration]", "Magnitude", "Amplitude", "Threshold"))
 
 # formatting for tables overlaid on density and model fit plots when they are exported to png
 tab_theme <- ttheme_gtminimal(core=list(fg_params=list(parse=TRUE,hjust=0,x=0.01),
@@ -156,28 +134,33 @@ tab_theme <- ttheme_gtminimal(core=list(fg_params=list(parse=TRUE,hjust=0,x=0.01
 
 # inputId for each widget to save in the settings
 # (note that polystr will be manually added at the end because it's actually part of the "state" reactive list, not "input")
-input_ids_to_save <- c("region", "sat_alg", "concentration_type", "cell_size_model1", "cell_size_model2", "year", "composite", "log_chla",
+input_ids_to_save <- c("region", "sat_alg", "concentration_type", "cell_size_model1", "cell_size_model2", "year", "composite", 
                        "yearday_slide", "percent", "outlier", "dailystat", "pixrange1", "pixrange2",
-                       "fitmethod", "bloomShape", "smoothMethod", "loessSpan", "t_range", "ti_limits", "tm_limits",
+                       "fitmethod", "bloomShape", "smoothMethod", "log_chla", "loessSpan", "t_range", "ti_limits", "tm_limits",
                        "ti_threshold_type", "ti_threshold_percent", "ti_threshold_constant", "tm", "beta", "use_weights", "rm_bkrnd",
                        "flag1_lim1", "flag1_lim2", "flag2_lim1", "flag2_lim2", "threshcoef",
-                       "fullrunoutput_png", "fullrunoutput_statcsv", "fullrunyears", "fullrunboxes", "box", "custom_name", "polystr")
+                       "fullrunoutput_png", "fullrunyears", "fullrunboxes", "box", "custom_name", "polystr")
 
 # how should the input be coerced when reloaded? 1 = numeric, 2 = character, 3 = logical
 # note that some number inputs are actually character-type to get the textInput formatting
-input_ids_variable_type <- c(2,2,2,2,2,1,2,3,1,1,2,2,2,2,2,2,2,1,1,1,1,2,1,1,3,3,3,3,2,2,2,2,1,3,3,1,2,2,2,2)
+input_ids_variable_type <- c(2,2,2,2,2,1,2,
+                             1,1,2,2,2,2,
+                             2,2,2,3,1,1,1,1,
+                             2,1,1,3,3,3,3,
+                             2,2,2,2,1,
+                             3,1,2,2,2,2)
 
 # longer description of each inputId
 input_ids_description <- c("Region", "Sensor and variable",
                            "Full chl-a concentration or subset based on cell size using one of two models",
                            "Cell size using model 1", "Cell size using model 2",
-                           "Year", "Temporal binning", "Was the data log10-transformed?",
+                           "Year", "Temporal binning", 
                          "Day of year (or first day of composite period)",
                          "Minimum composite percent coverage",
                          "Outlier detection method", "Composite statistic",
                          "Minimum value used in statistics and fit",
                          "Maximum value used in statistics and fit",
-                         "Fit method", "Model fit shape", "Smoothing method", "LOESS span",
+                         "Fit method", "Model fit shape", "Smoothing method", "Was the data log10-transformed?", "LOESS span",
                          "Allowed range of days for model fitting",
                          "Allowed range of days for model initiation",
                          "Allowed range of days for peak amplitude of model",
@@ -194,7 +177,6 @@ input_ids_description <- c("Region", "Sensor and variable",
                          "Gaussian fit flag 2 upper limit",
                          "Coefficient for threshold method",
                          "For full run, create png of each fit?",
-                         "For full run, create csv of composite stats for each year?",
                          "For full run, earliest and latest years in the list of years to process",
                          "For full run, list of boxes to process",
                          "Polygon name", "Custom polygon name", "Custom polygon string")
@@ -330,8 +312,12 @@ if (nrow(datasets)==0) {
   
 }
 
-default_colscale <- default_variable$colscale
-default_zlim <- default_variable$zlim
+if (default_variable$log) {
+  default_colscale <- default_variable$colscale_log
+} else {
+  default_colscale <- default_variable$colscale
+}
+
 
 
 #*******************************************************************************
@@ -417,7 +403,8 @@ bhelp <- list(
   box_shp = "Click \"Browse\" to find a shapefile. Select the \"shp\" file and all files with the same name but different extensions (e.g. dbf, prj, sbx...), then \"Open\". Shapefile must contain a Simple Features (sf) object. If the sf contains multiple polygons, a button will appear below to select the polygon you want to use. <b>WARNING: polygons with a large number of vertices may take several seconds to load.</b>",
   percent = paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Minimum % coverage.</font></br>",
                    "Composites with lower coverage in the selected polygon will not be plotted on the density plot or time series, or used in the model fit."),
-  outlier = paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Outlier detection method</font></br>",
+  outlier = paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Outlying pixel detection method</font></br>",
+                   "Remove outlying pixels before calculating statistics for the selected composite and polygon.</br>",
                    "SD = standard deviation</br>",
                    "IQR = interquartile range"),
   dailystat = paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">Statistic</font></br>",
@@ -429,6 +416,7 @@ bhelp <- list(
   bf = "Choose fit method, model shape, and point smoothing method.",
   loessSpan = paste0("<font style=\"font-size: 12px; color: #555555; font-weight: bold;\">LOESS span</font></br>",
                      "Controls the degree of smoothing."),
+  log_chla = "Fit the model to log10-transformed data?",
   fit_days = "Set the range of days to use in the model fit, and the limits of the day of peak amplitude and the first day of the bloom.",
   fit_tstart_method = "Select the method used to calculate t<sub>start</sub> :<br>Either a percentage of the curve amplitude between 0.01 and 90 (peak minus background), or a constant threshold between 0.01 and 5 (difference between the fitted curve and background value, calculated in linear space).",
   fit_ti_threshold_percent = "Set % curve amplitude to mark start of bloom.",
@@ -446,10 +434,10 @@ bhelp <- list(
                           "when [chla] drops below a threshold for > 14 days.</br>",
                           "Threshold = chla<sub>median</sub> * threshold coefficient</br>"),
   fit_threshcoefnote = "NOTE: If you opted to log the data when loading, chla<sub>median</sub> is calculated by taking the median of the logged data and transforming it back to linear space to compute the threshold. The threshold itself is then logged again to determine the bloom initiation.",
-  fullrun1 = paste0("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">Time series</font></br>",
+  fullrun = paste0("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">Time series</font></br>",
                     "Select a series of years and the polygons you would like to process using the current settings, ",
-                    "then click \"Run time series\" to generate the following:</br>"),
-  fullrun2 = paste0("Files will be zipped to a folder following the naming convention ",
+                    "then click \"Run time series\" to generate the following:</br><ul><li>tables of statistics (.csv),</li><li>a single .csv file containing the fitted parameters for all selected years and polygons, and</li><li>a .csv file containing the settings used for the time series.</li></ul>",
+                    "Files will be zipped to a folder following the naming convention ",
                     "<i>satellite_ region_ compositeLength_ years_ cellSizes_ variable_ fitmethod_ timecreated</i>.</br>",
                     "Make sure at least one polygon is selected.<br>",
                     "<b>When processing is complete and the new filename appears over the download button, click \"Download results (.zip)\".</b>")
