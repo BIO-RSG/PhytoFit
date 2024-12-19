@@ -1,3 +1,19 @@
+
+# custom functions from oceancolouR package
+proper <- function(x) paste0(toupper(substr(x, 1, 1)), tolower(substring(x, 2)))
+pad0 <- function (s, len) stringr::str_pad(s, width = len, side = "left", pad = "0")
+rm_dup <- function (x, ch) gsub(paste0("([", ch, "])\\1+"), "\\1", x)
+plus_minus <- function (x, n) return((x - n):(x + n))
+find_line <- function (x1, y1, x2, y2) {
+  m <- (y2 - y1)/(x2 - x1)
+  b <- y1 - m * x1
+  return(list(slope=m, intercept=b))
+}
+avg_columns <- function (mat, dlist=NULL, year=NULL) {
+  new_mat <- lapply(1:length(dlist), function(x) rowMeans(matrix(mat[, dlist[[x]]], nrow=nrow(mat)), na.rm=TRUE))
+  return(do.call(cbind, new_mat))
+}
+
 # function to check if a data file exists and is listed in input_variables.R
 dexist <- function(region,sat_alg,year) {
   region_listed <- region %in% regions
@@ -24,8 +40,8 @@ get_time_vars <- function(composite, year, yearday, dvecs) {
 }
 
 # Load and format a new dataset
-get_data <- function(region, sat_alg, year, yearday, composite, log_chla, num_pix, dvecs,
-                     concentration_type="full", cell_size_model1="small", cell_size_model2="small") {
+get_data <- function(region, sat_alg, year, yearday, composite, num_pix, dvecs,
+                     concentration_type="full", cell_size_model1="small", cell_size_model2="small", loggable) {
   
   sschla_filename <- paste0("./data/", region, "/", region, "_", sat_alg, "_", year, ".fst")
   if (!file.exists(sschla_filename)) {
@@ -60,7 +76,7 @@ get_data <- function(region, sat_alg, year, yearday, composite, log_chla, num_pi
     sschla <- avg_columns(mat=sschla, dlist=dlist, year=year)
   }
   
-  if (log_chla) {sschla <- log10(sschla)}
+  if (loggable) {sschla[sschla<=0] <- NA}
   
   return(list(sschla=sschla, available_days=available_days, doy_vec=sdoy_vec))
   
@@ -87,80 +103,102 @@ subset_data <- function(spdf,sscoords,sschla,pixrange1,pixrange2) {
 }
 
 # Get statistics for the selected region and composite
-get_stats <- function(rchla, outlier) {
+get_stats <- function(rchla, outlier, logvar=TRUE) {
   
+  df <- data.frame(matrix(nrow=ncol(rchla),ncol=14))
+  colnames(df) <- c('lower_limit','upper_limit','mean','median','stdev','min','max','nobs','percent_coverage','lower_limit_log10','upper_limit_log10','mean_log10','median_log10','stdev_log10')
+  df$nobs <- df$percent_coverage <- 0
+
   if (nrow(rchla)==1) {
     
     rchlav <- as.numeric(rchla)
-    chl_mean <- chl_median <- chl_min <- chl_max <- rchlav
-    limits <- cbind(rchlav,rchlav)
-    chl_sd <- rep(0,length(rchlav))
-    nobs <- as.numeric(is.finite(rchlav))
-    percent_coverage <- nobs*100
+    df$lower_limit <- df$upper_limit <- df$chl_mean <- df$chl_median <- df$chl_min <- df$chl_max <- rchlav
+    df$chl_sd <- rep(0,length(rchlav))
+    df$nobs <- as.numeric(is.finite(rchlav))
+    df$percent_coverage <- 100*df$nobs
+    if (logvar) {
+      lr <- log10(rchlav)
+      lr[!is.finite(lr)] <- NA
+      df$lower_limit_log10 <- df$upper_limit_log10 <- df$mean_log10 <- df$median_log10 <- lr
+      df$stdev_log10 <- NA
+    }
     
   } else {
     
-    chl_mean <- apply(rchla, 2, mean, na.rm = TRUE)
-    chl_sd <- apply(rchla, 2, sd, na.rm = TRUE)  
-    chl_median <- apply(rchla, 2, median, na.rm = TRUE)
-    # Note: can't use "min" and "max" functions alone because unlike the mean and median functions,
-    # which return NA if all their input is NA, min and max return Inf
-    nobs <- colSums(!is.na(rchla))
-    lennobs <- nrow(rchla)
-    good <- nobs > 0
-    chl_min <- chl_max <- rep(NaN,ncol(rchla))
-    rchla_good <- matrix(rchla[,good],nrow=nrow(rchla))
-    chl_min[good] <- apply(rchla_good, MARGIN=2, FUN=min, na.rm = TRUE)
-    chl_max[good] <- apply(rchla_good, MARGIN=2, FUN=max, na.rm = TRUE)
-    percent_coverage <- (nobs/lennobs)*100
-    
-    # Limits based on outlier method
-    limits <- matrix(nrow = length(chl_sd), ncol = 2)
-    if(outlier == 'sd2'){
-      limits[,1] <- -1 * 2 * chl_sd + chl_mean
-      limits[,2] <- 1 * 2 * chl_sd + chl_mean
-    } else if (outlier == 'sd3'){
-      limits[,1] <- -1 * 3 * chl_sd + chl_mean
-      limits[,2] <- 1 * 3 * chl_sd + chl_mean
-    } else if (outlier == 'iqr15'){
-      chl_iqr <- apply(rchla, 2, IQR, na.rm = TRUE)
-      limits[,1] <- -1 * 1.5 * chl_iqr + chl_median
-      limits[,2] <- 1 * 1.5 * chl_iqr + chl_median
-    } else if (startsWith(outlier,"q")) {
-      qnum <- as.numeric(paste0(substr(outlier,2,3),".",substr(outlier,4,5)))/100
-      limits <- t(apply(rchla, 2, quantile, probs=c(qnum,1-qnum), na.rm = TRUE))
-    }
-    
-    if (outlier != "none") {
-      for (i in which(good)) {
-        d <- rchla[,i]
-        ok <- which(d >= limits[i,1] & d <= limits[i,2]) # this filters out NA pixels
-        # update stats for this composite after removing outliers
-        if (length(ok)==0) {
-          chl_mean[i] <- chl_median[i] <- chl_sd[i] <- chl_min[i] <- chl_max[i] <- NA
-          nobs[i] <- percent_coverage[i] <- 0
+    statfn <- function(rchla,nobs,log) {
+      if (outlier=="none") {
+        rchla_good <- lapply(1:ncol(rchla), function(i) {x <- rchla[,i]; x[is.finite(x)]})
+        tmp <- dplyr::bind_cols(
+          data.frame(lower_limit=NA, upper_limit=NA),
+          lapply(1:ncol(rchla), function(i) {
+            x <- rchla_good[[i]]
+            data.frame(mean=mean(x),median=median(x),stdev=sd(x))
+          }) %>% do.call(what=dplyr::bind_rows))
+        if (!log) {
+          tmp <- dplyr::bind_cols(
+            tmp,
+            lapply(1:ncol(rchla), function(i) {x <- rchla_good[[i]]; data.frame(min=min(x),max=max(x))}) %>% do.call(what=dplyr::bind_rows),
+            data.frame(nobs=nobs, percent_coverage=100*nobs/nrow(rchla)))
+        }
+      } else {
+        if (startsWith(outlier,"sd")) {
+          sdfactor <- as.numeric(gsub("sd","",outlier))
+          limits <- lapply(1:ncol(rchla), function(i) {
+            x <- rchla[,i]
+            x <- x[is.finite(x)]
+            if (length(x)==0) return(data.frame(lower_limit=NA,upper_limit=NA))
+            data.frame(lower_limit=mean(x)-sdfactor*sd(x), upper_limit=mean(x)+sdfactor*sd(x))
+          }) %>% do.call(what=dplyr::bind_rows)
         } else {
-          chl_mean[i] <- mean(d[ok])
-          chl_median[i] <- median(d[ok])
-          chl_sd[i] <- sd(d[ok])
-          chl_min[i] <- min(d[ok])
-          chl_max[i] <- max(d[ok])
-          nobs[i] <- length(ok)
-          percent_coverage[i] <- (nobs[i]/length(d))*100
+          if (outlier=="iqr15") {
+            limits <- lapply(1:ncol(rchla), function(i) {
+              x <- rchla[,i]
+              x <- x[is.finite(x)]
+              iqr <- IQR(x)
+              data.frame(lower_limit=quantile(x,probs=0.25)-1.5*iqr, upper_limit=quantile(x,probs=0.75)+1.5*iqr)
+            }) %>% do.call(what=dplyr::bind_rows)
+          } else if (startsWith(outlier,"q")) {
+            qnum <- as.numeric(paste0(substr(outlier,2,3),".",substr(outlier,4,5)))/100
+            limits <- lapply(1:ncol(rchla), function(i) {
+              x <- rchla[,i]
+              x <- x[is.finite(x)]
+              iqr <- IQR(x)
+              data.frame(matrix(quantile(x,probs=c(qnum,1-qnum)),nrow=1)) %>% setNames(c("lower_limit","upper_limit"))
+            }) %>% do.call(what=dplyr::bind_rows)
+          }
+        }
+        rchla_good <- lapply(1:ncol(rchla), function(i) {x <- rchla[,i]; tmpi <- limits[i,]; x[is.finite(x) & between(x,tmpi$lower_limit,tmpi$upper_limit)]})
+        tmp <- dplyr::bind_cols(
+          limits,
+          lapply(1:ncol(rchla), function(i) {
+            x <- rchla_good[[i]]
+            if (length(x)==0) return(data.frame(mean=NA,median=NA,stdev=NA))
+            data.frame(mean=mean(x),median=median(x),stdev=sd(x))
+          }) %>% do.call(what=dplyr::bind_rows))
+        if (!log) {
+          nrowrchla <- nrow(rchla)
+          tmp <- dplyr::bind_cols(
+            tmp,
+            lapply(1:ncol(rchla), function(i) {
+              x <- rchla_good[[i]]
+              if (length(x)==0) return(data.frame(min=NA,max=NA,nobs=0,percent_coverage=0))
+              data.frame(min=min(x),max=max(x),nobs=length(x)) %>% dplyr::mutate(percent_coverage=100*nobs/nrowrchla)
+            }) %>% do.call(what=dplyr::bind_rows))
         }
       }
+      return(tmp)
     }
+    nobs <- colSums(!is.na(rchla))
+    good <- nobs > 0
+    rchla <- matrix(rchla[,good],nrow=nrow(rchla))
+    df[good,1:9] <- statfn(rchla,nobs[good],log=FALSE)
+    if (logvar) {
+      dftmp <- statfn(log10(rchla),nobs[good],log=TRUE) %>% lapply(FUN=function(x) 10^x) %>% do.call(what=dplyr::bind_cols)
+      colnames(dftmp) <- paste0(colnames(dftmp),"_log10")
+      df[good,10:14] <- dftmp
+    }
+    
   }
-  
-  df <- data.frame(lower_limit=limits[,1],
-                   upper_limit=limits[,2],
-                   mean=chl_mean,
-                   median=chl_median,
-                   stdev=chl_sd,
-                   min=chl_min,
-                   max=chl_max,
-                   nobs=nobs,
-                   percent_coverage=percent_coverage)
   
   return(df)
   
@@ -170,53 +208,35 @@ get_stats <- function(rchla, outlier) {
 bf_data_calc <- function(composite, chl_to_use, ind_dayrange_percov, ind_percov, ind_dayrange,
                          daily_percov, t_range, log_chla, doy_vec, variable, sv) {
   
-  smoothMethod = sv$smoothMethod
-  fitmethod = sv$fitmethod
-  tm = sv$tm
-  ti_limits = sv$ti_limits
-  
-  ydays_percov <- doy_vec[ind_percov] # all days with high enough percent coverage
-  ydays_dayrange <- doy_vec[ind_dayrange]
-  ydays_dayrange_percov <- doy_vec[ind_dayrange_percov] # subset of days used for fit
-  
   nofit_msg <- NULL
-  yfit <- ybkrnd <- rep(NA, length(ydays_dayrange))
-  loess_result <- rep(NA, length(ydays_dayrange_percov))
+  yfit <- ybkrnd <- rep(NA, sum(ind_dayrange))
   
-  # "chl_percov" is plotted as the points in the scatterplot, sized by percent coverage, also used in RoC and Threshold
-  # "chl_dayrange_percov" is used for the fit (all chl within the day range, with sufficient percent coverage).
-  chl_dayrange_percov <- chl_to_use[ind_dayrange_percov]
-  chl_percov <- chl_to_use[ind_percov]
+  # make a dataframe of input vectors
+  # roc and thresh background lines, loess, and the scatterplot points (sized by percent coverage) use ind_percov
+  # roc and thresh models, and gauss use ind_dayrange_percov (all chl within the day range, with sufficient percent coverage)
+  # yfit and ybkrnd use ind_dayrange
+  df_input <- data.frame(yday=doy_vec, var=chl_to_use, var_to_fit=chl_to_use) %>% dplyr::mutate(weight=1)
+  if (sv$use_weights) {df_input$weight <- daily_percov}
   
-  if (sv$use_weights) {
-    weights <- daily_percov[ind_dayrange_percov]
-  } else {
-    weights <- rep(1,length(chl_dayrange_percov))
-  }
+  # make a dataframe for output
+  df_output <- data.frame(doy=doy_vec, percent_coverage=daily_percov, bfy=df_input$var) %>% dplyr::mutate(model=NA,background=NA,loess=NA)
   
-  # list containing the values to fit and the real chla values
-  y <- list(y=chl_dayrange_percov, chla=chl_dayrange_percov)
-  
-  # use loess smooth on the real data points, if selected, and assign the results
-  # to y so they will be used in the fit instead of the real chla values
-  if (smoothMethod == 'loess'){
-    mod <- try(loess(chl_dayrange_percov ~ ydays_dayrange_percov,
-                     weights=weights, span=sv$loessSpan, degree=2), silent=TRUE)
-    bad_loess <- class(mod)=="try-error" | is.null(mod)
-    if (!bad_loess) {
-      loess_result <- fitted(mod)
-      y$y <- loess_result # use loess for fitting instead of real values
-      weights <- rep(1,length(chl_dayrange_percov)) # reset weights so they aren't used again in a gaussian fit
+  # use loess smooth on the real data points
+  if (sv$smoothMethod == 'loess'){
+    mod <- try(loess(var_to_fit ~ yday, data=df_input[ind_percov,], weights=df_input$weight[ind_percov], span=sv$loessSpan, degree=2), silent=TRUE)
+    if (!(class(mod)=="try-error" | is.null(mod))) {
+      df_output$loess[ind_percov] <- df_input$var_to_fit[ind_percov] <- fitted(mod) # use loess for fitting instead of real values
+      df_input$weight <- 1 # reset weights so they aren't used again in a gaussian fit
     }
   }
   
-  if (fitmethod == 'gauss') {
+  if (sv$fitmethod == 'gauss') {
     
-    if (tm) {tmp_ti_lim <- c(1,365)
-    } else {tmp_ti_lim <- ti_limits}
-    gauss_res <- gaussFit(t=ydays_dayrange_percov, y=y, w=weights,
+    if (sv$tm) {tmp_ti_lim <- c(1,365)
+    } else {tmp_ti_lim <- sv$ti_limits}
+    gauss_res <- gaussFit(dfin=df_input[ind_dayrange_percov,],
                           bloomShape=sv$bloomShape,
-                          tm=tm, beta=sv$beta,
+                          tm=sv$tm, beta=sv$beta,
                           tm_limits=sv$tm_limits,
                           ti_limits=tmp_ti_lim,
                           t_range=t_range,
@@ -228,7 +248,7 @@ bf_data_calc <- function(composite, chl_to_use, ind_dayrange_percov, ind_percov,
                           flag2_lim2=sv$flag2_lim2,
                           ti_threshold=sv$ti_threshold,
                           tt_threshold=sv$tt_threshold,
-                          ydays_dayrange=ydays_dayrange,
+                          ydays_dayrange=df_input$yday[ind_dayrange],
                           rm_bkrnd=sv$rm_bkrnd,
                           ti_threshold_type=sv$ti_threshold_type,
                           ti_threshold_constant=sv$ti_threshold_constant)
@@ -236,12 +256,15 @@ bf_data_calc <- function(composite, chl_to_use, ind_dayrange_percov, ind_percov,
     # calculate rmse if non-null fit exists
     if (is.null(gauss_res$fit)) {
       fitparams$RMSE <- NA
+      fitparams$RMSLE <- NA
       nofit_msg <- gauss_res$nofit_msg
     } else {
-      pgrf <- predict(gauss_res$fit)
-      fitparams$RMSE <- ifelse(!log_chla & variable$log, # if you haven't logged the data, but technically it's "loggable"
-                               rmse(log10(chl_dayrange_percov), log10(pgrf)),
-                               rmse(chl_dayrange_percov, pgrf))
+      rmsedf <- data.frame(x=df_input$var[ind_dayrange_percov],
+                           y=predict(gauss_res$fit, newdata=list(t=df_input$yday[ind_dayrange_percov])))
+      if (log_chla) {rmsedf <- rmsedf %>% dplyr::mutate(x=10^x,  y=10^y)}
+      fitparams$RMSE <- sqrt(mean((rmsedf$x - rmsedf$y)^2, na.rm = TRUE))
+      rmsedf <- rmsedf %>% dplyr::mutate(x=log10(x),  y=log10(y)) %>% dplyr::filter(is.finite(x) & is.finite(y))
+      fitparams$RMSLE <- sqrt(mean((rmsedf$x - rmsedf$y)^2, na.rm = TRUE))
       yfit <- gauss_res$yfit
       ybkrnd <- gauss_res$ybkrnd
     }
@@ -250,27 +273,31 @@ bf_data_calc <- function(composite, chl_to_use, ind_dayrange_percov, ind_percov,
   
   } else {
     
-    if (fitmethod == 'roc') {
-      fitparams <- rateOfChange(y=y, t=ydays_dayrange_percov,
-                                 yall=chl_percov, tall=ydays_percov,
+    if (sv$fitmethod == 'roc') {
+      fitparams <- rateOfChange(dfin=df_input[ind_dayrange_percov,],
+                                dfin_all=df_input[ind_percov,],
                                  bloomShape=sv$bloomShape,
                                  tm_limits=sv$tm_limits,
-                                 ti_limits=ti_limits,
-                                 log_chla=log_chla)
-    } else if (fitmethod == "thresh") {
-      fitparams <- threshold(t=ydays_dayrange_percov, y=y, 
-                              tall=ydays_percov, yall=chl_percov,
+                                 ti_limits=sv$ti_limits,
+                                 log_chla=log_chla,
+                                 rm_bkrnd=sv$rm_bkrnd,
+                                use_weights=sv$use_weights)
+    } else if (sv$fitmethod == "thresh") {
+      fitparams <- threshold(dfin=df_input[ind_dayrange_percov,],
+                             dfin_all=df_input[ind_percov,],
                               threshcoef=sv$threshcoef, 
                               bloomShape=sv$bloomShape,
                               tm_limits=sv$tm_limits,
-                              ti_limits=ti_limits,
-                              log_chla=log_chla)
+                              ti_limits=sv$ti_limits,
+                              log_chla=log_chla,
+                              rm_bkrnd=sv$rm_bkrnd,
+                             use_weights=sv$use_weights)
     }
     
     nofit_msg <- fitparams$nofit_msg
     modelfit <- fitparams$yfit
     if (!is.null(modelfit)) {
-      ybkrnd <- predict(modelfit,newdata=data.frame(tall=ydays_dayrange))
+      ybkrnd <- predict(modelfit,newdata=data.frame(tall=df_input$yday[ind_dayrange]))
     }
     fitparams <- fitparams$values
     
@@ -279,53 +306,72 @@ bf_data_calc <- function(composite, chl_to_use, ind_dayrange_percov, ind_percov,
   # round more days
   tvars <- c("t[start]", "t[max_real]", "t[end]", "t[duration]")
   fitparams[,tvars] <- round(as.numeric(fitparams[,tvars]))
-  # add extra summary stats
-  bf_extra <- data.frame(Mean = mean(chl_dayrange_percov, na.rm=TRUE),
-                         Median = median(chl_dayrange_percov, na.rm=TRUE),
-                         StDev = sd(chl_dayrange_percov, na.rm=TRUE))
-  # transform extra summary stats back to linear space if necessary
-  if (log_chla) {bf_extra[1:3] <- lapply(bf_extra[1:3], function(x) 10^x)}
+  # add extra summary stats 
+  bf_extra <- data.frame(Annual_Mean = mean(chl_to_use, na.rm=TRUE),
+                         Annual_Median = median(chl_to_use, na.rm=TRUE),
+                         Annual_StDev = sd(chl_to_use, na.rm=TRUE))
   fitparams <- dplyr::bind_cols(bf_extra,fitparams)
   
-  # merge stuff together in lists for output
-  df_percov <- data.frame(x=ydays_percov,y=chl_percov,percov=daily_percov[ind_percov])
-  df_dayrange <- data.frame(x=ydays_dayrange,yfit=yfit,ybkrnd=ybkrnd)
-  df_dayrange_percov <- data.frame(x=ydays_dayrange_percov,loess=loess_result)
+  if (log_chla) {
+    df_output$bfy <- 10^df_output$bfy
+    df_output$loess <- 10^df_output$loess
+    yfit <- 10^yfit
+    ybkrnd <- 10^ybkrnd
+    fitparams$Annual_Mean <- 10^fitparams$Annual_Mean
+    fitparams$Annual_Median <- 10^fitparams$Annual_Median
+    fitparams$Annual_StDev <- 10^fitparams$Annual_StDev
+  }
   
-  return(list(fitparams=fitparams, nofit_msg=nofit_msg, df_percov=df_percov,
-              df_dayrange=df_dayrange, df_dayrange_percov=df_dayrange_percov))
+  # after all the modelling and transformations, add to output dataframe
+  df_output$model[ind_dayrange] <- yfit
+  df_output$background[ind_dayrange] <- ybkrnd
+  
+  return(list(fitparams=fitparams, nofit_msg=nofit_msg, df_final=df_output))
   
 }
 
-bf_data_plot <- function(p, nofit_msg, composite, dailystat, log_chla, smoothMethod, fitmethod, variable,
-                         fitparams, df_percov, df_dayrange, df_dayrange_percov) {
+bf_data_plot <- function(p, nofit_msg, composite, dailystat, log_display, percent, smoothMethod, fitmethod, variable, fitparams, df_final) {
   
   # add points sized by percent coverage, vertical model timing bars, and do other formatting
+  x.days <- 1:365
+  x.labs <- rep("",length(x.days))
+  x.labs[c(16, 46, 77, 106, 137 ,167, 198, 229, 259, 290, 320, 350)] <- month.abb
+  # the added .1 here is so the minor lines don't coincide with the major lines and get disabled by element_blank()
+  x.minor <- as.numeric(paste0(c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 365),".1"))
+  
+  df_final <- df_final %>% dplyr::mutate(sufficient_percov=percent_coverage>=percent)
+  
   p <- p +
-    geom_point(data=df_percov, aes(x=x, y=y, size=percov), alpha=0.6) +
+    geom_point(data=df_final, aes(x=doy, y=bfy, size=percent_coverage, alpha=sufficient_percov)) +
     geom_vline(xintercept=as.numeric(fitparams[,c("t[start]","t[max_real]","t[end]")]), col="black", alpha=0.6) +
-    labs(x='Day of year',size="% coverage") +
-    scale_x_continuous(limits=c(0,365), breaks=seq(0,365,by=50)) +
+    labs(x='Month',size="% coverage") +
+    # scale_x_continuous(limits=c(0,365), breaks=seq(0,365,by=50)) +
+    scale_x_continuous(expand=c(0.01,0.01), limits=c(1,365), breaks=x.days, labels=x.labs, minor_breaks=x.minor)+
     scale_size_area(minor_breaks=c(25, 50, 75, 100), limits=c(0, 100), max_size=10) +
+    scale_alpha_manual(values=c(0.2,0.7), breaks=c(FALSE,TRUE), guide="none") +
     theme(legend.position="bottom",
           legend.title=element_text(size=14),
           legend.text=element_text(size=12),
+          axis.ticks.x.bottom=element_blank(),
+          panel.grid.major.x=element_blank(),
+          panel.grid.minor.x=element_line(),
           axis.title=element_text(size=14),
           axis.text=element_text(size=12),
           panel.border = element_rect(colour="black", fill=NA, linewidth=0.4)) +
     labs(y=bquote(.(proper(dailystat)) * " " * .(tolower(names(composites)[composites==composite])) * " " * .(variable$timeseries_ytitle)))
-  if (any(is.finite(df_dayrange$ybkrnd))) {
+  if (any(is.finite(df_final$background))) {
     p <- p +
-      geom_line(data=df_dayrange, aes(x,ybkrnd), color="red", linetype="dashed") +
+      geom_line(data=df_final, aes(doy,background), color="red", linetype="dashed") +
       geom_text_npc(aes(npcx=0.01,npcy=0.79,label=paste("- - Background",variable$abbrev)),size=4,fontface="bold",color="red")
   }
   
-  if (log_chla) {p <- p + scale_y_log10()}
+  if (log_display) {p <- p + scale_y_log10()}
   
   # if you used LOESS smoothing, add the line to the data
-  if (smoothMethod == 'loess' & any(is.finite(df_dayrange_percov$loess))) {
+  if (smoothMethod == 'loess' & any(is.finite(df_final$loess))) {
     p <- p +
-      geom_line(data=df_dayrange_percov, aes(x=x, y=loess), color="green") +
+      geom_line(data=df_final %>% dplyr::select(doy,loess) %>% tidyr::drop_na(), 
+                aes(x=doy, y=loess), color="green") +
       geom_text_npc(aes(npcx=0.01,npcy=0.89,label="** LOESS smoothing"),size=4,fontface="bold",color="green")
   }
   
@@ -334,14 +380,14 @@ bf_data_plot <- function(p, nofit_msg, composite, dailystat, log_chla, smoothMet
     # add t[max_fit] line
     p <- p + geom_vline(xintercept=as.numeric(fitparams$`t[max_fit]`), col="black", alpha=0.6)
     # add gauss fit line if it exists
-    if (all(is.na(df_dayrange$yfit))) {
+    if (all(is.na(df_final$model))) {
       p <- p + geom_text_npc(aes(npcx=0.01,npcy=0.85,label="Unable to fit"),size=8,fontface="bold",color="red")
     } else {
       # add data to base plot
       fit_col <- ifelse(dailystat=="average","dodgerblue2","red2")
       tmp_lab <- paste0("** Gaussian fitted to ",ifelse(smoothMethod=='loess',"LOESS","points"))
       p <- p +
-        geom_line(data=df_dayrange, aes(x,yfit), color=fit_col) +
+        geom_line(data=df_final, aes(doy,model), color=fit_col) +
         geom_text_npc(aes(npcx=0.01,npcy=0.84,label=tmp_lab),size=4,fontface="bold",color=fit_col)
       if (!is.na(fitparams$Flags)) {
         p <- p +
@@ -353,7 +399,7 @@ bf_data_plot <- function(p, nofit_msg, composite, dailystat, log_chla, smoothMet
     p <- p +
       geom_hline(yintercept=thresh_val, color="red", alpha=0.4) +
       geom_label(aes(5, thresh_val, label="Threshold", vjust=0), color="red",
-                 label.size=0, position=position_dodge(0.9), alpha=0.5)
+                 label.size=0, position=position_dodge(1), alpha=0.5)
   }
   
   # if no fit, add error message to plot
@@ -412,7 +458,6 @@ format_settings_to_save <- function(all_inputs, custom_name, polystr, regions, s
                 names(cell_sizes_model2)[cell_sizes_model2==all_inputs$cell_size_model2],
                 NA, # year
                 names(composites)[composites==all_inputs$composite],
-                NA, # logging
                 NA, # day of year
                 NA, # percent coverage
                 names(outliers)[outliers==all_inputs$outlier],
@@ -421,6 +466,7 @@ format_settings_to_save <- function(all_inputs, custom_name, polystr, regions, s
                 names(fitmethods)[fitmethods==all_inputs$fitmethod],
                 names(bloomShapes)[bloomShapes==all_inputs$bloomShape],
                 names(smoothMethods)[smoothMethods==all_inputs$smoothMethod],
+                NA, # logging
                 NA, # loess span
                 NA, NA, NA, # range of days for fit, initiation, and peak
                 names(ti_threshold_types)[ti_threshold_types==all_inputs$ti_threshold_type],
@@ -429,7 +475,7 @@ format_settings_to_save <- function(all_inputs, custom_name, polystr, regions, s
                 NA, NA, NA, NA, # tmax, beta, weights, remove background
                 NA, NA, NA, NA, # flag 1/2 limits
                 NA, # threshold fit method coefficient
-                NA, NA, NA, # full run options: png, csv, range of years
+                NA, NA, # full run options: png, range of years
                 "See user guide for full names and boundaries of polygons", # full run polygons
                 "See user guide for full names and boundaries of polygons", # selected predefined polygon
                 NA, # custom polygon name

@@ -14,10 +14,10 @@ library(sp)             # convert sfc to spatial to use sp::over() to extract pi
 library(ggplot2)        # for the density and time series plots
 library(ggpp)           # for overlaying tables and text on plots
 library(dplyr)          # for formatting data tables
-library(oceancolouR)    # for shifted_gaussian() and pad0()
+library(stringr)        # for str_pad
 library(terra)          # for making rasters
-
 # other required packages: raster, leafem, quantreg, fs (functions called using :: notation)
+
 source("rateOfChange.R")        # rate of change (ROC) function for model fit
 source("threshold.R")           # threshold function for model fit
 source("gaussFit.R")            # gaussian function for model fit
@@ -45,10 +45,11 @@ setSliderColor <- function(color, sliderId) {
       ";}"
     )
   })
-  # insert this custom css code in the head of the shiy app
+  # insert this custom css code in the head of the shiny app
   custom_head <- tags$head(tags$style(HTML(as.character(sliderCol))))
   return(custom_head)
 }
+
 
 #*******************************************************************************
 # UI  ####
@@ -62,8 +63,9 @@ ui <- fluidPage(
     tags$head(tags$style(HTML(sidebar_tags_style))),
     inlineCSS(list("#applysettings" = "margin-top: -15px")),
     tags$style(".shiny-file-input-progress {display: none}
-               .irs-grid-text {font-size: 14px; color: white; bottom: -10px; top: 12px;}"),
-    
+               .irs-grid-text {font-size: 14px; color: white; bottom: -10px; top: 12px;}
+               input[type=checkbox] {transform: scale(1.5);}"),
+
     # old polygon removal code
     tags$div(remove_custom_poly),
     
@@ -106,14 +108,17 @@ ui <- fluidPage(
             selectInput(inputId = "year", label=NULL, choices=rev(default_years), width=widget_width),
             helpText("Data composite length", width=widget_width, style=label_text_style_main_options),
             selectInput(inputId = "composite", label=NULL, choices=composites, width=widget_width),
-            helpText("Log-transform data", width=widget_width, style=label_text_style_main_options),
-            switchInput(inputId = "log_chla", label=HTML("log<sub>10</sub>"), value=TRUE, onStatus = "success"),
             # this will be enabled if data is available for the combination of variables selected above
             disabled(actionButton(inputId = "load", label = "Load data", style=button_style)),
             uiOutput("help_load", width=widget_width, style = "white-space: normal;"),
             br(),
             
             shinyjs::hidden(div(id="hiddenPanel",
+                                
+                                helpText("Log map color scale and axes on plots? (This does NOT log the actual data)", width=widget_width, style=label_text_style_main_options),
+                                checkboxInput(inputId="log_display", label="Log10 display", value=default_variable$log),
+                                br(),
+                                
             
             #*******************************************************************
             # UI POLYGON ####
@@ -204,6 +209,8 @@ ui <- fluidPage(
             conditionalPanel(condition = "input.smoothMethod == 'loess'",
                              helpText(HTML(bhelp$loessSpan), width=widget_width, style=help_text_style),
                              numericInput(inputId = 'loessSpan', label=NULL, value=0.3, min=0.04, max=1, step=0.02, width=widget_width)),
+            helpText(bhelp$log_chla, width=widget_width, style=help_text_style),
+            checkboxInput(inputId = "log_chla", label=HTML("log<sub>10</sub>(input data)"), value=default_variable$log, width = widget_width),
             helpText(bhelp$fit_days, width=widget_width, style=help_text_style),
             sliderInput(inputId='t_range', min=1, max=365, value=c(31,274), ticks=FALSE,
                         label=HTML("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">t<sub>range</sub></font>")),
@@ -211,6 +218,11 @@ ui <- fluidPage(
                         label=HTML("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">t<sub>max</sub></font>")),
             sliderInput(inputId='ti_limits', min=1, max=365, value=c(60,151), ticks=FALSE,
                         label=HTML("<font style=\"font-size: 14px; color: #555555; font-weight: bold;\">t<sub>start</sub></font>")),
+            helpText(bhelp$fit_weights, width=widget_width, style=help_text_style),
+            switchInput(inputId='use_weights', label='weights', value=FALSE, onStatus="success"),
+            helpText(HTML(bhelp$fit_bkrnd), width=widget_width, style=help_text_style),
+            checkboxInput(inputId="rm_bkrnd", label="Remove background", value=TRUE, width=widget_width),
+            helpText(HTML(bhelp$fit_flags), width=widget_width, style=help_text_style),
             conditionalPanel(condition = "input.fitmethod == 'gauss'",
                              helpText(HTML(bhelp$fit_tstart_method), width=widget_width, style=help_text_style),
                              radioButtons(inputId = "ti_threshold_type", label=NULL, choices=ti_threshold_types, selected = "percent_thresh", width=widget_width),
@@ -224,11 +236,6 @@ ui <- fluidPage(
                              switchInput(inputId='tm', label=HTML('t<sub>max</sub>'), value=FALSE, onStatus="success"),
                              helpText(HTML(bhelp$fit_beta), width=widget_width, style=help_text_style),
                              switchInput(inputId='beta', label='\u03B2t', value=FALSE, onStatus="success"),
-                             helpText(bhelp$fit_weights, width=widget_width, style=help_text_style),
-                             switchInput(inputId='use_weights', label='weights', value=FALSE, onStatus="success"),
-                             helpText(HTML(bhelp$fit_bkrnd), width=widget_width, style=help_text_style),
-                             checkboxInput(inputId="rm_bkrnd", label="Remove background", value=TRUE, width=widget_width),
-                             helpText(HTML(bhelp$fit_flags), width=widget_width, style=help_text_style),
                              actionButton(inputId="flagdescriptions", label="Flag descriptions", style=button_style),
                              br(),br(),
                              helpText(HTML(bhelp$fit_flag1), width=widget_width, style=help_text_style),
@@ -260,21 +267,9 @@ ui <- fluidPage(
             #*******************************************************************
             # UI SAVE OPTIONS ####
             
-            helpText(HTML(bhelp$fullrun1), width=widget_width, style=help_text_style),
+            helpText(HTML(bhelp$fullrun), width=widget_width, style=help_text_style),
             checkboxInput(inputId = "fullrunoutput_png", value=TRUE, width=widget_width,
-                          label=HTML("<font style=\"white-space: normal; font-size: 10px;\">time series plots (.png),</font>")),
-            div(style="margin-top: -15px; line-height: 90%;",
-                checkboxInput(inputId = "fullrunoutput_statcsv", value=TRUE, width=widget_width,
-                              label=HTML("<font style=\"white-space: normal; font-size: 10px;\">tables of statistics (.csv),</font>"))),
-            div(style="margin-top: -15px; line-height: 90%;",
-            disabled(checkboxInput(
-              inputId = "fullrunoutput_paramcsv", value=TRUE, width=widget_width,
-              label=HTML("<font style=\"white-space: normal; font-size: 10px;\">a single .csv file containing the fitted parameters for all selected years and polygons, and</font>")))),
-            div(style="margin-top: -15px; line-height: 90%;",
-            disabled(checkboxInput(
-              inputId = "fullrunoutput_settingcsv", value=TRUE, width=widget_width,
-              label=HTML("<font style=\"white-space: normal; font-size: 10px;\">a .csv file containing the settings used for the time series, for reference.</font>")))),
-            helpText(HTML(bhelp$fullrun2), width=widget_width, style=help_text_style),
+                          label=HTML("<font style=\"white-space: normal; font-size: 10px;\">Include .png files of time series plots?</font>")),
             sliderInput(inputId="fullrunyears", label=NULL, min=min(default_years), max=max(default_years), value=range(default_years), ticks=FALSE, step=1, sep = ""),
             pickerInput(inputId="fullrunboxes", label="Select your polygons", choices=multipoly_choices[[default_region]], selected="custom",
                         options=list(`actions-box`=TRUE,size=10,`selected-text-format`="count > 3"), multiple=TRUE, width=widget_width),
@@ -300,7 +295,7 @@ ui <- fluidPage(
                            animate=animationOptions(interval=4000), ticks=TRUE, width='100%'),
                leafletOutput(outputId='fullmap', height='700px'),
                div(style="display: inline-block; vertical-align:top; width: 74%; margin-top: 5px;",
-                   sliderTextInput(inputId="zlim", label=NULL, choices=default_colscale, selected=default_zlim, grid=TRUE, width="100%")),
+                   sliderTextInput(inputId="zlim", label=NULL, choices=default_colscale, selected=range(default_colscale), width="100%", grid=TRUE)),
                div(style="display: inline-block; vertical-align:top; width: 25%; margin-top: 5px;",
                    actionButton(inputId="applyzlim", label="Apply color scale", style=button_style)),
                br(),
@@ -347,16 +342,15 @@ server <- function(input, output, session) {
     state$predefined_polys <- predefined_polys[[default_region]]
     state$sat_alg <- default_sat_algs[1]
     state$variable <- default_variable
-    state$cell_model_option <- default_variable$cell_model_option
     state$concentration_type <- "full"
     state$cell_size_model1 <- state$cell_size_model2 <- "small"
     state$year <- as.numeric(format(Sys.Date(),"%Y"))
     state$composite <- 1
-    state$log_chla <- TRUE
+    state$log_display <- default_variable$log
+    state$log_chla <- default_variable$log
+    state$zlim <- range(default_colscale)
     state$doy_vec <- 1:365
     state$sschla <- matrix(nrow=1,ncol=365)
-    state$colscale <- default_colscale
-    state$zlim <- ifelse(rep(default_variable$log,2),log10(default_variable$zlim),default_variable$zlim)
     state$flag1_lim1 <- 0.75
     state$flag1_lim2 <- 1.25
     state$flag2_lim1 <- 0.85
@@ -416,7 +410,7 @@ server <- function(input, output, session) {
                 # check the file contents
                 if (all(colnames(file_contents)==c("setting_id","value","setting_description","value_description", "variable_type"))) {
                     # get updated values of main input buttons
-                    main_ids <- c("region","sat_alg","concentration_type","cell_size_model1","cell_size_model2","year","composite","log_chla")
+                    main_ids <- c("region","sat_alg","concentration_type","cell_size_model1","cell_size_model2","year","composite")
                     main_inds <- file_contents$setting_id %in% main_ids
                     primary_settings <- file_contents[main_inds,]
                     new_inputs <- format_settings_to_load(primary_settings)
@@ -444,7 +438,6 @@ server <- function(input, output, session) {
                         updateRadioGroupButtons(session, inputId="cell_size_model2", selected=new_inputs$cell_size_model2)
                         updateSelectInput(session, inputId="year", selected=new_inputs$year, choices=rev(years[[nir]][[nisa]]))
                         updateSelectInput(session, inputId="composite", selected=new_inputs$composite)
-                        updateSwitchInput(session, inputId="log_chla", value=new_inputs$log_chla)
                       }
                     } else {
                         help_settings_file_txt <- "No data available for the region/satellite/algorithm/year in the settings file."
@@ -511,7 +504,6 @@ server <- function(input, output, session) {
         
         # FULL_RUN
         updateCheckboxInput(session, inputId="fullrunoutput_png", value=ssdf$fullrunoutput_png)
-        updateCheckboxInput(session, inputId="fullrunoutput_statcsv", value=ssdf$fullrunoutput_statcsv)
         tmp_years <- as.numeric(years[[state$region]][[state$sat_alg]])
         updateSliderInput(session, inputId="fullrunyears", min=min(tmp_years), max=max(tmp_years), value=ssdf$fullrunyears)
         updatePickerInput(session, inputId="fullrunboxes", selected=ssdf$fullrunboxes)
@@ -523,11 +515,12 @@ server <- function(input, output, session) {
         updateTextInput(session, inputId="pixrange1", value=ssdf$pixrange1)
         updateTextInput(session, inputId="pixrange2", value=ssdf$pixrange2)
         
-        # MODEL FIT SETTINGS: fitmethod, bloomShape, smoothMethod, loessSpan, t_range, ti_limits, tm_limits, ti_threshold_type,
+        # MODEL FIT SETTINGS: fitmethod, bloomShape, smoothMethod, log_chla, loessSpan, t_range, ti_limits, tm_limits, ti_threshold_type,
         # ti_threshold_constant, tm, beta, use_weights, rm_bkrnd, flag1_lim1, flag1_lim2, flag2_lim1, flag2_lim2, threshcoef
         updateSelectInput(session, inputId="fitmethod", selected=ssdf$fitmethod)
         updateSelectInput(session, inputId="bloomShape", selected=ssdf$bloomShape)
         updateSelectInput(session, inputId="smoothMethod", selected=ssdf$smoothMethod)
+        updateCheckboxInput(session, inputId="log_chla", value=ssdf$log_chla)
         updateNumericInput(session, inputId="loessSpan", value=ssdf$loessSpan)
         updateSliderInput(session, inputId="t_range", value=ssdf$t_range)
         updateSliderInput(session, inputId="ti_limits", value=ssdf$ti_limits)
@@ -587,21 +580,11 @@ server <- function(input, output, session) {
         }
     })
     
-    # set some options based on user-selected variable
+    # enable/disable cell size modelling options based on the selected variable
     observeEvent(input$sat_alg, {
-      if (input$sat_alg=="empty_sat_alg") {
-        updateSwitchInput(session, inputId="log_chla", value=state$log_chla, disabled=FALSE)
-        state$concentration_type <- "full"
-        state$cell_model_option <- FALSE
-      } else {
+      if (input$sat_alg!="empty_sat_alg") {
         v <- variables[[strsplit(input$sat_alg,split="_")[[1]][2]]]
-        if (v$log) {
-          updateSwitchInput(session, inputId="log_chla", value=state$log_chla, disabled=FALSE)
-        } else {
-          updateSwitchInput(session, inputId="log_chla", value=FALSE, disabled=TRUE)
-        }
-        state$cell_model_option <- v$cell_model_option
-        if (state$cell_model_option) {
+        if (v$cell_model_option) {
           enable("concentration_type")
           enable("cell_size_model1")
           enable("cell_size_model2")
@@ -609,7 +592,7 @@ server <- function(input, output, session) {
           disable("concentration_type")
           disable("cell_size_model1")
           disable("cell_size_model2")
-          state$concentration_type <- "full"
+          updateRadioButtons(session, inputId="concentration_type", selected="full")
         }
       }
     })
@@ -624,7 +607,6 @@ server <- function(input, output, session) {
         input$cell_size_model2
         input$year
         input$composite
-        input$log_chla
     }, {
         
         hideElement(id = "hiddenPanel", anim = FALSE)
@@ -762,12 +744,36 @@ server <- function(input, output, session) {
     })
     
     
-    # GET MAP COLOUR SCALE ####
+    # GET DISPLAY OPTIONS ####
+    
+    observeEvent({
+      state$variable
+      input$log_display
+    }, {
+      if (state$variable$log) { # possible to log the data
+        if (!identical(state$log_display,input$log_display)) {
+          state$log_display <- input$log_display
+          if (input$log_display) {
+            colscale <- state$variable$colscale_log
+          } else {
+            colscale <- state$variable$colscale
+          }
+          zlim <- range(colscale)
+          updateSliderTextInput(session, inputId="zlim", choices=colscale, selected=zlim)
+          state$zlim <- zlim
+        }
+      } else { # impossible to log the data, the option is disabled and you must make sure it's set to FALSE
+        state$log_display <- FALSE
+        if (input$log_display) {
+          updateCheckboxInput(session, inputId="log_display", value=FALSE)
+          updateSliderTextInput(session, inputId="zlim", choices=state$variable$colscale, selected=range(state$variable$colscale))
+          state$zlim <- range(state$variable$colscale)
+        }
+      }
+    })
     
     observeEvent(input$applyzlim, {
-        zlim <- input$zlim
-        if (state$log_chla) {zlim <- log10(zlim)}
-        state$zlim <- zlim
+      state$zlim <- input$zlim
     })
     
     
@@ -820,6 +826,20 @@ server <- function(input, output, session) {
     })
     observeEvent(input$loessSpan,{
         state$loessSpan <- input$loessSpan
+    })
+    observeEvent({
+      state$variable
+      input$log_chla
+    }, {
+      if (state$variable$log) {
+        state$log_chla <- input$log_chla
+      } else {
+        if (input$log_chla) {
+          updateCheckboxInput(session, inputId="log_chla", value=FALSE)
+        } else {
+          state$log_chla <- FALSE
+        }
+      }
     })
     
     # THRESHOLD METHOD SPECIFICALLY
@@ -1007,27 +1027,17 @@ server <- function(input, output, session) {
         state$cell_size_model2 <- input$cell_size_model2
         state$year <- input$year
         state$composite <- as.numeric(input$composite)
-        state$log_chla <- input$log_chla
         state$variable <- variables[[strsplit(input$sat_alg,split="_")[[1]][2]]]
-        
-        # update map color scale and slider based on variable input
-        zlim_for_scale <- zlim_for_map <- state$variable$zlim
-        if (state$log_chla) {zlim_for_map <- log10(zlim_for_map)}
-        new_colscale <- state$variable$colscale
-        if (identical(state$colscale,new_colscale)) {
-          if (!identical(state$zlim,zlim_for_map)) {
-            updateSliderTextInput(session, inputId="zlim", selected=zlim_for_scale)
-            state$zlim <- zlim_for_map
-          }
+        if (state$variable$log) {
+          enable("log_display")
+          enable("log_chla")
         } else {
-          updateSliderTextInput(session, inputId="zlim", choices=new_colscale, selected=zlim_for_scale)
-          state$colscale <- new_colscale
-          state$zlim <- zlim_for_map
+          disable("log_display")
+          disable("log_chla")
         }
         
         # Update the time-related variables now that composite and year are updated
-        time_variables <- get_time_vars(composite=state$composite, year=state$year,
-                                        yearday=state$yearday, dvecs=dvecs)
+        time_variables <- get_time_vars(composite=state$composite, year=state$year, yearday=state$yearday, dvecs=dvecs)
         state$day_label <- time_variables$day_label
         state$time_ind <- time_variables$time_ind
         
@@ -1038,9 +1048,7 @@ server <- function(input, output, session) {
         state$binGrid <- reginfo[[state$region]]$binGrid
         state$ext <- reginfo[[state$region]]$extent
         state$ssbin <- reginfo[[state$region]]$bin
-        all_data <- get_data(state$region, state$sat_alg, state$year, state$yearday,
-                             state$composite, state$log_chla, length(state$sscoords), dvecs,
-                             state$concentration_type, state$cell_size_model1, state$cell_size_model2)
+        all_data <- get_data(state$region, state$sat_alg, state$year, state$yearday, state$composite, length(state$sscoords), dvecs, state$concentration_type, state$cell_size_model1, state$cell_size_model2, state$variable$log)
         sschla <- all_data$sschla
         state$available_days <- all_data$available_days
         state$doy_vec <- all_data$doy_vec # days of the year, whether daily, 4-day, or 8-day composites
@@ -1051,8 +1059,7 @@ server <- function(input, output, session) {
             updateSliderInput(session, inputId = "yearday_slide", step = state$composite)
             # Update full_run slider input
             tmp_years <- as.numeric(years[[state$region]][[state$sat_alg]])
-            updateSliderInput(session, inputId = 'fullrunyears', min = min(tmp_years),
-                              max = max(tmp_years), value = range(tmp_years))
+            updateSliderInput(session, inputId='fullrunyears', min=min(tmp_years), max=max(tmp_years), value=range(tmp_years))
         } else {
             update_secondary_settings()
         }
@@ -1153,8 +1160,6 @@ server <- function(input, output, session) {
                 
                 # Get colour scale and legend title for map
                 zlim <- state$zlim
-                mypal <- colorNumeric(palette=map_cols, domain=zlim, na.color="#00000000")
-                lt <- state$variable$map_legend_title
                 
                 # Update raster for leaflet map
                 df_bins <- state$ssbin[chla_ind]
@@ -1164,7 +1169,13 @@ server <- function(input, output, session) {
                 newmat <- rep(NA, length(binGrid))
                 newmat[binGrid %in% df_bins] <- sschla_time_ind[chla_ind][match(binGrid, df_bins, nomatch=0)]
                 tr <- terra::rast(ncols=bg_dim[2], nrows=bg_dim[1], xmin=ext[1], xmax=ext[2], ymin=ext[3], ymax=ext[4], vals=matrix(newmat, nrow=bg_dim[1]))
+                if (state$log_display) {
+                  tr <- log10(tr)
+                  zlim <- log10(zlim)
+                }
                 tr <- terra::clamp(tr, lower=zlim[1]+1e-6, upper=zlim[2]-1e-6, values=TRUE)
+                mypal <- colorNumeric(palette=map_cols, domain=zlim, na.color="#00000000")
+                lt <- state$variable$map_legend_title
                 
                 # Update map based on choices of date
                 lfp <- leafletProxy("fullmap", session) %>%
@@ -1174,7 +1185,7 @@ server <- function(input, output, session) {
                     addControl(tags$div(tag.map.title, HTML(day_label)), position="topleft", className="map-title")
                 
                 # Add color legend and adjust labels if data is logged
-                if (state$log_chla) {
+                if (state$log_display) {
                   lfp <- lfp %>% addLegend(position='topright', pal=mypal, values=zlim, title=lt, bins=10, opacity=1,
                                            labFormat=leaflet::labelFormat(digits=2, transform=function(x) 10^x))
                 } else {
@@ -1451,22 +1462,28 @@ server <- function(input, output, session) {
     #***************************************************************************
     # ANNUAL STATS FOR BOX/POLYGON ####
     
+    get_subset_data <- reactive({
+      # Get most recent data and polygon, and reset other variables
+      sschla <- full_data()
+      spdf <- get_polygon()
+      rchla <- NULL
+      if (!is.null(spdf)) {
+        # Extract pixels that are within the polygon
+        rchla <- subset_data(spdf,state$sscoords,sschla,state$pixrange1,state$pixrange2)
+      }
+      gc()
+      return(rchla)
+    })
+    
     annual_stats <- reactive({
-        # Get most recent data and polygon, and reset other variables
-        sschla <- full_data()
-        spdf <- get_polygon()
-        rchla <- NULL
-        if (!is.null(spdf)) {
-            # Extract pixels that are within the polygon
-            rchla <- subset_data(spdf,state$sscoords,sschla,state$pixrange1,state$pixrange2)
-            # If there is valid data in this region for any day, compute statistics and add to state list
-            if (!is.null(rchla)) {
-              state$all_stats <- dplyr::bind_cols(data.frame(doy=state$doy_vec), get_stats(rchla=rchla, outlier=state$outlier)) %>%
-                dplyr::mutate(model=NA, background=NA, loess=NA)
-            }
-        }
-        gc()
-        return(rchla)
+      rchla <- get_subset_data()
+      if (is.null(rchla)) {
+        all_stats <- data.frame(matrix(nrow=0,ncol=18), stringsAsFactors=FALSE)
+        colnames(all_stats) <- c("doy", "lower_limit", "upper_limit", "mean", "median", "stdev", "min", "max", "nobs", "percent_coverage", "lower_limit_log10", "upper_limit_log10", "mean_log10", "median_log10", "stdev_log10", "model","background","loess")
+      } else {
+        all_stats <- dplyr::bind_cols(data.frame(doy=state$doy_vec), get_stats(rchla=rchla, outlier=state$outlier, logvar=state$variable$log))
+      }
+      return(all_stats)
     })
     
     
@@ -1476,34 +1493,31 @@ server <- function(input, output, session) {
     make_density_plot <- reactive({
         
         # get the most recent data
-        rchla <- annual_stats()
+        all_stats <- annual_stats()
         day_label <- state$day_label
         time_ind <- state$time_ind
         concentration_type <- state$concentration_type
+        outlier_names <- paste0(names(outliers)[outliers==state$outlier], c("","(log10)"))
         
         # CHECK IF THERE IS ENOUGH DATA
-        # Reset error message to NULL, then check if it should be changed and
-        # printed instead of doing the density plot
+        # Reset error message to NULL, then check if it should be changed and printed instead of doing the density plot
         em <- NULL
         if (state$data_loaded) {
             if (state$yearday > state$available_days) {
                 em <- paste0("No data available yet for ", day_label)
             } else if (state$box=="custom" & state$latlon_toolarge) {
                 em <- paste0("Polygon is too large (max allowed pixels = ", max_pixels, ").")
-            } else if (is.null(rchla)) {
+            } else if (nrow(all_stats)==0) {
                 if (state$box=="custom" & is.null(get_polygon())) {
                     em <- "Create your custom polygon in a region with sufficient data"
                 } else {
                     em <- "No data in the selected region"
                 }
             } else {
-                # check if % coverage for this composite and region is high enough to
-                # create a density plot (default = 10%)
-                nobs <- state$all_stats$nobs
-                ok <- 100 * nobs[time_ind] / nrow(rchla) > state$percent
-                if (!ok) {
+                # check if % coverage for this composite and region is high enough to create a density plot (default = 10%)
+                if (all_stats$percent_coverage[time_ind] < state$percent) {
                     em <- paste0("Insufficient data, coverage < ", state$percent, "%")
-                } else if (nobs[time_ind]==1) {
+                } else if (all_stats$nobs[time_ind]==1) {
                     em <- "Only one valid point selected"
                 }
             }
@@ -1516,53 +1530,61 @@ server <- function(input, output, session) {
           ggtitle(paste0(ifelse(concentration_type=="model1", paste0(proper(state$cell_size_model1), " cell size: "),
                                 ifelse(concentration_type=="model2", paste0(proper(state$cell_size_model2), " cell size: "), "")),
                          'Density plot of ',state$variable$name_plottitle,' for ', day_label))
+        
         if (is.null(em)) {
-            # Create table of stats to print on the plot
-            stat_cols <- c("mean","median","stdev","min","max","nobs","percent_coverage")
-            stat_df <- as.numeric(unlist(state$all_stats[time_ind,stat_cols]))
-            if (state$log_chla) {
-              rchla <- 10^rchla
-              stat_df[1:5] <- 10^(stat_df[1:5])
-              p <- p + scale_x_log10()
-            }
-            # add vertical lines for mean, median, and add formatting
+          
+            pcols <- c("#00497C","#7E0000","#00497C","#7E0000","#00497C","#7E0000")
+            plins <- c("solid","solid","dashed","dashed","dotted","dotted")
+            names(pcols) <- names(plins) <- c("Mean", "Mean(log10)", "Median","Median(log10)", outlier_names)
+            sdf_plot <- data.frame(Stat=c(outlier_names[c(1,1)],"Mean","Median","StDev","Min","Max","N<sub>obs</sub>","% cov",outlier_names[c(2,2)],"Mean(log10)","Median(log10)","StDev(log10)"),
+                                   Value=as.numeric(unlist((all_stats %>% dplyr::select(lower_limit:stdev_log10))[time_ind,])))
+            if (state$log_display) {p <- p + scale_x_log10()}
             p <- p +
-                geom_density(data=data.frame(x=rchla[,time_ind]), aes(x=x), fill="grey", alpha = 0.7) + 
-                geom_vline(aes(xintercept=stat_df[1], col="mean_value"), linewidth=1.2) +
-                geom_vline(aes(xintercept=stat_df[2], col="median_value"), linewidth=1) +
-                scale_color_manual(labels=c("Mean", "Median", names(outliers)[outliers==state$outlier]),
-                                   values=c(mean_value="dodgerblue2", median_value="red2", stdev="springgreen3")) +
-                theme(legend.position="bottom",
-                      legend.title=element_blank(),
-                      legend.text=element_text(size=12),
-                      legend.margin=margin(0,0,0,0),
-                      axis.title=element_blank(),
-                      axis.text=element_text(size=12),
-                      panel.border=element_rect(colour="black", fill=NA, linewidth=0.4))
-            # Plot outlier boundaries
-            if (state$outlier != "none") {
-                limits <- as.numeric(unlist(state$all_stats[time_ind,c("lower_limit","upper_limit")]))
-                p <- p + geom_vline(aes(xintercept=limits, col="stdev"), linetype="dotted", linewidth=1)
+              geom_density(data=data.frame(x=get_subset_data()[,time_ind]), aes(x=x), fill="grey", alpha = 0.7) +
+              geom_vline(data=sdf_plot %>% dplyr::filter(startsWith(Stat,"Mean") | startsWith(Stat,"Median") | startsWith(Stat,names(outliers)[outliers==state$outlier])) %>% tidyr::drop_na(),
+                         aes(xintercept=Value, color=Stat, linetype=Stat), linewidth=0.8, key_glyph = "path") +
+              scale_color_manual(values=pcols) +
+              scale_linetype_manual(values=plins) +
+              theme(legend.position="bottom",
+                    legend.title=element_blank(),
+                    legend.text=element_text(size=12),
+                    legend.margin=margin(0,0,0,0),
+                    legend.key.width = unit(15, 'mm'),
+                    axis.title=element_blank(),
+                    axis.text=element_text(size=12),
+                    panel.border=element_rect(colour="black", fill=NA, linewidth=0.4))
+            if (state$outlier=="none") {
+              sdf_vals <- as.character(round(as.numeric(unlist((all_stats %>% dplyr::select(mean:percent_coverage,mean_log10:stdev_log10))[time_ind,])),2))
+              sdf_print <- data.frame(Stat=c("Mean","Median","StDev","Min","Max","N<sub>obs</sub>","% cov","Mean(log10)","Median(log10)","StDev(log10)"), Value=sdf_vals)
+            } else {
+              sdf_vals <- as.character(round(as.numeric(unlist((all_stats %>% dplyr::select(lower_limit:stdev_log10))[time_ind,])),2))
+              sdf_print <- data.frame(Stat=c(outlier_names[1],"Mean","Median","StDev","Min","Max","N<sub>obs</sub>","% cov",outlier_names[2],"Mean(log10)","Median(log10)","StDev(log10)"),
+                                      Value=c(paste0(sdf_vals[1:2],collapse=","),sdf_vals[3:9],paste0(sdf_vals[10:11],collapse=","),sdf_vals[12:14]))
             }
-            # round values and make table of stats
-            sdf <- data.frame(Stat=c("Mean","Median","StDev","Min","Max","N<sub>obs</sub>","% cov"),Value=as.character(round(stat_df,2)))
             # make the download button visible since there are data available
             enable("savedensplot")
+            
         } else {
             p <- p + geom_text_npc(aes(npcx=0.5,npcy=0.5,label=em))
-            sdf <- data.frame(Stat=c("Mean","Median","StDev","Min","Max","N<sub>obs</sub>","% cov"),Value=rep(NA,7))
+            if (state$outlier=="none") {
+              sdf_print <- data.frame(Stat=c("Mean","Median","StDev","Min","Max","N<sub>obs</sub>","% cov","Mean(log10)","Median(log10)","StDev(log10)"), Value=rep(NA,10))
+            } else {
+              sdf_print <- data.frame(Stat=c(outlier_names[1],"Mean","Median","StDev","Min","Max","N<sub>obs</sub>","% cov",outlier_names[2],"Mean(log10)","Median(log10)","StDev(log10)"), Value=rep(NA,12))
+            }
             # make the download button invisible
             disable("savedensplot")
+            
         }
         
-        return(list(p=p,df=sdf))
+        if (!state$variable$log) {sdf_print <- sdf_print %>% dplyr::filter(!grepl("log10",Stat))}
+        return(list(p=p,df=sdf_print))
         
     })
     
     make_density_plot_for_export <- reactive({
       mdf <- make_density_plot()
       df <- mdf$df
-      df$Stat[6] <- "N[obs]"
+      df$Stat[df$Stat=="N<sub>obs</sub>"] <- "N[obs]"
       p <- mdf$p +
         geom_table_npc(data=df, aes(npcx=0.95, npcy=0.95), label=list(df),
                        table.theme=tab_theme,table.colnames=FALSE,table.rownames=FALSE)
@@ -1577,106 +1599,116 @@ server <- function(input, output, session) {
     #***************************************************************************
     # TIME SERIES PLOT ####
     
-    make_time_series <- reactive({
+    get_fit <- reactive({
+      
+      # get the most recent data
+      all_stats <- annual_stats()
+      composite <- state$composite
+      log_chla <- state$log_chla
+      dailystat <- state$dailystat
+      
+      # CHECK IF VALUES CAN BE FITTED
+      # Reset error message to NULL, then check if it should be changed and printed instead of doing the bloom fit plot
+      em <- NULL
+      if (state$data_loaded) {
+        if (state$box=="custom" & state$latlon_toolarge) {
+          em <- paste0("Polygon is too large (max allowed pixels = ", max_pixels, ").")
+        } else if (nrow(all_stats)==0) {
+          if (state$box=="custom" & is.null(get_polygon())) {
+            em <- "Create your custom polygon in a region with sufficient data"
+          } else {
+            em <- "No data in the selected region"
+          }
+        } else {
+          first_day <- state$t_range[1]
+          last_day <- state$t_range[2]
+          doy_vec <- state$doy_vec
+          daily_percov <- all_stats$percent_coverage
+          ind_percov <- daily_percov > state$percent
+          ind_dayrange <- doy_vec >= first_day & doy_vec <= min(last_day, state$available_days)
+          ind_dayrange_percov <- ind_percov & ind_dayrange
+          # If there is no data available for the fit after removing days outside
+          # the day range and with insufficient data, print an error message instead.
+          if (sum(ind_dayrange_percov)==0) {
+            em <- paste0("No data available between day ", first_day, " and ",
+                         last_day, " with >= ", state$percent, "% coverage")
+          }
+        }
+      } else {
+        em <- "Load data to begin"
+      }
+      
+      # IF VALUES CAN BE FITTED, FIT THEM
+      bf_data <- NULL
+      if (is.null(em)) {
+        if (log_chla) {
+          if(dailystat == 'average'){
+            chl_to_use <- log10(all_stats$mean_log10)
+          } else if(dailystat == 'median'){
+            chl_to_use <- log10(all_stats$median_log10)
+          }
+        } else {
+          if(dailystat == 'average'){
+            chl_to_use <- all_stats$mean
+          } else if(dailystat == 'median'){
+            chl_to_use <- all_stats$median
+          }
+        }
+        sv = list(state$use_weights,state$smoothMethod,state$loessSpan,state$fitmethod,state$bloomShape,state$tm,
+                  state$beta,state$tm_limits,state$ti_limits,state$threshcoef,state$flag1_lim1,state$flag1_lim2,
+                  state$flag2_lim1,state$flag2_lim2,state$ti_threshold,state$tt_threshold,state$rm_bkrnd,
+                  state$ti_threshold_type,state$ti_threshold_constant)
+        names(sv) <- c("use_weights","smoothMethod","loessSpan","fitmethod","bloomShape","tm","beta","tm_limits",
+                       "ti_limits","threshcoef","flag1_lim1","flag1_lim2","flag2_lim1","flag2_lim2","ti_threshold",
+                       "tt_threshold","rm_bkrnd","ti_threshold_type","ti_threshold_constant")
+        bf_data <- bf_data_calc(composite=composite,
+                                chl_to_use = chl_to_use,
+                                ind_dayrange_percov = ind_dayrange_percov,
+                                ind_percov = ind_percov,
+                                ind_dayrange = ind_dayrange,
+                                daily_percov = daily_percov,
+                                t_range = c(first_day, last_day),
+                                log_chla = log_chla,
+                                doy_vec = doy_vec,
+                                variable=state$variable,
+                                sv = sv)
+        state$fitparams <- bf_data$fitparams # for saving to csv
+      } else {
+        state$fitparams <- NULL
+      }
+      
+      return(list(em=em, bf_data=bf_data))
+      
+    })
+    
+    make_time_series_plot <- reactive({
         
         # get the most recent data
-        rchla <- annual_stats()
+        get_fit_details <- get_fit()
+        em <- get_fit_details$em
+        bf_data <- get_fit_details$bf_data
         concentration_type <- state$concentration_type
         composite <- state$composite
-        log_chla <- state$log_chla
         dailystat <- state$dailystat
         
-        # CHECK IF VALUES CAN BE FITTED
-        # Reset error message to NULL, then check if it should be changed and
-        # printed instead of doing the bloom fit plot
-        em <- NULL
-        if (state$data_loaded) {
-            if (state$box=="custom" & state$latlon_toolarge) {
-              em <- paste0("Polygon is too large (max allowed pixels = ", max_pixels, ").")
-            } else if (is.null(rchla)) {
-                if (state$box=="custom" & is.null(get_polygon())) {
-                    em <- "Create your custom polygon in a region with sufficient data"
-                } else {
-                    em <- "No data in the selected region"
-                }
-            } else {
-                nobs <- state$all_stats$nobs
-                first_day <- state$t_range[1]
-                last_day <- state$t_range[2]
-                doy_vec <- state$doy_vec
-                available_days <- state$available_days
-                daily_percov <- 100 * nobs / nrow(rchla)
-                ind_percov <- daily_percov > state$percent
-                ind_dayrange <- doy_vec >= first_day & doy_vec <= min(last_day, available_days)
-                ind_dayrange_percov <- ind_percov & ind_dayrange
-                # If there is no data available for the fit after removing days outside
-                # the day range and with insufficient data, print an error message instead.
-                if (sum(ind_dayrange_percov)==0) {
-                    em <- paste0("No data available between day ", first_day, " and ",
-                                 last_day, " with >= ", state$percent, "% coverage")
-                }
-            }
-        } else {
-            em <- "Load data to begin"
-        }
-        
-        # IF VALUES CAN BE FITTED, FIT THEM AND MAKE THE PLOT
         p <- ggplot() + theme_bw() +
           ggtitle(paste(ifelse(concentration_type=="model1", paste(proper(state$cell_size_model1),"cell size:"),
                                ifelse(concentration_type=="model2", paste(proper(state$cell_size_model2),"cell size:"), "")),
                         "Time series of", dailystat, tolower(names(composites)[composites==composite]), state$variable$name_plottitle, "for", state$year))
         if (is.null(em)) {
-            if(dailystat == 'average'){
-              chl_to_use <- state$all_stats$mean
-            } else if(dailystat == 'median'){
-              chl_to_use <- state$all_stats$median
-            }
-            sv = list(state$use_weights,state$smoothMethod,state$loessSpan,state$fitmethod,state$bloomShape,state$tm,
-                      state$beta,state$tm_limits,state$ti_limits,state$threshcoef,state$flag1_lim1,state$flag1_lim2,
-                      state$flag2_lim1,state$flag2_lim2,state$ti_threshold,state$tt_threshold,state$rm_bkrnd,
-                      state$ti_threshold_type,state$ti_threshold_constant)
-            names(sv) <- c("use_weights","smoothMethod","loessSpan","fitmethod","bloomShape","tm","beta","tm_limits",
-                           "ti_limits","threshcoef","flag1_lim1","flag1_lim2","flag2_lim1","flag2_lim2","ti_threshold",
-                           "tt_threshold","rm_bkrnd","ti_threshold_type","ti_threshold_constant")
-            bf_data <- bf_data_calc(composite=composite,
-                                    chl_to_use = chl_to_use,
-                                    ind_dayrange_percov = ind_dayrange_percov,
-                                    ind_percov = ind_percov,
-                                    ind_dayrange = ind_dayrange,
-                                    daily_percov = daily_percov,
-                                    t_range = c(first_day, last_day),
-                                    log_chla = log_chla,
-                                    doy_vec = doy_vec,
-                                    variable=state$variable,
-                                    sv = sv)
-            df_percov <- bf_data$df_percov
-            df_dayrange <- bf_data$df_dayrange
-            df_dayrange_percov <- bf_data$df_dayrange_percov
-            # for output in annual stats csv, leave values in log space (if selected)
-            state$all_stats$model[ind_dayrange] <- df_dayrange$yfit
-            state$all_stats$background[ind_dayrange] <- df_dayrange$ybkrnd
-            state$all_stats$loess[ind_dayrange_percov] <- df_dayrange_percov$loess
-            # for display on the plot, transform values back to linear space if necessary
-            if (log_chla) {
-              df_dayrange$yfit <- 10^df_dayrange$yfit
-              df_dayrange$ybkrnd <- 10^df_dayrange$ybkrnd
-              df_dayrange_percov$loess <- 10^df_dayrange_percov$loess
-              df_percov$y <- 10^df_percov$y # also, this needs to be in linear space for nearPoints
-            }
-            state$fitparams <- bf_data$fitparams # for saving to csv
-            state$dfbloomparms <- df_percov # for nearPoints
+            df_final <- bf_data$df_final
+            state$dfbloomparms <- df_final %>% dplyr::select(doy,bfy,percent_coverage) %>% tidyr::drop_na(bfy) # for nearPoints
             p <- bf_data_plot(p=p,
                               nofit_msg=bf_data$nofit_msg,
                               composite=composite,
                               dailystat=dailystat,
-                              log_chla=log_chla,
+                              log_display=state$log_display,
+                              percent=state$percent,
                               smoothMethod=state$smoothMethod,
                               fitmethod=state$fitmethod,
                               variable=state$variable,
                               fitparams=state$fitparams, # vertical model timing bars, threshold line, metrics table
-                              df_percov=df_percov, # for individual points
-                              df_dayrange=df_dayrange, # for loess line
-                              df_dayrange_percov=df_dayrange_percov) # for gaussian line
+                              df_final=df_final)
             # create the table of stats to render to the right of the plot (or overlaid in exported images)
             bdf <- data.frame(Stat=gsub("beta","\u03B2",colnames(state$fitparams)),Value=as.character(round(unlist(state$fitparams),3)))
             # make the download buttons visible since there are data available
@@ -1700,7 +1732,7 @@ server <- function(input, output, session) {
     })
     
     make_time_series_for_export <- reactive({
-      mdf <- make_time_series()
+      mdf <- make_time_series_plot()
       df <- mdf$df
       p <- mdf$p +
         geom_table_npc(data=df, aes(npcx=0.95, npcy=0.5), label=list(df),
@@ -1712,10 +1744,10 @@ server <- function(input, output, session) {
     # RENDER TIME SERIES PLOT AND TABLE (print to screen)
     output$bloomfit <- renderPlot({
       ptclick <- "** Double-click the center of a point and scroll up to see the map for that composite image"
-      make_time_series()$p + geom_text_npc(aes(npcx=0.01,npcy=0.98,label=ptclick),size=4,fontface="bold")
+      make_time_series_plot()$p + geom_text_npc(aes(npcx=0.01,npcy=0.98,label=ptclick),size=4,fontface="bold")
     })
     output$bloomfit_df <- renderTable({
-      df <- make_time_series()$df
+      df <- make_time_series_plot()$df
       df$Stat <- gsub("\\[","<sub>",df$Stat)
       df$Stat <- gsub("\\]","</sub>",df$Stat)
       df
@@ -1725,8 +1757,7 @@ server <- function(input, output, session) {
     # TIME SERIES POINT CLICK
     observeEvent(input$bloomfit_click, {
         if (!is.null(state$dfbloomparms)) {
-            state$bloomfit_click <- input$bloomfit_click
-            npyday <- nearPoints(state$dfbloomparms, coordinfo = state$bloomfit_click, xvar = "x", yvar = "y")$x
+            npyday <- nearPoints(state$dfbloomparms %>% dplyr::rename(x=doy,y=bfy), coordinfo = input$bloomfit_click, xvar = "x", yvar = "y")$x
             updateSliderInput(session, inputId = 'yearday_slide', value = npyday)
         }
     })
@@ -1765,7 +1796,7 @@ server <- function(input, output, session) {
         dir.create(output_dir)
         fname <- paste0(ostr,".zip")
         
-        # collect parameters and metrics
+        # collect parameters and metrics for the selected polygons/years
         steps <- 100/length(year_list)
         progress_updates <- round(seq(steps[1], 100, by=steps),1)
         all_params <- list()
@@ -1780,7 +1811,6 @@ server <- function(input, output, session) {
                 variable = variable,
                 dir_name = output_dir,
                 fullrunoutput_png = isolate(input$fullrunoutput_png),
-                fullrunoutput_statcsv = isolate(input$fullrunoutput_statcsv),
                 tab_theme = tab_theme)
             # update progress bar
             if (x==length(year_list)) {update_text <- "Zipping output files..."
@@ -1853,7 +1883,7 @@ server <- function(input, output, session) {
     # SAVE ANNUAL STATS (.csv)
     output$saveannualstats <- downloadHandler(
         filename <- function() output_str(d=isolate(state),custom_end="annual_stats.csv"),
-        content <- function(file) write.csv(isolate(state$all_stats), file=file, quote=FALSE, na=" ", row.names=FALSE)
+        content <- function(file) write.csv(isolate(dplyr::full_join(annual_stats(),get_fit()$bf_data$df_final[,c("doy","model","background","loess")], by="doy")), file=file, quote=FALSE, na=" ", row.names=FALSE)
     )
     
     # SAVE MODEL FIT PARAMETERS (.csv)
