@@ -43,6 +43,14 @@ verified_fits/modisaqua/labrador_sea_spring_linear/standard_fits/*
 verified_fits/modisaqua/labrador_sea_spring_log/manual_fits/*
 verified_fits/modisaqua/labrador_sea_spring_log/manual_fits_fixed_settings_files/*
 verified_fits/modisaqua/labrador_sea_spring_log/standard_fits/*
+verified_fits/modisaqua/mpa_fall_log/standard_fits/*
+verified_fits/modisaqua/mpa_spring_linear/standard_fits/*
+verified_fits/modisaqua/mpa_spring_log/manual_fits/*
+verified_fits/modisaqua/mpa_spring_log/standard_fits/*
+verified_fits/modisaqua/pemsɨk_fall_log/standard_fits/*
+verified_fits/modisaqua/pemsɨk_fall_linear/standard_fits/*
+verified_fits/modisaqua/pemsɨk_spring_log/manual_fits/*
+verified_fits/modisaqua/pemsɨk_spring_log/standard_fits/*
 verified_fits/modisaqua/scotian_shelf_fall_log/standard_fits/*
 verified_fits/modisaqua/scotian_shelf_fall_log/symmetric_fits/*
 verified_fits/modisaqua/scotian_shelf_spring_linear/standard_fits/*
