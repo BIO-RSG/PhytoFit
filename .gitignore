@@ -35,23 +35,29 @@ troubleshooting_and_help.html
 updates.html
 data_filesize_speed_tests/
 
-verified_fits/gosl_spring_log/manual_fits/*
-verified_fits/gosl_spring_log/standard_fits/*
-verified_fits/labrador_sea_fall_log/standard_fits/*
-verified_fits/labrador_sea_fall_log/symmetric_fits/*
-verified_fits/labrador_sea_spring_linear/standard_fits/*
-verified_fits/labrador_sea_spring_log/manual_fits/*
-verified_fits/labrador_sea_spring_log/manual_fits_fixed_settings_files/*
-verified_fits/labrador_sea_spring_log/standard_fits/*
-verified_fits/scotian_shelf_fall_log/standard_fits/*
-verified_fits/scotian_shelf_fall_log/symmetric_fits/*
-verified_fits/scotian_shelf_spring_linear/standard_fits/*
-verified_fits/scotian_shelf_spring_log/manual_fits/*
-verified_fits/scotian_shelf_spring_log/manual_fits_fixed_settings_files/*
-verified_fits/scotian_shelf_spring_log/standard_fits/*
-verified_fits/verified_fits_backup.zip
-verified_fits/gaussian_fits.zip
-verified_fits/good_vs_bad_fits.png
+verified_fits/modisaqua/gosl_spring_log/manual_fits/*
+verified_fits/modisaqua/gosl_spring_log/standard_fits/*
+verified_fits/modisaqua/labrador_sea_fall_log/standard_fits/*
+verified_fits/modisaqua/labrador_sea_fall_log/symmetric_fits/*
+verified_fits/modisaqua/labrador_sea_spring_linear/standard_fits/*
+verified_fits/modisaqua/labrador_sea_spring_log/manual_fits/*
+verified_fits/modisaqua/labrador_sea_spring_log/manual_fits_fixed_settings_files/*
+verified_fits/modisaqua/labrador_sea_spring_log/standard_fits/*
+verified_fits/modisaqua/scotian_shelf_fall_log/standard_fits/*
+verified_fits/modisaqua/scotian_shelf_fall_log/symmetric_fits/*
+verified_fits/modisaqua/scotian_shelf_spring_linear/standard_fits/*
+verified_fits/modisaqua/scotian_shelf_spring_log/manual_fits/*
+verified_fits/modisaqua/scotian_shelf_spring_log/manual_fits_fixed_settings_files/*
+verified_fits/modisaqua/scotian_shelf_spring_log/standard_fits/*
+verified_fits/modisaqua/verified_fits_backup.zip
+verified_fits/modisaqua/gaussian_fits.zip
+verified_fits/modisaqua/good_vs_bad_fits.png
+verified_fits/occci/labrador_sea_fall/manual_fits/*
+verified_fits/occci/labrador_sea_fall/standard_fits/*
+verified_fits/occci/labrador_sea_spring/manual_fits/*
+verified_fits/occci/labrador_sea_spring/standard_fits/*
+verified_fits/occci/scotian_shelf_spring/manual_fits/*
+verified_fits/occci/scotian_shelf_spring/standard_fits/*
 
 # 2022-01-02 change - ignore the dataset folder, they should be treated separately and not tracked
 data/atlantic/*
