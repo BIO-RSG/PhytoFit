@@ -30,10 +30,7 @@ BibTeX format:
 
 2. Install the necessary packages:
 ```r
-install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "leaflet", "stars", "leafem", "leafpm", "quantreg", "minpack.lm", "sp", "ggplot2", "ggpp", "dplyr", "tidyr", "raster", "RCurl", "sf", "fs"))
-remotes::install_github("BIO-RSG/oceancolouR")
-# if the line above doesn't work, try devtools::install_github("BIO-RSG/oceancolouR")
-# if that doesn't work, try either install.packages("remotes") or install.packages("devtools") and then run the oceancolouR installation line again
+install.packages(c("fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "leaflet", "leafpm", "quantreg", "minpack.lm", "sp", "ggplot2", "ggpp", "dplyr", "tidyr", "terra", "stringr", "RCurl", "sf", "fs"))
 ```
 
 3. Restart R after the packages have been installed.
@@ -86,7 +83,7 @@ Open app.R within RStudio, and click "Run app"
 
 [User guide](https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md) (In progress)  
 [Chl-a model performance evaluation](https://bio-rsg.github.io/chla_model_performance_summary.html)  
-[References and data sources](https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md#references-and-data-sources)  
+[References and data sources](docs/references.md)  
 [Using the raw (binned) data](https://github.com/BIO-RSG/PhytoFit/blob/master/fst_tutorial.md) (This is a quick tutorial explaining how the raw satellite chlorophyll data used in PhytoFit can be read into R and manipulated for other purposes)  
 [Code updates affecting the algorithms](https://github.com/BIO-RSG/PhytoFit/blob/master/updates.md) (Summary of updates that affected the way the bloom metrics are calculated)  
 
