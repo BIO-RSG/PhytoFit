@@ -45,7 +45,18 @@ services:
     volumes:
       - "./data:/srv/shiny-server/phytofit/data"
 
+  data_update:
+    depends_on:
+      - phytofit
+    image: cioosatlantic/phytofit
+    command: >
+      /bin/sh -c '
+      cd /srv/shiny-server/phytofit && yes | Rscript 00_update_datasets.R
+      '
+    volumes:
+      - "./data:/srv/shiny-server/phytofit/data"
+
 volumes:
   shiny_logs:
   data:
-  
+
