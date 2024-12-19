@@ -1,3 +1,6 @@
+# custom function from "oceancolouR" package
+shifted_gaussian <- function (tv, B0, beta = 0, h, sigma, tmax) {B0 + beta * tv + h/(sqrt(2 * pi) * sigma) * exp(-(tv - tmax)^2/(2 * sigma^2))}
+
 asymm_gaussian <- function(t, tm_value, beta_valueL, beta_valueR, B0L, B0R, sigmaL, sigmaR, hL, hR) {
     # Created by A.R. Hanke , May 2nd, 2016
     # Edits by C. Fuentes-Yaco, May 10th, 2016
@@ -50,15 +53,14 @@ get_failure_msg <- function(code) {
 # The function then computes the fit, using a simple gaussian model if the user
 # chose a symmetric bloom shape, or the asymm_gaussian function above if the
 # user chose the asymmetric shape.
-gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE,
+gaussFit <- function(dfin, bloomShape = "symmetric", tm = FALSE, beta = FALSE,
                      tm_limits = c(2,364), ti_limits = c(1,363), t_range = c(1,365),
                      log_chla = FALSE, composite = 1, flag1_lim1 = 0.75,
                      flag1_lim2 = 1.25, flag2_lim1 = 0.85, flag2_lim2 = 1.15,
                      ti_threshold = 0.2, tt_threshold = 0.2, ydays_dayrange, rm_bkrnd=FALSE,
                      ti_threshold_type="percent_thresh", ti_threshold_constant=0.1){
   
-    # t, w                 = numeric vectors: day of year and weights (reduced by selected day range and percent coverage)
-    # y                    = list containing y and chla (numeric vectors where the "y" element is the vector of values to be fitted, either real or LOESS-smoothed points, same length as t and w, reduced by selected day range and percent coverage)
+    # dfin                = dataframe containing columns yday (day of year), var (the real variable), var_to_fit (the variable to fit, either the real data or smoothed loess values), and weights, all subsetted by ind_dayrange_percov
     # bloomShape           = string: "symmetric" or "asymmetric"
     # tm, beta             = logical values
     # tm_limits, ti_limits = numeric vectors: the range of days to search for max chla concentration and the start of the bloom
@@ -79,9 +81,10 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     ti_width <- sqrt(-2 * log(ti_threshold))
     tt_width <- sqrt(-2 * log(tt_threshold))
     
-    chlorophyll <- y$chla
-    y <- y$y
-    yday <- t
+    chlorophyll <- dfin$var
+    y <- dfin$var_to_fit
+    yday <- dfin$yday
+    w <- dfin$weight
     
     nls_data = list(B = y, t = yday)
     
@@ -104,7 +107,7 @@ gaussFit <- function(t, y, w, bloomShape = "symmetric", tm = FALSE, beta = FALSE
     # LIMITS & START GUESSES ####
     
     # Here, set the parameters' lower/upper bounds and starting guesses for nls().
-    # For an assymetric curve, the same bounds will be used for either side.
+    # For an asymmetric curve, the same bounds will be used for either side.
     if (log_chla) {
       B0lower <- log10(1e-10) # note 0 can't be logged
       B0upper <- log10(5)
