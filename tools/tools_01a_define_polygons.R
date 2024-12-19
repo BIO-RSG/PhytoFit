@@ -140,7 +140,7 @@ poly$atlantic = list(
                          label = "SES",
                          lat = c(44, 46, 46, 44, 44),
                          lon = c(-52, -52, -50, -50, -52)),
-              "SAB"=list(name = "St. Anthony Bank (SAB)",
+              "SAB"=list(name = "St. Anthony Basin (SAB)",
                          label = "SAB",
                          lat = c(50, 52, 52, 50, 50),
                          lon = c(-55, -55, -53, -53, -55)),
@@ -210,7 +210,7 @@ poly$atlantic <- lapply(1:length(poly$atlantic), function(i) {
 }) %>% setNames(pnames)
 
 # Load MPA polygons shapefile, transform to same geographic CRS as other polygons
-network <- read_sf("../MPA_work/MPANetwork/maritimes_draft_network_2023.shp") %>% st_transform(crs=st_crs(4326))
+network <- read_sf("../marine_spatial_planning/MPANetwork/maritimes_draft_network_2023.shp") %>% st_transform(crs=st_crs(4326))
 nw <- c("MPA","OECM","AOI")
 network <- network[which(network$mar_type %in% nw),] # remove draft regions
 # make abbreviations, remove dashes, fix duplicated abbreviations, and add to coords
@@ -366,7 +366,7 @@ if (any(dup_ids)) {
 #     guides(fill = guide_legend(override.aes = list(size=8)))
 #   img_width <- ceiling(diff(xlim))*200
 #   img_height <- img_width
-#   ggsave(filename=paste0("polygons_",reg,".png"),
+#   ggsave(filename=paste0("images/polygons_",reg,".png"),
 #          plot=map,
 #          dpi=150,
 #          units="px",
