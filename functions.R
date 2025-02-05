@@ -14,6 +14,30 @@ avg_columns <- function (mat, dlist=NULL, year=NULL) {
   return(do.call(cbind, new_mat))
 }
 
+# deprecated shinyWidgets function
+# https://github.com/dreamRs/shinyWidgets/blob/26838f9e9ccdc90a47178b45318d110f5812d6e1/R/setSliderColor.R
+setSliderColor <- function(color, sliderId) {
+  # the css class for ionrangeslider starts from 0 so remove 1 from sliderId
+  sliderId <- sliderId - 1
+  # create custom css background for each slider selected by the user
+  sliderCol <- lapply(sliderId, FUN = function(i) {
+    paste0(
+      ".js-irs-", i, " .irs-single,",
+      " .js-irs-", i, " .irs-from,",
+      " .js-irs-", i, " .irs-to,",
+      " .js-irs-", i, " .irs-bar-edge,",
+      " .js-irs-", i,
+      " .irs-bar{  border-color: transparent;background: ", color[i+1],
+      "; border-top: 1px solid ", color[i+1],
+      "; border-bottom: 1px solid ", color[i+1],
+      ";}"
+    )
+  })
+  # insert this custom css code in the head of the shiny app
+  custom_head <- tags$head(tags$style(HTML(as.character(sliderCol))))
+  return(custom_head)
+}
+
 # function to check if a data file exists and is listed in input_variables.R
 dexist <- function(region,sat_alg,year) {
   region_listed <- region %in% regions
@@ -205,6 +229,7 @@ get_stats <- function(rchla, outlier, logvar=TRUE) {
 }
 
 
+# chl_to_use is the mean or the median (logged or not), depending on user selection - it's not subset
 bf_data_calc <- function(composite, chl_to_use, ind_dayrange_percov, ind_percov, ind_dayrange,
                          daily_percov, t_range, log_chla, doy_vec, variable, sv) {
   

@@ -25,31 +25,6 @@ source("full_run.R")            # contains function to run full time series with
 source("functions.R")           # extra functions
 source("00_input_variables.R")  # load pre-defined variables
 
-# deprecated shinyWidgets function
-# https://github.com/dreamRs/shinyWidgets/blob/26838f9e9ccdc90a47178b45318d110f5812d6e1/R/setSliderColor.R
-setSliderColor <- function(color, sliderId) {
-  # the css class for ionrangeslider starts from 0
-  # therefore need to remove 1 from sliderId
-  sliderId <- sliderId - 1
-  # create custom css background for each slider selected by the user
-  sliderCol <- lapply(sliderId, FUN = function(i) {
-    paste0(
-      ".js-irs-", i, " .irs-single,",
-      " .js-irs-", i, " .irs-from,",
-      " .js-irs-", i, " .irs-to,",
-      " .js-irs-", i, " .irs-bar-edge,",
-      " .js-irs-", i,
-      " .irs-bar{  border-color: transparent;background: ", color[i+1],
-      "; border-top: 1px solid ", color[i+1],
-      "; border-bottom: 1px solid ", color[i+1],
-      ";}"
-    )
-  })
-  # insert this custom css code in the head of the shiny app
-  custom_head <- tags$head(tags$style(HTML(as.character(sliderCol))))
-  return(custom_head)
-}
-
 
 #*******************************************************************************
 # UI  ####
