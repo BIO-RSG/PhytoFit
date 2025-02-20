@@ -58,6 +58,8 @@ verified_fits/occci/labrador_sea_spring/manual_fits/*
 verified_fits/occci/labrador_sea_spring/standard_fits/*
 verified_fits/occci/scotian_shelf_spring/manual_fits/*
 verified_fits/occci/scotian_shelf_spring/standard_fits/*
+verified_fits/occci/scotian_shelf_fall/standard_fits/*
+verified_fits/occci/scotian_shelf_fall/manual_fits/*
 
 # 2022-01-02 change - ignore the dataset folder, they should be treated separately and not tracked
 data/atlantic/*
