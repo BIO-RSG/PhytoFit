@@ -10,10 +10,10 @@
 library(dplyr)
 library(lubridate)
 library(RCurl)
-source("readYN.R")
+source("scripts/readYN.R")
 
 # should the script ask before downloading each data subset?
-ask_user <- FALSE
+ask_user <- TRUE
 
 # for bytes to kilobytes, megabytes, or gigabytes
 conv_factor_dir <- 1/1024/1024/1024 # gigabytes, for directory sizes

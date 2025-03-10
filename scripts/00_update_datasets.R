@@ -12,7 +12,7 @@
 library(dplyr)
 library(lubridate)
 library(RCurl)
-source("readYN.R")
+source("scripts/readYN.R")
 
 # should the script ask before downloading updates for each data subset?
 ask_user <- FALSE

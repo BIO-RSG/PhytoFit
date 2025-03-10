@@ -133,11 +133,11 @@ get_stats <- function(rchla, outlier, logvar=TRUE) {
   colnames(df) <- c('lower_limit','upper_limit','mean','median','stdev','min','max','nobs','percent_coverage','lower_limit_log10','upper_limit_log10','mean_log10','median_log10','stdev_log10')
   df$nobs <- df$percent_coverage <- 0
 
-  if (nrow(rchla)==1) {
+  if (nrow(rchla)==1) { # if your polygon only has one pixel in it
     
     rchlav <- as.numeric(rchla)
-    df$lower_limit <- df$upper_limit <- df$chl_mean <- df$chl_median <- df$chl_min <- df$chl_max <- rchlav
-    df$chl_sd <- rep(0,length(rchlav))
+    df$lower_limit <- df$upper_limit <- df$mean <- df$median <- df$min <- df$max <- rchlav
+    df$stdev <- NA
     df$nobs <- as.numeric(is.finite(rchlav))
     df$percent_coverage <- 100*df$nobs
     if (logvar) {
@@ -147,7 +147,7 @@ get_stats <- function(rchla, outlier, logvar=TRUE) {
       df$stdev_log10 <- NA
     }
     
-  } else {
+  } else { # if your polygon has multiple pixels
     
     statfn <- function(rchla,nobs,log) {
       if (outlier=="none") {
@@ -167,12 +167,12 @@ get_stats <- function(rchla, outlier, logvar=TRUE) {
       } else {
         if (startsWith(outlier,"sd")) {
           sdfactor <- as.numeric(gsub("sd","",outlier))
-          limits <- lapply(1:ncol(rchla), function(i) {
-            x <- rchla[,i]
-            x <- x[is.finite(x)]
-            if (length(x)==0) return(data.frame(lower_limit=NA,upper_limit=NA))
-            data.frame(lower_limit=mean(x)-sdfactor*sd(x), upper_limit=mean(x)+sdfactor*sd(x))
-          }) %>% do.call(what=dplyr::bind_rows)
+          outliermean <- colMeans(rchla,na.rm=TRUE)
+          outliersd <- rep(NA,length(outliermean))
+          outliersd[nobs==1] <- 0
+          outliersd[nobs>1] <- apply(rchla[,nobs>1],MARGIN=2,FUN=sd,na.rm=TRUE)
+          limits <- data.frame(lower_limit=outliermean-sdfactor*outliersd,
+                               upper_limit=outliermean+sdfactor*outliersd)
         } else {
           if (outlier=="iqr15") {
             limits <- lapply(1:ncol(rchla), function(i) {

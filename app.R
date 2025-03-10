@@ -18,12 +18,12 @@ library(stringr)        # for str_pad
 library(terra)          # for making rasters
 # other required packages: raster, leafem, quantreg, fs (functions called using :: notation)
 
-source("rateOfChange.R")        # rate of change (ROC) function for model fit
-source("threshold.R")           # threshold function for model fit
-source("gaussFit.R")            # gaussian function for model fit
-source("full_run.R")            # contains function to run full time series with current settings
-source("functions.R")           # extra functions
-source("00_input_variables.R")  # load pre-defined variables
+source("scripts/rateOfChange.R")        # rate of change (ROC) function for model fit
+source("scripts/threshold.R")           # threshold function for model fit
+source("scripts/gaussFit.R")            # gaussian function for model fit
+source("scripts/full_run.R")            # contains function to run full time series with current settings
+source("scripts/functions.R")           # extra functions
+source("scripts/00_input_variables.R")  # load pre-defined variables
 
 
 #*******************************************************************************
