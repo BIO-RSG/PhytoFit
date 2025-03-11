@@ -7,7 +7,6 @@
 # and manual fits (i.e. fits done using unique settings).
 
 rm(list=ls())
-
 library(lubridate)
 library(dplyr)
 library(stringr)
@@ -17,10 +16,11 @@ library(stringr)
 
 # Path to fits done using a standard group of settings (set standard_path=NULL to ignore these).
 # Folder must contain the following files extracted from the .zip file downloaded from PhytoFit:
-#   - [year]_[box]_stats.csv files for EACH box/year that was fit
-#   - model_fit_params.csv, with an extra column "datetime_fitted" that must be added manually (format: YYYYMMDD_HHMMSS)
+#   - The zip file itself,
+#   - [year]_[box]_stats.csv files for EACH box/year that was fit,
+#   - model_fit_params.csv, and
 #   - settings.txt
-standard_path <- "verified_fits/scotian_shelf_spring/standard_fits/"
+standard_path <- "verified_fits/occci/scotian_shelf_fall/standard_fits/"
 # TO ADD STANDARD FITS FOR SUBSEQUENT YEARS:
 # - Use the settings.txt file from the standard_path (i.e. load it into PhytoFit and run it with the next year)
 # - Add the rows from the new model_fit_params.csv file to the original model_fit_params.csv file
@@ -33,23 +33,25 @@ standard_path <- "verified_fits/scotian_shelf_spring/standard_fits/"
 # WARNING!!!! Each box/year must have only ONE fit in this folder. Manual fits will
 #   be grouped by box/year and sorted by datetime_fitted, and if any box/year has
 #   more than one fit, only the most recent fit will be kept.
-manual_path <- "verified_fits/scotian_shelf_spring/manual_fits/"
+manual_path <- "verified_fits/occci/scotian_shelf_fall/manual_fits/"
 
 # If a box/year was fit with both standard and manual settings, should the manual fit replace the standard fit?
 replace_standard <- TRUE
 
 # Output csv filename that will contain the table with model metrics, parameters, and settings for each polygon/year that was fit.
 # Full daily statistic tables for each fit will be written to an Rdata file with the same name.
-output_file <- "verified_fits/scotian_shelf_spring/verified_fits_scotian_shelf_spring.csv"
+output_file <- "verified_fits/occci/scotian_shelf_fall/verified_fits_scotian_shelf_fall.csv"
 
 # include fits for these polygons
 # polys <- c("CLS","GS","LAS") # labrador sea
 polys <- c("CSS_V02","ESS_V02","WSS_V02","LS_V02","GB_V02","HL2","P5") # scotian shelf
 # polys <- c("CS_V02","MS_V02","NEGSL_V02","NWGSL_V02") # gulf of saint lawrence
 # polys <- c("AC","FP","HB","HIB","NENS","SAB","SES","SPB") # newfoundland
+# polys <- c("SABMPA","SABUP","SABDOWN")
+# polys <- c("custom")
 
 # include fits for these years
-years <- 2003:2023
+years <- 1997:2024
 
 
 #*******************************************************************************
@@ -59,9 +61,12 @@ df_standard <- NULL
 df_manual <- NULL
 
 if (!is.null(standard_path)) {
+  zipfile <- list.files(standard_path, pattern=".zip")
+  zipfile_date <- tail(strsplit(zipfile,split="_")[[1]],1) %>% gsub(pattern="created|[.zip]",replacement="") %>% as_datetime(format="%Y-%m-%d-%H%M%S")
   # get the model fit parameters and metrics, and the settings used to create them
   df_standard <- dplyr::bind_cols(
-    read.csv(paste0(standard_path,"model_fit_params.csv")) %>% dplyr::mutate(manual_fit=FALSE),
+    read.csv(paste0(standard_path,"model_fit_params.csv")) %>%
+      dplyr::mutate(datetime_fitted=format(zipfile_date,"%Y%m%d_%H%M%S"), manual_fit=FALSE),
     read.table(paste0(standard_path,"settings.txt"), header = TRUE, sep="\\") %>%
       dplyr::select(setting_id,value) %>%
       tidyr::pivot_wider(names_from=setting_id,values_from=value) %>%
@@ -69,7 +74,7 @@ if (!is.null(standard_path)) {
     dplyr::relocate(datetime_fitted,manual_fit) %>%
     tibble()
   st_files <- paste0(standard_path,df_standard$Year,"_",df_standard$Region,"_stats.csv")
-  stats <- lapply(1:nrow(df_standard),FUN=function(i) read.csv(st_files[i]))
+  stats <- lapply(1:nrow(df_standard),FUN=function(i) read.csv(st_files[i]) %>% lapply(FUN=as.numeric) %>% do.call(what=dplyr::bind_cols))
   df_standard <- dplyr::bind_cols(df_standard, stats %>% tibble() %>% dplyr::rename(stats="."))
 }
 
@@ -86,6 +91,7 @@ if (!is.null(manual_path)) {
   } else {
     
     # FIGURE OUT THE FILENAMING SCHEME
+    # i.e. did you run a series of fits after manually tweaking input parameters ("full run"), so that the files are in the format YYYY_[polygon]_stats.csv? or did you download each individual file manually
     fname_short <- !is.na(as.numeric(strsplit(basename(manual_files[1]),split="_")[[1]][1]))
     if (fname_short) {
       manual_fits <- gsub("_model_fit_params.csv|_settings.txt|_stats.csv","",basename(manual_files)) %>% strsplit(split="_")
@@ -132,6 +138,7 @@ if (!is.null(manual_path)) {
     if (any(is.na(unlist(manual_fits[,c("bf_file","set_file","st_file")])))) {
       stop("manual_path is missing annual_stats.csv, model_parameters.csv, or settings.txt files for some box(es)/year(s).\n")
     }
+    
     df_manual <- lapply(1:nrow(manual_fits), FUN=function(i) {
       mf <- manual_fits[i,]
       dt_created <- mf$datetime_created
@@ -144,7 +151,7 @@ if (!is.null(manual_path)) {
           dplyr::rename_with(function(x) paste0("settings_", x))) %>%
         dplyr::relocate(datetime_fitted,manual_fit,Region,Year) %>%
         tibble()
-      stats <- list(read.csv(mf$st_file))
+      stats <- list(read.csv(mf$st_file) %>% lapply(FUN=as.numeric) %>% do.call(what=dplyr::bind_cols))
       df <- dplyr::bind_cols(df, stats %>% tibble() %>% dplyr::rename(stats="."))
       return(df)
     }) %>%
