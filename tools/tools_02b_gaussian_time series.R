@@ -1,7 +1,7 @@
 # Stephanie.Clay@dfo-mpo.gc.ca
 # 2021-03-18
 
-# Make a grid of plots of the bloom fits from PhytoFit.
+# Make a grid of plots of the Gaussian bloom fits from PhytoFit. (Used for spring blooms)
 
 rm(list=ls())
 

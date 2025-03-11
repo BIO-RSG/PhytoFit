@@ -1,7 +1,7 @@
 # Stephanie.Clay@dfo-mpo.gc.ca
 # 2024-01-18
 
-# Make a grid of plots of the bloom fits from PhytoFit.
+# Make a grid of plots of the Threshold bloom fits from PhytoFit. (Use for fall blooms)
 
 rm(list=ls())
 
@@ -16,13 +16,13 @@ library(quantreg)
 
 # file containing the bloom metrics/settings and the annual stats for each fit,
 # created by tools_01a_format_bloommetrics_for_plotting.R
-file <- "verified_fits/occci/labrador_sea_fall/verified_fits_labrador_sea_fall.Rdata"
+file <- "verified_fits/occci/scotian_shelf_fall/verified_fits_scotian_shelf_fall.Rdata"
 
 output_file <- gsub(".Rdata",".png",file)
 
 # include fits for these polygons
-polys <- c("CLS","GS","LAS") # labrador sea
-# polys <- c("CSS_V02","ESS_V02","WSS_V02","LS_V02","GB_V02","HL2","P5") # scotian shelf
+# polys <- c("CLS","GS","LAS") # labrador sea
+polys <- c("CSS_V02","ESS_V02","WSS_V02","LS_V02","GB_V02","HL2","P5") # scotian shelf
 # polys <- c("CS_V02","MS_V02","NEGSL_V02","NWGSL_V02") # gulf of saint lawrence
 # polys <- c("AC","FP","HB","HIB","NENS","SAB","SES","SPB") # newfoundland
 # polys <- c("SABMPA")
@@ -47,6 +47,8 @@ for (i in 1:nrow(stats)) {
   dailystat <- st$settings_dailystat
   fitcov <- as.numeric(st$settings_percent)
   logchla <- as.logical(st$settings_log_chla)
+  thresh <- st$Threshold
+  smooth <- st$stats[[1]]$loess
   xlim <- as.numeric(strsplit(st$settings_t_range,split=",")[[1]])
   df <- st$stats[[1]]
   if (nrow(df) <= 1) { # if nrow(df)==1 then the table is blank (no data ever)
@@ -71,9 +73,12 @@ for (i in 1:nrow(stats)) {
     plot_list[[paste0(year,"_",region)]] <- ggplot()
     next
   }
+  df$smooth <- smooth
   # plot all real data points that have sufficient percent coverage, sized by percent coverage
   p <- ggplot(df) +
     geom_point(aes(x=doy, y=y, size=percent_coverage), alpha=0.6) +
+    geom_line(data=df %>% tidyr::drop_na(smooth), aes(x=doy,y=smooth), color="green") +
+    geom_hline(yintercept=thresh, color="red", linewidth=0.2) +
     theme_bw() +
     ggtitle(region) +
     labs(y=year) +
@@ -87,7 +92,6 @@ for (i in 1:nrow(stats)) {
           axis.title.x=element_blank(),
           plot.title=element_text(size=14,hjust=0.5,vjust=0.5),
           panel.border = element_rect(colour="black", fill=NA, linewidth=0.4))
-  
   tdf <- st %>% dplyr::rename(t.start=t.start.,t.end=t.end.,t.max=t.max_real.) %>% dplyr::select(t.start,t.end,t.max) %>% tidyr::pivot_longer(cols=c(t.start,t.end,t.max),names_to="Timing") %>% dplyr::mutate(Timing=factor(Timing,levels=c("t.start","t.max","t.end")))
   # add tstart/tend/tmax and gaussian curve, if available
   if (all(is.na(tdf$value))) {
