@@ -1023,7 +1023,7 @@ server <- function(input, output, session) {
         state$binGrid <- reginfo[[state$region]]$binGrid
         state$ext <- reginfo[[state$region]]$extent
         state$ssbin <- reginfo[[state$region]]$bin
-        all_data <- get_data(state$region, state$sat_alg, state$year, state$yearday, state$composite, length(state$sscoords), dvecs, state$concentration_type, state$cell_size_model1, state$cell_size_model2, state$variable$log)
+        all_data <- get_data(state$region, state$sat_alg, state$year, state$composite, length(state$sscoords), dvecs, state$concentration_type, state$cell_size_model1, state$cell_size_model2, state$variable$log)
         sschla <- all_data$sschla
         state$available_days <- all_data$available_days
         state$doy_vec <- all_data$doy_vec # days of the year, whether daily, 4-day, or 8-day composites

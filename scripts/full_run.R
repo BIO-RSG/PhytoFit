@@ -7,7 +7,7 @@ full_run <- function(d, year, sscoords, polygon_list, pnames, dvecs, variable, d
     
     #***************************************************************************
     
-    all_data <- get_data(d$region, d$sat_alg, year, d$yearday, d$composite, length(sscoords), dvecs,
+    all_data <- get_data(d$region, d$sat_alg, year, d$composite, length(sscoords), dvecs,
                          d$concentration_type, d$cell_size_model1, d$cell_size_model2, variable$log)
     doy_vec <- all_data$doy_vec # days of the year, whether you're using daily, 4-day, or 8-day data
     

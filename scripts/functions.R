@@ -64,7 +64,7 @@ get_time_vars <- function(composite, year, yearday, dvecs) {
 }
 
 # Load and format a new dataset
-get_data <- function(region, sat_alg, year, yearday, composite, num_pix, dvecs,
+get_data <- function(region, sat_alg, year, composite, num_pix, dvecs,
                      concentration_type="full", cell_size_model1="small", cell_size_model2="small", loggable) {
   
   sschla_filename <- paste0("./data/", region, "/", region, "_", sat_alg, "_", year, ".fst")
