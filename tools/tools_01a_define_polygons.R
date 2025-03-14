@@ -36,6 +36,10 @@ poly$atlantic = list(
                         label = "AC",
                         lat = c(46, 48, 48, 46, 46),
                         lon = c(-53, -53, -51.5, -51.5, -53)),
+              "CG"=list(name="Central Gulf",
+                        label="CG",
+                        lat = c(48.82,49.25,48.55,48.2,48.82),
+                        lon = c(-63.5,-63.645,-60.838,-61.27,-63.5)),
               "CLS"=list(name = "Central Labrador Sea (CLS)",
                          label = "CLS",
                          lat = c(55.5, 60.1, 60.1, 55.5, 55.5),
@@ -318,7 +322,7 @@ poly$pacific <- lapply(1:length(poly$pacific), function(i) {
 # gosl1km, gosl4km ####
 
 # reuse polygons from the atlantic region in the gosl region
-poly$gosl1km$AZMP <- poly$gosl4km$AZMP <- poly$atlantic$AZMP[which(poly$atlantic$AZMP$poly_id %in% c("AC","CS_V01","CS_V02","CSS","ESS","GB","HIB","LS","MS_V01","MS_V02","NEGSL_V01","NEGSL_V02","NENS","NGB","NWGSL_V01","NWGSL_V02","SES","SAB","SPB","WSS")),]
+poly$gosl1km$AZMP <- poly$gosl4km$AZMP <- poly$atlantic$AZMP[which(poly$atlantic$AZMP$poly_id %in% c("AC","CG","CS_V01","CS_V02","CSS","ESS","GB","HIB","LS","MS_V01","MS_V02","NEGSL_V01","NEGSL_V02","NENS","NGB","NWGSL_V01","NWGSL_V02","SES","SAB","SPB","WSS")),]
 
 
 
