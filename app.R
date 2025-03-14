@@ -536,10 +536,10 @@ server <- function(input, output, session) {
         if (length(frb)==0) {
             disable("fullrun_process")
         } else if (length(frb)==1) {
-            if (frb[1] == "custom" & is.null(get_polygon())) {
-                disable("fullrun_process")
+            if (frb[1] == "custom" & is.null(get_custom_polygon())) {
+              disable("fullrun_process")
             } else {
-                enable("fullrun_process")
+              enable("fullrun_process")
             }
         } else {
             enable("fullrun_process")
