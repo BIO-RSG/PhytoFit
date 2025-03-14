@@ -36,7 +36,7 @@ poly$atlantic = list(
                         label = "AC",
                         lat = c(46, 48, 48, 46, 46),
                         lon = c(-53, -53, -51.5, -51.5, -53)),
-              "CG"=list(name="Central Gulf",
+              "CG"=list(name="Central Gulf (CG)",
                         label="CG",
                         lat = c(48.82,49.25,48.55,48.2,48.82),
                         lon = c(-63.5,-63.645,-60.838,-61.27,-63.5)),
