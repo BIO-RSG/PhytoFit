@@ -27,7 +27,7 @@ all_args <- commandArgs(trailingOnly=TRUE)
 if (length(all_args) > 0) {
   ask_user <- as.logical(all_args[1])
 }
-
+print(ask_user)
 #*******************************************************************************
 # GET LIST OF LOCAL DATASETS ####
 
