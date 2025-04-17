@@ -1,15 +1,16 @@
+FROM rocker/geospatial:latest
 
-FROM rocker/shiny
 COPY . /srv/shiny-server/phytofit
 WORKDIR /srv/shiny-server/phytofit
 
-# From https://github.com/r-spatial/sf/issues/1377#issuecomment-739456122
-RUN apt update && apt install -y \
-    libudunits2-dev libgdal-dev libgeos-dev libproj-dev libfontconfig1-dev \
-    r-base-dev r-cran-sf r-cran-raster r-cran-rjava
-
 # Install R libraries
-RUN Rscript -e 'install.packages(c("remotes", "fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "leaflet", "stars", "leafem", "leafpm", "quantreg", "minpack.lm", "sp", "ggplot2", "ggpp", "dplyr", "tidyr", "raster", "RCurl", "sf", "fs"))'
+#RUN Rscript -e 'install.packages(c("remotes", "fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "leaflet", "stars", "leafem", "leafpm", "quantreg", "minpack.lm", "sp", "ggplot2", "ggpp", "dplyr", "tidyr", "raster", "RCurl", "sf", "fs"))'
+RUN Rscript -e 'remotes::install_version("shinyWidgets", upgrade = "never", version = "0.9.0")'
+RUN Rscript -e 'remotes::install_version("shinyjs", upgrade = "never", version = "2.1.0")'
+RUN Rscript -e 'remotes::install_version("shinybusy", upgrade = "never", version = "0.3.3")'
+RUN Rscript -e 'remotes::install_version("leafpm", upgrade = "never", version = "0.1.0")'
+RUN Rscript -e 'remotes::install_version("minpack.lm", upgrade = "never", version = "1.2.4")'
+RUN Rscript -e 'remotes::install_version("ggpp", upgrade = "never", version = "0.5.8")'
 RUN Rscript -e 'remotes::install_github("BIO-RSG/oceancolouR")'
 
 # prep data directory; when deploy in k8s this folder will be backended to a NAS containing all fst files
