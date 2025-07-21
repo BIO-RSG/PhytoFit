@@ -24,6 +24,14 @@ seasonbounds_file <- "verified_fits/occci/labrador_sea_polygon_season_bounds.csv
 output_file <- "verified_fits/occci/labrador_sea_weighted_seasonal_averages.csv"
 polys <- c("LAS","CLS","GS")
 
+# # labrador sea modis
+# file_avgs <- "verified_fits/modisaqua/labrador_sea_spring_linear/verified_fits_labrador_sea_spring_linear.Rdata" # fall and spring files should have the same time annual time series csv
+# file_timing_spring <- "verified_fits/modisaqua/labrador_sea_spring_log/verified_fits_labrador_sea_spring_modisaqua.csv"
+# file_timing_fall <- "verified_fits/modisaqua/labrador_sea_fall_log/verified_fits_labrador_sea_fall_modisaqua.csv"
+# seasonbounds_file <- "verified_fits/modisaqua/labrador_sea_modisaqua_polygon_season_bounds.csv"
+# output_file <- "verified_fits/modisaqua/labrador_sea_modisaqua_weighted_seasonal_averages.csv"
+# polys <- c("LAS","CLS","GS")
+
 years <- 1998:2024
 ref_years <- 1999:2020
 

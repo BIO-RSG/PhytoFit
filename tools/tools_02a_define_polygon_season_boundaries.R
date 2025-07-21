@@ -6,6 +6,12 @@
 rm(list=ls())
 library(dplyr)
 
+# # spring and fall verified_fits for labrador sea modis
+# file_spring <- "verified_fits/modisaqua/labrador_sea_spring_log/verified_fits_labrador_sea_spring_modisaqua.csv"
+# file_fall <- "verified_fits/modisaqua/labrador_sea_fall_log/verified_fits_labrador_sea_fall_modisaqua.csv"
+# output_file <- "verified_fits/modisaqua/labrador_sea_modisaqua_polygon_season_bounds.csv"
+# polys <- c("LAS","CLS","GS")
+
 # spring and fall verified_fits for labrador sea
 file_spring <- "verified_fits/occci/labrador_sea_spring/verified_fits_labrador_sea_spring.csv"
 file_fall <- "verified_fits/occci/labrador_sea_fall/verified_fits_labrador_sea_fall.csv"

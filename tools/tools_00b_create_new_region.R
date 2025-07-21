@@ -10,17 +10,26 @@ library(oceancolouR)  # to get 4km-resolution lat/lon vectors of the atlantic/pa
 library(ncdf4)        # to read 1km-resolution gosl lat/lon file (../panCan_processing/data/gsl_1km.nc)
 library(dplyr)
 library(sp)           # to convert lat/lons to SpatialPointsDataframes
+library(raster)
+
+# create the base variable - regions will be added to this
+reginfo <- list()
 
 
 #*******************************************************************************
-# SECTION 1: REGION METADATA, BIN NUMBERS, COORDINATES ####
+# SECTION 1A: BINNED DATA ####
 
-reginfo <- list()
-
-# For each region, add full region name, bin number vector, a grid of bin numbers,
-# SpatialPointsDataframe with the coordinates, and the extent, center longitude,
-# latitude, zoom level, and gridline interval of the map.
-#
+# For each region, add:
+#     full region name (this is used in the "region" dropdown menu),
+#     vector of bin numbers,
+#     global grid of bin numbers,
+#     SpatialPointsDataframe with the coordinates of the region,
+#     extent of the region,
+#     map settings:
+#         default center longitude,
+#         default center latitude,
+#         default zoom level,
+#         gridline interval (in degrees)
 # "bin" and "binGrid" are used to create the map used for display only.
 # "coords" is used to extract data from a user-selected polygon.
 
@@ -131,6 +140,28 @@ reginfo$baffin = list(name = "Baffin Bay",
                       center_lat = 72,
                       zoom_level = 5,
                       gridline_interval = 5)
+
+
+
+
+#*******************************************************************************
+# SECTION 1B: GRIDDED DATA ####
+
+# For each region, add:
+#     full region name (this is used in the "region" dropdown menu),
+#     map settings:
+#         default center longitude,
+#         default center latitude,
+#         default zoom level,
+#         gridline interval (in degrees)
+
+
+# tanzania (3.5-10S, 38.5-41.5E)
+reginfo$tanzania = list(name = "Tanzania",
+                        center_lon = 40.5,
+                        center_lat = -7,
+                        zoom_level = 7,
+                        gridline_interval = 2)
 
 
 
