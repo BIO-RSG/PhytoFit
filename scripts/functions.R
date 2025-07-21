@@ -43,7 +43,7 @@ dexist <- function(region,sat_alg,year) {
   region_listed <- region %in% regions
   sat_alg_listed <- sat_alg %in% unlist(sat_algs[[region]])
   year_listed <- year %in% years[[region]][[sat_alg]]
-  file_exists <- file.exists(paste0("./data/", region, "/", region, "_", sat_alg, "_", year, ".fst"))
+  file_exists <- file.exists(paste0("./data/", region, "/", region, "_", sat_alg, "_", year, ".fst")) | file.exists(paste0("./data/", region, "/", region, "_", sat_alg, "_", year, ".nc"))
   return(region_listed & sat_alg_listed & year_listed & file_exists)
 }
 
@@ -64,24 +64,57 @@ get_time_vars <- function(composite, year, yearday, dvecs) {
 }
 
 # Load and format a new dataset
-get_data <- function(region, sat_alg, year, composite, num_pix, dvecs,
+get_data <- function(region, sat_alg, year, composite, num_pix=NULL, dvecs,
                      concentration_type="full", cell_size_model1="small", cell_size_model2="small", loggable) {
   
-  sschla_filename <- paste0("./data/", region, "/", region, "_", sat_alg, "_", year, ".fst")
-  if (!file.exists(sschla_filename)) {
-    return(list(sschla=matrix(nrow=num_pix, ncol=1), available_days=0, doy_vec=0))
+  sschla_filename_fst <- paste0("./data/", region, "/", region, "_", sat_alg, "_", year,".fst")
+  sschla_filename_nc <- paste0("./data/", region, "/", region, "_", sat_alg, "_", year,".nc")
+  if (file.exists(sschla_filename_fst)) {
+    sschla_filename <- sschla_filename_fst
+    spatialtype <- "binned"
+  } else if (file.exists(sschla_filename_nc)) {
+    sschla_filename <- sschla_filename_nc
+    spatialtype <- "gridded"
   }
-  sschla <- read_fst(sschla_filename)
-  colnames(sschla) <- "var"
-  sschla <- matrix(sschla$var, nrow=num_pix)
-  available_days <- min(ncol(sschla),365)
-  sschla <- sschla[,1:available_days]
+  
+  # if (!file.exists(sschla_filename)) {
+  #   # this only works for binned data, not gridded
+  #   # but this shouldn't be necessary since the "load" button is disabled if the filename doesn't exist
+  #   return(list(sschla=matrix(nrow=num_pix, ncol=1), available_days=0, doy_vec=0))
+  # }
+  if (spatialtype=="binned") {
+    sschla <- read_fst(sschla_filename)
+    colnames(sschla) <- "var"
+    sschla <- matrix(sschla$var, nrow=num_pix)
+    available_days <- min(ncol(sschla),365)
+    sschla <- sschla[,1:available_days]
+  } else if (spatialtype=="gridded") {
+    # note: the md argument is experimental as of june 2025, it speeds up reading into memory
+    # terra::rast does not read into memory, this command is super fast
+    # as soon as you try to perform calculations e.g. cell size models, composite averaging, or logging, it becomes extremely slow
+    sschla <- terra::rast(sschla_filename, md=TRUE)*1 # *1 forces it to load into memory at this step
+    available_days <- lubridate::yday(max(time(sschla)))
+  }
   
   # If separating chla into phytoplankton cells of different sizes
-  if (concentration_type=="model1") {
-    sschla <- phyto_cellsize_model1(sschla, cell_size_model1)
-  } else if (concentration_type=="model2") {
-    sschla <- phyto_cellsize_model2(sschla, cell_size_model2)
+  if (concentration_type!="full") {
+    if (spatialtype=="binned") {
+      new_sschla <- matrix(nrow=nrow(sschla), ncol=ncol(sschla))
+      good_sschla <- !is.na(sschla)
+      chla_sub <- sschla[good_sschla]
+      if (concentration_type=="model1") {
+        new_sschla[good_sschla] <- phyto_cellsize_model1(chla_sub, cell_size_model1)
+      } else if (concentration_type=="model2") {
+        new_sschla[good_sschla] <- phyto_cellsize_model2(chla_sub, cell_size_model2)
+      }
+    } else if (spatialtype=="gridded") {
+      if (concentration_type=="model1") {
+        new_sschla <- phyto_cellsize_model1(sschla, cell_size_model1)
+      } else if (concentration_type=="model2") {
+        new_sschla <- phyto_cellsize_model2(chla_sub, cell_size_model2)
+      }
+    }
+    sschla <- new_sschla
   }
   
   # If necessary, average data over the select number of days depending on composite length (4 or 8)
@@ -97,27 +130,38 @@ get_data <- function(region, sat_alg, year, composite, num_pix, dvecs,
     dlist_end <- length(dlist)
     dlist[[dlist_end]] <- dlist[[dlist_end]][dlist[[dlist_end]] <= available_days]
     available_days <- min(tail(sdoy_vec,1)+composite-1,365)
-    sschla <- avg_columns(mat=sschla, dlist=dlist, year=year)
+    if (spatialtype=="binned") {
+      sschla <- avg_columns(mat=sschla, dlist=dlist, year=year)
+    } else if (spatialtype=="gridded") {
+      sschla <- lapply(dlist, function(indd) terra::mean(sschla[[indd]],na.rm=TRUE)) %>% do.call(what=c)
+      names(sschla) <- 1:nlyr(sschla)
+    }
   }
   
   if (loggable) {sschla[sschla<=0] <- NA}
   
-  return(list(sschla=sschla, available_days=available_days, doy_vec=sdoy_vec))
+  return(list(sschla=sschla, available_days=available_days, doy_vec=sdoy_vec, spatial_type=spatialtype))
   
 }
+
 
 # Extract pixels that are within a polygon, and set pixels beyond a threshold to NA.
 # spdf is a Simple feature collection, sscoords is a SpatialPointsDataframe
 # (sp::over is faster than sf::st_intersects)
-subset_data <- function(spdf,sscoords,sschla,pixrange1,pixrange2) {
+subset_data <- function(spatialtype,spdf,sscoords,sschla,pixrange1,pixrange2) {
   if (nrow(spdf)==0) return(NULL)
-  mask <- over(x=as_Spatial(spdf),y=sscoords,returnList=TRUE)[[1]]
-  if (length(mask)==0) {
-    rchla <- NULL
-  } else if (length(mask)==1) {
-    rchla <- matrix(sschla[mask,], nrow=1) # make sure rchla is in matrix format
-  } else {
-    rchla <- sschla[mask,]
+  if (spatialtype=="binned") {
+    mask <- over(x=as_Spatial(spdf),y=sscoords,returnList=TRUE)[[1]]
+    if (length(mask)==0) {
+      rchla <- NULL
+    } else if (length(mask)==1) {
+      rchla <- matrix(sschla[mask,], nrow=1) # make sure rchla is in matrix format
+    } else {
+      rchla <- sschla[mask,]
+    }
+  } else if (spatialtype=="gridded") {
+    rchla <- terra::extract(sschla,spdf,ID=FALSE) %>% as.matrix()
+    if (all(is.na(rchla))) {rchla <- NULL}
   }
   # Set pixels to NA if they're outside a specified range
   if (!is.na(pixrange1)) {rchla[rchla < pixrange1] <- NA}
@@ -231,7 +275,7 @@ get_stats <- function(rchla, outlier, logvar=TRUE) {
 
 # chl_to_use is the mean or the median (logged or not), depending on user selection - it's not subset
 bf_data_calc <- function(composite, chl_to_use, ind_dayrange_percov, ind_percov, ind_dayrange,
-                         daily_percov, t_range, log_chla, doy_vec, variable, sv) {
+                         daily_percov, t_range, log_chla, doy_vec, sv) {
   
   nofit_msg <- NULL
   yfit <- ybkrnd <- rep(NA, sum(ind_dayrange))
@@ -591,11 +635,15 @@ make_custom_spdf <- function(lats,lons,name) {
   return(spdf)
 }
 # Check size of sfc (spdf is an sfc, pixels is a SpatialPointsDataframe)
-check_custom_spdf_size <- function(spdf,pixels) {
+check_custom_spdf_size <- function(spatialtype,spdf,pixels) {
   latlon_toolarge <- FALSE
   help_latlon_txt <- ""
   if (nrow(spdf)>0) {
-    polygon_area <- length(over(x=as_Spatial(spdf),y=pixels,returnList=TRUE)[[1]])
+    if (spatialtype=="binned") {
+      polygon_area <- length(over(x=as_Spatial(spdf),y=pixels,returnList=TRUE)[[1]])
+    } else if (spatialtype=="gridded") {
+      polygon_area <- terra::extract(pixels,spdf,ID=FALSE) %>% as.matrix() %>% nrow()
+    }
     if (polygon_area > max_pixels) {
       latlon_toolarge <- TRUE
       help_latlon_txt <- paste0("Polygon is too large (max allowed pixels = ",max_pixels,").")
@@ -607,33 +655,27 @@ check_custom_spdf_size <- function(spdf,pixels) {
 
 # Two populations - small/medium and large
 phyto_cellsize_model1 <- function(chla, which_size="small") {
-  new_chla <- matrix(nrow=nrow(chla), ncol=ncol(chla))
-  good_chla <- !is.na(chla)
-  chla_sub <- chla[good_chla]
   Ssm = 1.613
   CsmMax = 0.62
   if (which_size=="small") {
-    new_chla[good_chla] <- CsmMax * (1 - exp(-Ssm * chla_sub))
+    new_chla <- CsmMax * (1 - exp(-Ssm * chla))
   } else if (which_size=="large") {
-    new_chla[good_chla] <- chla_sub - CsmMax * (1 - exp(-Ssm * chla_sub))
+    new_chla <- chla - CsmMax * (1 - exp(-Ssm * chla))
   }
   return(new_chla)
 }
 # Three populations - small, medium, large
 phyto_cellsize_model2 <- function(chla, which_size="small") {
-  new_chla <- matrix(nrow=nrow(chla), ncol=ncol(chla))
-  good_chla <- !is.na(chla)
-  chla_sub <- chla[good_chla]
   CsMax = 0.166
   Ss = 6.01
   CsmMax = 0.999
   Ssm = 1.00
   if (which_size=="small") {
-    new_chla[good_chla] <- CsMax * (1 -exp(-Ss * chla_sub))
+    new_chla <- CsMax * (1 -exp(-Ss * chla))
   } else if (which_size=="medium") {
-    new_chla[good_chla] <- CsmMax * (1 - exp(-Ssm * chla_sub)) - CsMax * (1 -exp(-Ss * chla_sub))
+    new_chla <- CsmMax * (1 - exp(-Ssm * chla)) - CsMax * (1 -exp(-Ss * chla))
   } else if (which_size=="large") {
-    new_chla[good_chla] <- chla_sub - CsmMax * (1 - exp(-Ssm * chla_sub))
+    new_chla <- chla - CsmMax * (1 - exp(-Ssm * chla))
   }
   return(new_chla)
 }
