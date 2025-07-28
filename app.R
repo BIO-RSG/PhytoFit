@@ -16,7 +16,7 @@ library(ggpp)           # for overlaying tables and text on plots
 library(dplyr)          # for formatting data tables
 library(stringr)        # for str_pad
 library(terra)          # for making rasters
-# other required packages: raster, leafem, quantreg, fs (functions called using :: notation)
+# other required packages: lubridate, raster, leafem, quantreg, fs (functions called using :: notation)
 
 source("scripts/rateOfChange.R")        # rate of change (ROC) function for model fit
 source("scripts/threshold.R")           # threshold function for model fit
@@ -325,6 +325,7 @@ server <- function(input, output, session) {
     state$log_chla <- default_variable$log
     state$zlim <- range(default_colscale)
     state$doy_vec <- 1:365
+    state$spatialtype <- "binned" # binned or gridded
     state$sschla <- matrix(nrow=1,ncol=365)
     state$flag1_lim1 <- 0.75
     state$flag1_lim2 <- 1.25
@@ -1024,7 +1025,12 @@ server <- function(input, output, session) {
         state$ext <- reginfo[[state$region]]$extent
         state$ssbin <- reginfo[[state$region]]$bin
         all_data <- get_data(state$region, state$sat_alg, state$year, state$composite, length(state$sscoords), dvecs, state$concentration_type, state$cell_size_model1, state$cell_size_model2, state$variable$log)
+        state$spatialtype <- all_data$spatial_type
         sschla <- all_data$sschla
+        if (state$spatialtype=="gridded") {
+          state$sscoords <- sschla[[1]]
+          print(state$sscoords)
+        }
         state$available_days <- all_data$available_days
         state$doy_vec <- all_data$doy_vec # days of the year, whether daily, 4-day, or 8-day composites
         
@@ -1120,10 +1126,16 @@ server <- function(input, output, session) {
         } else {
             
             # Subset chla, lat, lon, and time, and remove NA cells
-            sschla_time_ind <- sschla[,time_ind]
-            chla_ind <- !is.na(sschla_time_ind) & is.finite(sschla_time_ind)
+            if (state$spatialtype=="binned") {
+              sschla_time_ind <- sschla[,time_ind]
+              chla_ind <- !is.na(sschla_time_ind) & is.finite(sschla_time_ind)
+              chla_allNA <- sum(chla_ind)==0
+            } else {
+              sschla_time_ind <- sschla[[time_ind]]
+              chla_allNA <- global(sschla_time_ind, fun="notNA")==0
+            }
             
-            if (sum(chla_ind)==0) {
+            if (chla_allNA) {
                 
                 disable("savedensplot")
                 lfp <- leafletProxy("fullmap", session) %>%
@@ -1137,13 +1149,18 @@ server <- function(input, output, session) {
                 zlim <- state$zlim
                 
                 # Update raster for leaflet map
-                df_bins <- state$ssbin[chla_ind]
-                ext <- state$ext
-                binGrid <- state$binGrid
-                bg_dim <- dim(binGrid)
-                newmat <- rep(NA, length(binGrid))
-                newmat[binGrid %in% df_bins] <- sschla_time_ind[chla_ind][match(binGrid, df_bins, nomatch=0)]
-                tr <- terra::rast(ncols=bg_dim[2], nrows=bg_dim[1], xmin=ext[1], xmax=ext[2], ymin=ext[3], ymax=ext[4], vals=matrix(newmat, nrow=bg_dim[1]))
+                if (state$spatialtype=="binned") {
+                  df_bins <- state$ssbin[chla_ind]
+                  ext <- state$ext
+                  binGrid <- state$binGrid
+                  bg_dim <- dim(binGrid)
+                  newmat <- rep(NA, length(binGrid))
+                  newmat[binGrid %in% df_bins] <- sschla_time_ind[chla_ind][match(binGrid, df_bins, nomatch=0)]
+                  tr <- terra::rast(ncols=bg_dim[2], nrows=bg_dim[1], xmin=ext[1], xmax=ext[2], ymin=ext[3], ymax=ext[4], vals=matrix(newmat, nrow=bg_dim[1]))
+                } else if (state$spatialtype=="gridded") {
+                  tr <- sschla_time_ind
+                }
+                
                 if (state$log_display) {
                   tr <- log10(tr)
                   zlim <- log10(zlim)
@@ -1230,7 +1247,7 @@ server <- function(input, output, session) {
           spdf <- make_custom_spdf(lats=coords[seq(2,length(coords), 2)],
                                    lons=coords[seq(1,length(coords), 2)],
                                    name=isolate(state$custom_name))
-          bc <- check_custom_spdf_size(spdf,pixels=isolate(state$sscoords))
+          bc <- check_custom_spdf_size(isolate(state$spatialtype),spdf,pixels=isolate(state$sscoords))
           state$latlon_toolarge <- bc$latlon_toolarge
           state$help_latlon_txt <- bc$help_latlon_txt
           if (state$latlon_toolarge) {spdf <- NULL}
@@ -1250,7 +1267,7 @@ server <- function(input, output, session) {
       state$help_latlon_txt <- cll$help_latlon_txt
       if (!state$latlon_invalid) {
         spdf <- make_custom_spdf(lats=cll$coords$lats,lons=cll$coords$lons,name=isolate(state$custom_name))
-        bc <- check_custom_spdf_size(spdf,pixels=isolate(state$sscoords))
+        bc <- check_custom_spdf_size(isolate(state$spatialtype),spdf,pixels=isolate(state$sscoords))
         state$latlon_toolarge <- bc$latlon_toolarge
         state$help_latlon_txt <- bc$help_latlon_txt
         if (state$latlon_toolarge) {spdf <- NULL}
@@ -1444,7 +1461,7 @@ server <- function(input, output, session) {
       rchla <- NULL
       if (!is.null(spdf)) {
         # Extract pixels that are within the polygon
-        rchla <- subset_data(spdf,state$sscoords,sschla,state$pixrange1,state$pixrange2)
+        rchla <- subset_data(state$spatialtype,spdf,state$sscoords,sschla,state$pixrange1,state$pixrange2)
       }
       gc()
       return(rchla)
@@ -1645,7 +1662,6 @@ server <- function(input, output, session) {
                                 t_range = c(first_day, last_day),
                                 log_chla = log_chla,
                                 doy_vec = doy_vec,
-                                variable=state$variable,
                                 sv = sv)
         state$fitparams <- bf_data$fitparams # for saving to csv
       } else {

@@ -40,6 +40,15 @@ variables <- list("chlpoly4"=list(name_dropdown="POLY4 chl-a (regional, band rat
                                   colscale_log=chla_colscale_log,
                                   log=TRUE,
                                   cell_model_option=TRUE),
+                  "chloccci"=list(name_dropdown="OC-CCI chl-a (global, band ratio)",
+                                  name_plottitle="Chlorophyll-a",
+                                  abbrev="Chl-a",
+                                  map_legend_title="<center>Chl-a</br>[ mg/m<sup>3</sup> ]</center>",
+                                  timeseries_ytitle=bquote("Chl-a [" * mg/m^3 * "]"),
+                                  colscale=chla_colscale,
+                                  colscale_log=chla_colscale_log,
+                                  log=TRUE,
+                                  cell_model_option=TRUE),
                   "chlgsmgs"=list(name_dropdown="GSM_GS chl-a (regional, semi-analytical)",
                                   name_plottitle="Chlorophyll-a",
                                   abbrev="Chl-a",
@@ -244,7 +253,7 @@ poly_choices <- multipoly_choices <- lapply(predefined_polys, function(x) {
 # Get a list of data files in your "data" folder and extract region/sensor/variable/year info from them
 datasets <- data.frame(filename = list.files("data", recursive=TRUE, full.names=TRUE), stringsAsFactors = FALSE) %>%
   dplyr::mutate(basename = basename(filename)) %>%
-  dplyr::filter(endsWith(filename,".fst")) %>%
+  dplyr::filter(endsWith(filename,".fst") | endsWith(filename,".nc")) %>%
   tidyr::separate(col=basename, into=c("region","sensor","variable","year"), sep="_") %>%
   tidyr::drop_na() %>% # remove rows with missing values
   # list of possible datasets is restricted to the user-defined sensors and variables at the top of this script, and regions in reginfo
@@ -272,7 +281,7 @@ if (nrow(datasets)==0) {
   sensor_num <- 1:length(sensor_names) %>% pad0(len=3) %>% setNames(sensor_names)
   variable_num <- 1:length(variables) %>% pad0(len=3) %>% setNames(names(variables))
   datasets <- datasets %>%
-    dplyr::mutate(year = as.numeric(gsub(".fst","",year)),
+    dplyr::mutate(year = as.numeric(gsub(".fst|.nc","",year)),
                   region_name = sapply(reginfo, "[[", "name")[match(region,names(reginfo))],
                   sensor_name = names(sensor_names)[match(sensor,sensor_names)],
                   variable_name = sapply(variables,FUN="[[","name_dropdown")[match(variable,names(variables))],

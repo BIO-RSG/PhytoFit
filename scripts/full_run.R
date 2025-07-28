@@ -10,6 +10,7 @@ full_run <- function(d, year, sscoords, polygon_list, pnames, dvecs, variable, d
     all_data <- get_data(d$region, d$sat_alg, year, d$composite, length(sscoords), dvecs,
                          d$concentration_type, d$cell_size_model1, d$cell_size_model2, variable$log)
     doy_vec <- all_data$doy_vec # days of the year, whether you're using daily, 4-day, or 8-day data
+    spatialtype <- all_data$spatial_type
     
     full_fit_params <- list()
     
@@ -24,7 +25,7 @@ full_run <- function(d, year, sscoords, polygon_list, pnames, dvecs, variable, d
         # annual_stats() and get_fit()
         
         # Extract pixels that are within the polygon
-        rchla <- subset_data(spdf,sscoords,all_data$sschla,d$pixrange1,d$pixrange2)
+        rchla <- subset_data(spatialtype,spdf,sscoords,all_data$sschla,d$pixrange1,d$pixrange2)
         
         # Reset error message to NULL, then check if it should be changed and printed instead of doing the model fit plot
         em <- NULL
@@ -72,7 +73,6 @@ full_run <- function(d, year, sscoords, polygon_list, pnames, dvecs, variable, d
                                     t_range = c(first_day, last_day),
                                     log_chla = d$log_chla,
                                     doy_vec = doy_vec,
-                                    variable = variable,
                                     sv = d)
             df_final <- bf_data$df_final
             fitparams <- bf_data$fitparams

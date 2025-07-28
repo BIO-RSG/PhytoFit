@@ -8,6 +8,9 @@ This app can be used to display satellite chlorophyll concentration, and calcula
 <img src="images/screencap01.png" alt="screencap" width="200"/>
 </a>
 
+**Public host:** https://cioosatlantic.ca/phytofit/  
+
+
 ### How to cite
 
 In publications, please include acknowledgements to [NASA OBPG](https://oceancolor.gsfc.nasa.gov) for the satellite data and the [BIO remote sensing group](https://github.com/BIO-RSG) for the application, and use this citation in the references:  
