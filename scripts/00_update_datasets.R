@@ -41,7 +41,7 @@ local_regions <- list.files(base_local)
 if (length(local_regions)) {
   
   local_file_list <- list.files(base_local,recursive=TRUE)
-  local_file_list <- sort(local_file_list[endsWith(local_file_list,".fst")])
+  local_file_list <- sort(local_file_list[endsWith(local_file_list,".fst") | endsWith(local_file_list,".nc")])
   local_res <- file.info(file.path(base_local,local_file_list))
   
   if (nrow(local_res) > 0) {
@@ -56,7 +56,7 @@ if (length(local_regions)) {
     colnames(metadata_df) <- c("region","sensor","variable","year")
     local_df <- dplyr::bind_cols(local_df, metadata_df)
     local_df <- local_df %>%
-      dplyr::mutate(year = as.numeric(gsub(".fst","",year)),
+      dplyr::mutate(year = as.numeric(gsub(".fst|.nc","",year)),
                     size_mb_local = round(as.numeric(size_mb_local) * conv_factor_file, 2)) %>%
       dplyr::select(date_modified_local, size_mb_local, filename, year, region, sensor, variable)
     
@@ -85,7 +85,7 @@ ftp_reg_list <- sapply(strsplit(strsplit(getURL(base_ftp), split="\\r?\\n")[[1]]
 # get list of files per region/subfolder
 ftp_res <- sapply(paste0(base_ftp, ftp_reg_list, "/"), FUN=getURL) %>% strsplit(split="\\r?\\n") %>% unlist() %>% unname()
 # remove any non-.fst files
-ftp_res <- ftp_res[endsWith(ftp_res,".fst")]
+ftp_res <- ftp_res[endsWith(ftp_res,".fst") | endsWith(ftp_res,".nc")]
 # convert to a dataframe
 ftp_df <- do.call(rbind, strsplit(ftp_res, split="\\s+")) %>% data.frame(stringsAsFactors = FALSE)
 colnames(ftp_df) <- c("date_modified_ftp","time_modified","size_mb_ftp","filename")
@@ -94,7 +94,7 @@ colnames(metadata_df) <- c("region","sensor","variable","year")
 ftp_df <- dplyr::bind_cols(ftp_df, metadata_df)
 ftp_df <- ftp_df %>%
   dplyr::mutate(filename = paste0(region,"/",filename),
-                year = as.numeric(gsub(".fst","",year)),
+                year = as.numeric(gsub(".fst|.nc","",year)),
                 size_mb_ftp = round(as.numeric(size_mb_ftp) * conv_factor_file, 2),
                 date_modified_ftp = as_datetime(paste(date_modified_ftp,time_modified), format="%m-%d-%y %I:%M%p", tz="Canada/Eastern")) %>%
   dplyr::select(date_modified_ftp, size_mb_ftp, filename, year, region, sensor, variable)

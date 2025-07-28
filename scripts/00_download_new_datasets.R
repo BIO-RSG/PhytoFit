@@ -40,8 +40,9 @@ local_regions <- list.files(base_local)
 
 if (length(local_regions) > 0) {
   
-  local_file_list <- lapply(local_regions, function(x) Sys.glob(paste0(base_local,x,"/*.fst"))) %>% do.call(what=c)
-  local_file_list <- local_file_list[endsWith(local_file_list,".fst")]
+  local_file_list <- c(lapply(local_regions, function(x) Sys.glob(paste0(base_local,x,"/*.fst"))) %>% do.call(what=c),
+                       lapply(local_regions, function(x) Sys.glob(paste0(base_local,x,"/*.nc"))) %>% do.call(what=c))
+  local_file_list <- local_file_list[endsWith(local_file_list,".fst") | endsWith(local_file_list,".nc")]
   
   if (length(local_file_list) > 0) {
     local_df <- data.frame(do.call(rbind, strsplit(basename(local_file_list), split="_")), stringsAsFactors = FALSE)
@@ -63,8 +64,8 @@ cat("Retrieving list of files from",base_ftp,"...\n")
 ftp_reg_list <- sapply(strsplit(strsplit(getURL(base_ftp), split="\\r?\\n")[[1]], split="\\s+"), "[[", 4)
 # get list of files per region/subfolder
 ftp_res <- sapply(paste0(base_ftp, ftp_reg_list, "/"), FUN=getURL) %>% strsplit(split="\\r?\\n") %>% unlist() %>% unname()
-# remove any non-.fst files
-ftp_res <- ftp_res[endsWith(ftp_res,".fst")]
+# remove any non-.fst or .nc files
+ftp_res <- ftp_res[endsWith(ftp_res,".fst") | endsWith(ftp_res,".nc")]
 # convert to a dataframe
 ftp_df <- do.call(rbind, strsplit(ftp_res, split="\\s+")) %>% data.frame(stringsAsFactors = FALSE)
 colnames(ftp_df) <- c("date_modified","time_modified","size_mb","filename")
