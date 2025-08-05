@@ -4,7 +4,7 @@ COPY . /srv/shiny-server/phytofit
 WORKDIR /srv/shiny-server/phytofit
 
 # Install R libraries
-#RUN Rscript -e 'install.packages(c("remotes", "fst", "shiny", "shinyWidgets", "shinyjs", "shinybusy", "leaflet", "stars", "leafem", "leafpm", "quantreg", "minpack.lm", "sp", "ggplot2", "ggpp", "dplyr", "tidyr", "raster", "RCurl", "sf", "fs"))'
+RUN Rscript -e 'install.packages(c("remotes", "fst", "shiny", "leaflet", "leafem", "quantreg", "sp", "ggplot2", "dplyr", "tidyr", "raster", "RCurl", "sf", "fs"))'
 RUN Rscript -e 'remotes::install_version("shinyWidgets", upgrade = "never", version = "0.9.0")'
 RUN Rscript -e 'remotes::install_version("shinyjs", upgrade = "never", version = "2.1.0")'
 RUN Rscript -e 'remotes::install_version("shinybusy", upgrade = "never", version = "0.3.3")'
