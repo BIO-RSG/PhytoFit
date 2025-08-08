@@ -72,4 +72,4 @@ data/testregion/*
 # 2022-04-05 ignore volumes that are mounted by Docker
 data/
 shiny_logs/
-
+.idea
