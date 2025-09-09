@@ -38,8 +38,11 @@ end <- Sys.Date()
 #   To avoid this, simply change the region name if you change spatial_res (e.g. region="tanzania4km")
 region <- "tanzania" # this should be identical to one of the subfolder names within the "data" folder
 spatial_res <- "1km" # 1km or 4km (CURRENTLY 4KM IS NOT WORKING)
-lonlim <- c(38.5,41.5)
-latlim <- c(-10,-3.5)
+# # old tanzania coordinates
+# lonlim <- c(38.5,41.5)
+# latlim <- c(-10,-3.5)
+lonlim <- c(38,43)
+latlim <- c(-12.5,-2.5)
 
 
 #*******************************************************************************
