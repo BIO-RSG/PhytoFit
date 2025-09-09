@@ -363,10 +363,18 @@ poly[[region]] <- lapply(1:length(poly[[region]]), function(i) {
 }) %>% setNames(pnames)
 
 
+
+#*******************************************************************************
+# bayoffundy ####
+
+# reuse polygons from the atlantic region in the gosl region
+poly$bayoffundy$AZMP <- poly$atlantic$AZMP[which(poly$atlantic$AZMP$poly_id=="P5"),]
+
+
 #*******************************************************************************
 # error checks, plotting, and saving ####
 
-# Double-check that all ids are unique
+# Double-check that all ids are unique within a region
 dup_ids <- lapply(poly, function(x) any(duplicated(unlist(lapply(x, function(y) y$poly_id))))) %>% unlist()
 if (any(dup_ids)) {
   stop("Duplicate IDs in region(s): ",paste0(names(dup_ids)[dup_ids],collapse=", "))

@@ -163,6 +163,12 @@ reginfo$tanzania = list(name = "Tanzania",
                         zoom_level = 7,
                         gridline_interval = 2)
 
+reginfo$bayoffundy = list(name = "Bay of Fundy",
+                          center_lon = -66,
+                          center_lat = 44.5,
+                          zoom_level = 7,
+                          gridline_interval = 2)
+
 
 
 #*******************************************************************************
