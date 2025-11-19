@@ -142,6 +142,24 @@ reginfo$baffin = list(name = "Baffin Bay",
                       gridline_interval = 5)
 
 
+# arctic
+ltbs = c(68,75)
+lnbs = c(-144,-111)
+df = get_bins(region="pancan", variables=c("bin","latitude","longitude")) %>%
+  dplyr::filter(between(latitude,ltbs[1],ltbs[2]) & between(longitude,lnbs[1],lnbs[2]))
+df_geo <- df %>% dplyr::select(longitude,latitude)
+coordinates(df_geo) = ~longitude+latitude
+slot(df_geo, "proj4string") <- CRS(SRS_string = "EPSG:4326")
+extent <- c(range(df$longitude),range(df$latitude))
+reginfo$arctic = list(name = "Arctic",
+                      bin = df$bin,
+                      binGrid = gen_bin_grid(resolution="4",ext=extent,rast=FALSE,max_bins=6e8),
+                      coords = df_geo,
+                      extent = extent,
+                      center_lon = -128,
+                      center_lat = 72,
+                      zoom_level = 6,
+                      gridline_interval = 5)
 
 
 #*******************************************************************************
