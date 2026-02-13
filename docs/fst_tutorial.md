@@ -1,6 +1,6 @@
 # Using the raw chlorophyll data
 
-You can download the raw data used in PhytoFit in *fst* format (stored in the `data/` subdirectory [here](https://github.com/BIO-RSG/PhytoFit/tree/master/data)), which can be read into R. This data is binned, meaning that instead of being projected, it's been placed in "bins" of approximately equal area on the Earth's surface. See [NASA OBPG's explanation](https://oceancolor.gsfc.nasa.gov/docs/format/l3bins/) of the binning scheme for details.  
+You can download the raw data used in PhytoFit in *fst* format (stored in the `data/` subdirectory [here](https://github.com/BIO-RSG/PhytoFit/tree/master/data)), which can be read into R. This data is binned, meaning that instead of being projected, it's been placed in "bins" of approximately equal area on the Earth's surface. See [NASA OBPG's explanation](https://oceancolor.gsfc.nasa.gov/resources/docs/format/l3bins/) of the binning scheme for details.  
 
 ### Files you will need:  
 
