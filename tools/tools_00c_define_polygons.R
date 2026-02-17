@@ -326,7 +326,7 @@ poly$pacific <- lapply(1:length(poly$pacific), function(i) {
 # gosl1km, gosl4km ####
 
 # reuse polygons from the atlantic region in the gosl region
-poly$gosl1km$AZMP <- poly$gosl4km$AZMP <- poly$atlantic$AZMP[which(poly$atlantic$AZMP$poly_id %in% c("AC","CG","CS_V01","CS_V02","CSS","ESS","GB","HIB","LS","MS_V01","MS_V02","NEGSL_V01","NEGSL_V02","NENS","NGB","NWGSL_V01","NWGSL_V02","SES","SAB","SPB","WSS")),]
+poly$gosl1km$AZMP <- poly$gosl4km$AZMP <- poly$atlantic$AZMP[which(poly$atlantic$AZMP$poly_id %in% c("CG","CS_V01","CS_V02","MS_V01","MS_V02","NEGSL_V01","NEGSL_V02","NWGSL_V01","NWGSL_V02")),]
 
 
 

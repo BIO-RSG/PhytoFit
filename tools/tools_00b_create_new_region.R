@@ -11,6 +11,7 @@ library(ncdf4)        # to read 1km-resolution gosl lat/lon file (../panCan_proc
 library(dplyr)
 library(sp)           # to convert lat/lons to SpatialPointsDataframes
 library(raster)
+library(sf)
 
 # create the base variable - regions will be added to this
 reginfo <- list()
@@ -107,6 +108,17 @@ ltbs = lat_bounds[["GoSL"]]
 lnbs = lon_bounds[["GoSL"]]
 df = get_bins(region="gosl", variables=c("bin","latitude","longitude")) %>%
   dplyr::filter(between(latitude,ltbs[1],ltbs[2]) & between(longitude,lnbs[1],lnbs[2]))
+# subset further
+v_coords <- cbind(c(-64.2,-72,-68.5,-55.6,-55.6,-56.1,-57.5,-57.5,-59.9,-62.5,-64.2),
+                  c(46,46,52.2,52.2,51.4,51.4,49.5,48,46,45.2,46))
+op <- tibble(geometry=list(st_multipolygon(x=list(list(v_coords))))) %>% st_sf()
+st_crs(op) <- "EPSG:4326"
+op <- as_Spatial(op)
+tmpdf <- df %>% dplyr::select(longitude,latitude)
+coordinates(tmpdf) = ~longitude+latitude
+slot(tmpdf, "proj4string") <- CRS(SRS_string = "EPSG:4326")
+mask <- over(x=op,y=tmpdf,returnList=TRUE)[[1]]
+df <- df[mask,]
 df_geo <- df %>% dplyr::select(longitude,latitude)
 coordinates(df_geo) = ~longitude+latitude
 slot(df_geo, "proj4string") <- CRS(SRS_string = "EPSG:4326")
@@ -117,7 +129,7 @@ reginfo$gosl4km = list(name = "Gulf of Saint Lawrence, 4km",
                        coords = df_geo,
                        extent = extent,
                        center_lon = -62,
-                       center_lat = 47,
+                       center_lat = 48,
                        zoom_level = 6,
                        gridline_interval = 5)
 
@@ -143,8 +155,8 @@ reginfo$baffin = list(name = "Baffin Bay",
 
 
 # arctic
-ltbs = c(68,75)
-lnbs = c(-144,-111)
+ltbs = lat_bounds$Arctic
+lnbs = lon_bounds$Arctic
 df = get_bins(region="pancan", variables=c("bin","latitude","longitude")) %>%
   dplyr::filter(between(latitude,ltbs[1],ltbs[2]) & between(longitude,lnbs[1],lnbs[2]))
 df_geo <- df %>% dplyr::select(longitude,latitude)
