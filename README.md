@@ -82,6 +82,27 @@ Open app.R within RStudio, and click "Run app"
 * **Andrea Hilborn** for many valuable suggestions
 
 
+## Tips and recommendations
+
+- **Selecting the region from the drop-down menu before loading data:**  
+If your area of interest is contained within one of the smaller regions (e.g. Bay of Fundy or Gulf of Saint Lawrence), choose this in the "Region" drop-down menu to get the satellite/variable selections available for that region.  
+Recommended satellite sensor and chl-a models:  
+  - **Atlantic:** OC-CCI v6.0 POLY4 chl-a  
+  - **Gulf of Saint Lawrence, 4km:** OC-CCI v6.0 POLY4 chl-a (**<font color="red">IMPORTANT</font>**: This is a different version of POLY4 than the Atlantic, trained with data from the GoSL only. To use the GoSL-POLY4 instead of the Atlantic-POLY4, you must select "Gulf of Saint Lawrence (4km)" from the region drop-down menu).  
+Note that the "Gulf of Saint Lawrence, 1km" option in the region drop-down menu is an out-of-date product that was used in a single study, and should no longer be used.  
+  - **Bay of Fundy (BoF):** OC-CCI v6.0 OCxSPM-cor chl-a  
+
+- **Selecting a temporal composite length:**  
+If you're concerned about low data coverage, you can use 4- or 8-day average composites, but you risk missing short-lived peaks in chl-a concentration. **Typically we use daily data**.  
+
+- **Custom polygons:**  
+  - Ensure your polygon overlaps at least several pixels. Chl-a can be highly variable over small spatial scales and outliers or erroneous pixels (particularly near the coast) could have a more negative effect on the results in polygons with fewer pixels. If your area of interest is very small, consider expanding your polygon to take an average of the surrounding area.  
+  - If your region of interest it too close to the coast, it might not overlap any valid data pixels. Pixels near the coast should also be used with caution as they can be affected by land runoff or shallow water where the bottom is visible and interferes with the reflected light detected by the satellite.  
+
+- **csv table of statistics:**  
+The columns with "_log10" suffixes are the calculations performed on the log10-transformed data (i.e. chl-a pixel values are logged, the statistics are calculated, then the result is transformed back to linear space). Since chl-a is lognormally distributed, **we recommend that you use these statistics** - e.g. if you want a time series of daily average chl-a within the polygon, use the "mean_log10" column.  
+
+
 ## Links
 
 [User guide](https://github.com/BIO-RSG/PhytoFit/blob/master/USERGUIDE.md) (In progress)  
