@@ -21,6 +21,7 @@ output_file <- gsub(".Rdata","_gaussians.png",file)
 
 # include fits for these polygons
 polys <- c("CLS","GS","LAS") # labrador sea
+# polys <- c("P5") # bay of fundy
 # polys <- c("CSS_V02","ESS_V02","WSS_V02","LS_V02","GB_V02","HL2","P5") # scotian shelf
 # polys <- c("CS_V02","MS_V02","NEGSL_V02","NWGSL_V02") # gulf of saint lawrence
 # polys <- c("AC","FP","HB","HIB","NENS","SAB","SES","SPB") # newfoundland
@@ -28,7 +29,7 @@ polys <- c("CLS","GS","LAS") # labrador sea
 # polys <- c("custom")
 
 # include fits for these years
-years <- 1997:2024
+years <- 1998:2025
 
 
 #*******************************************************************************
@@ -105,17 +106,19 @@ for (i in 1:nrow(stats)) {
     if (st$manual_fit) {
       p <- p + theme(panel.border = element_rect(colour="red", fill=NA, linewidth=1.5))
     }
+    # row names only on outer edge left
+    if (!(i %in% 1:length(years))) {
+      p <- p + theme(axis.title.y=element_blank())
+    }
     plot_list[[paste0(year,"_",region)]] <- p
 }
-
-# row names only on outer edge left
-r_inds <- 1:length(plot_list) %in% 1:length(years)
-plot_list[!r_inds] <- lapply(plot_list[!r_inds], function(x) {x+theme(axis.title.y=element_blank())})
 
 # make a png
 ggsave(filename=output_file,
        plot=wrap_plots(plot_list, nrow=length(years), byrow=FALSE) +
-           plot_layout(guides="collect") & theme(legend.position="bottom"),
+         plot_layout(guides="collect") &
+         theme(legend.position="bottom",
+               legend.direction="horizontal"),
        dpi=100,
        units="px",
        width=(300*length(polys)),
