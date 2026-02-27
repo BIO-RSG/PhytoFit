@@ -15,12 +15,14 @@ library(stringr)
 # VARIABLES TO CHANGE
 
 # Path to fits done using a standard group of settings (set standard_path=NULL to ignore these).
-# Folder must contain the following files extracted from the .zip file downloaded from PhytoFit:
-#   - The zip file itself,
+# This folder must contain subfolders named using the long filename describing the fit settings in PhytoFit, e.g: occciv6.0_atlantic_daily_1997-2024_cellSizeAll_logChlpoly4_thresh_created2025-03-11-092820.
+# The subfolders must contain the stats, model metrics/parameters, and settings files. If you did a "full run" and downloaded the zip file, these are provided automatically:
 #   - [year]_[box]_stats.csv files for EACH box/year that was fit,
 #   - model_fit_params.csv, and
 #   - settings.txt
-standard_path <- "verified_fits/occci/scotian_shelf_fall/standard_fits/"
+# If you downloaded the stats, model metrics, and settings files individually, you must rename them to the naming convention above so they can be read into this script.
+
+standard_path <- "verified_fits/occci/labrador_sea_fall/standard_fits/"
 # TO ADD STANDARD FITS FOR SUBSEQUENT YEARS:
 # - Use the settings.txt file from the standard_path (i.e. load it into PhytoFit and run it with the next year)
 # - Add the rows from the new model_fit_params.csv file to the original model_fit_params.csv file
@@ -33,25 +35,26 @@ standard_path <- "verified_fits/occci/scotian_shelf_fall/standard_fits/"
 # WARNING!!!! Each box/year must have only ONE fit in this folder. Manual fits will
 #   be grouped by box/year and sorted by datetime_fitted, and if any box/year has
 #   more than one fit, only the most recent fit will be kept.
-manual_path <- "verified_fits/occci/scotian_shelf_fall/manual_fits/"
+manual_path <- "verified_fits/occci/labrador_sea_fall/manual_fits/"
 
 # If a box/year was fit with both standard and manual settings, should the manual fit replace the standard fit?
 replace_standard <- TRUE
 
 # Output csv filename that will contain the table with model metrics, parameters, and settings for each polygon/year that was fit.
 # Full daily statistic tables for each fit will be written to an Rdata file with the same name.
-output_file <- "verified_fits/occci/scotian_shelf_fall/verified_fits_scotian_shelf_fall.csv"
+output_file <- "verified_fits/occci/labrador_sea_fall/verified_fits_labrador_sea_fall.csv"
 
 # include fits for these polygons
-# polys <- c("CLS","GS","LAS") # labrador sea
-polys <- c("CSS_V02","ESS_V02","WSS_V02","LS_V02","GB_V02","HL2","P5") # scotian shelf
+polys <- c("CLS","GS","LAS") # labrador sea
+# polys <- c("P5") # bay of fundy
+# polys <- c("CSS_V02","ESS_V02","WSS_V02","LS_V02","GB_V02","HL2","P5") # scotian shelf
 # polys <- c("CS_V02","MS_V02","NEGSL_V02","NWGSL_V02") # gulf of saint lawrence
 # polys <- c("AC","FP","HB","HIB","NENS","SAB","SES","SPB") # newfoundland
 # polys <- c("SABMPA","SABUP","SABDOWN")
 # polys <- c("custom")
 
 # include fits for these years
-years <- 1997:2024
+years <- 1998:2025
 
 
 #*******************************************************************************
@@ -60,22 +63,29 @@ years <- 1997:2024
 df_standard <- NULL
 df_manual <- NULL
 
+
 if (!is.null(standard_path)) {
-  zipfile <- list.files(standard_path, pattern=".zip")
-  zipfile_date <- tail(strsplit(zipfile,split="_")[[1]],1) %>% gsub(pattern="created|[.zip]",replacement="") %>% as_datetime(format="%Y-%m-%d-%H%M%S")
-  # get the model fit parameters and metrics, and the settings used to create them
-  df_standard <- dplyr::bind_cols(
-    read.csv(paste0(standard_path,"model_fit_params.csv")) %>%
-      dplyr::mutate(datetime_fitted=format(zipfile_date,"%Y%m%d_%H%M%S"), manual_fit=FALSE),
-    read.table(paste0(standard_path,"settings.txt"), header = TRUE, sep="\\") %>%
-      dplyr::select(setting_id,value) %>%
-      tidyr::pivot_wider(names_from=setting_id,values_from=value) %>%
-      dplyr::rename_with(function(x) paste0("settings_", x))) %>%
-    dplyr::relocate(datetime_fitted,manual_fit) %>%
-    tibble()
-  st_files <- paste0(standard_path,df_standard$Year,"_",df_standard$Region,"_stats.csv")
-  stats <- lapply(1:nrow(df_standard),FUN=function(i) read.csv(st_files[i]) %>% lapply(FUN=as.numeric) %>% do.call(what=dplyr::bind_cols))
-  df_standard <- dplyr::bind_cols(df_standard, stats %>% tibble() %>% dplyr::rename(stats="."))
+  
+  standard_groups <- list.files(standard_path, recursive=FALSE, full.names=TRUE)
+  group_dates <- strsplit(basename(standard_groups),split="_") %>% sapply(FUN=tail,n=1) %>% gsub(pattern="created",replacement="") %>% as_datetime(format="%Y-%m-%d-%H%M%S")
+  
+  df_standard <- lapply(1:length(standard_groups), function(i) {
+    # get the model fit parameters and metrics, and the settings used to create them
+    df_standard_tmp <- dplyr::bind_cols(
+      read.csv(file.path(standard_groups[i],"model_fit_params.csv")) %>%
+        dplyr::mutate(datetime_fitted=format(group_dates[[i]],"%Y%m%d_%H%M%S"), manual_fit=FALSE),
+      read.table(file.path(standard_groups[i],"settings.txt"), header = TRUE, sep="\\") %>%
+        dplyr::select(setting_id,value) %>%
+        tidyr::pivot_wider(names_from=setting_id,values_from=value) %>%
+        dplyr::rename_with(function(x) paste0("settings_", x))) %>%
+      dplyr::relocate(datetime_fitted,manual_fit) %>%
+      tibble()
+    st_files <- paste0(standard_groups[i],"/",df_standard_tmp$Year,"_",df_standard_tmp$Region,"_stats.csv")
+    stats <- lapply(1:nrow(df_standard_tmp),FUN=function(i) read.csv(st_files[i]) %>% lapply(FUN=as.numeric) %>% do.call(what=dplyr::bind_cols))
+    df_standard_tmp <- dplyr::bind_cols(df_standard_tmp, stats %>% tibble() %>% dplyr::rename(stats="."))
+    return(df_standard_tmp)
+  }) %>% do.call(what=dplyr::bind_rows)
+
 }
 
 
