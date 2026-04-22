@@ -1,6 +1,8 @@
 # Using the raw chlorophyll data
 
-You can download the raw data used in PhytoFit in *fst* format (stored in the `data/` subdirectory [here](https://github.com/BIO-RSG/PhytoFit/tree/master/data)), which can be read into R. This data is binned, meaning that instead of being projected, it's been placed in "bins" of approximately equal area on the Earth's surface. See [NASA OBPG's explanation](https://oceancolor.gsfc.nasa.gov/resources/docs/format/l3bins/) of the binning scheme for details.  
+The raw data used in PhytoFit is in *fst* format and is available from [the following ftp site](ftp://ftp.dfo-mpo.gc.ca/bometrics/PhytoFit_datasets/). 
+This data can be downloaded using [in the scripts directory](https://github.com/BIO-RSG/PhytoFit/tree/master/scripts). 
+This data is binned, meaning that instead of being projected, it's been placed in "bins" of approximately equal area on the Earth's surface. See [NASA OBPG's explanation](https://oceancolor.gsfc.nasa.gov/resources/docs/format/l3bins/) of the binning scheme for details.  
 
 ### Files you will need:  
 
@@ -61,8 +63,8 @@ To subset the data to your region of choice, you can use the `point.in.polygon()
 lat_example <- c(41, 53, 53, 41, 41)
 lon_example <- c(-75, -75, -49, -49, -75)
 
-pixel_index <- as.logical(point.in.polygon(point.x = coordinates$lon,
-                                           point.y = coordinates$lat,
+pixel_index <- as.logical(point.in.polygon(point.x = coordinates$coords$longitude,
+                                           point.y = coordinates$coords$latitude,
                                            pol.x = lon_example,
                                            pol.y = lat_example))
 ```
@@ -105,7 +107,7 @@ df <- df %>%
 # MAP CODE OPTION 1:
 library(oceancolouR) # install with remotes::install_github("BIO-RSG/oceancolouR")
 # make a raster out of the points
-rast <- var_to_rast(df=df %>% dplyr::select(bin, chlorophyll), ext=c(range(lon_example),range(lat_example)))
+rast <- bin_to_raster(df=df %>% dplyr::select(bin, chlorophyll), ext=c(range(lon_example),range(lat_example)))
 # view it on a map (log10 transform first so it's easier to see the gradient)
 make_raster_map(log10(rast), xlim=range(lon_example), ylim=range(lat_example))
 
