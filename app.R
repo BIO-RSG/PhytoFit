@@ -983,6 +983,11 @@ server <- function(input, output, session) {
         state$fullrunboxes <- input$fullrunboxes
     }, ignoreNULL = FALSE)
     
+    # if fullrun_download has been clicked, grey it out so the user can't click again and confuse it
+    onclick("fullrun_download", {
+      disable("fullrun_download")
+    })
+    
     
     
     #***************************************************************************
@@ -1825,7 +1830,8 @@ server <- function(input, output, session) {
         
         # zip files up to be downloaded
         # j flag prevents files from being sorted into subdirectories inside the zip file (the other flags are defaults)
-        zip(zipfile=file.path(output_dir, fname), files=list.files(output_dir, full.names=TRUE), flags="-r9Xj")
+        # specify utils library here and make sure you have Rtools installed, and the correct path to zip.exe specified in your Rprofile, otherwise it won't work - the output filename will be something like "fullrun_download.htm"
+        utils::zip(zipfile=file.path(output_dir, fname), files=list.files(output_dir, full.names=TRUE), flags="-r9Xj")
         
         # remove progress bar and return to normal screen
         remove_modal_progress()
